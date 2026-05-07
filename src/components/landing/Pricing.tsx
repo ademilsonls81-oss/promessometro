@@ -170,7 +170,7 @@ export default function Pricing() {
                   ) : plan.cta}
                 </Button>
               ) : plan.name === 'Enterprise' ? (
-                <a href="mailto:sales@aifeastengine.com">
+                <a href="mailto:contato@promessometro.com.br">
                   <Button variant="outline" className="w-full">{plan.cta}</Button>
                 </a>
               ) : (

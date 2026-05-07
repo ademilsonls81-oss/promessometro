@@ -17,7 +17,8 @@ export default function Docs() {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const BASE_URL = "https://api.aifeastengine.com/api";
+  const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.NEXT_PUBLIC_API_URL || '';
+  const BASE_URL = API_BASE ? `${API_BASE}/api` : '/api';
 
   return (
     <div className="min-h-screen pt-12 pb-24 px-4">

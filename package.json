@@ -4,20 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev:server": "tsx server.ts",
+    "dev": "vite",
     "start": "tsx server.ts",
     "build": "vite build",
+    "build:server": "npm install && npm start",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "setup:env": "node scripts/setup-env.js",
-    "audit:security": "node scripts/security-audit.js",
-    "monitor:uptime": "node scripts/uptime-monitor.js",
-    "test:production": "node scripts/production-test.js",
-    "test:api": "node scripts/test-api.js"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
