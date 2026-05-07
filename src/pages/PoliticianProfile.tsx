@@ -15,6 +15,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { Badge, Button } from "../components/ui";
+import ReportPromiseModal from "../components/ReportPromiseModal";
 
 const MOCK_POLITICIAN = {
   id: "1",
@@ -85,6 +86,7 @@ const statusConfig = {
 export default function PoliticianProfile() {
   const { id } = useParams();
   const [filter, setFilter] = useState("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredPromises = MOCK_POLITICIAN.promises.filter(p => filter === "all" || p.status === filter);
 
@@ -169,11 +171,12 @@ export default function PoliticianProfile() {
           ))}
         </div>
 
-        {/* Promises List */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Promessas de Campanha</h2>
-            <div className="text-sm text-gray-500">Mostrando {filteredPromises.length} resultados</div>
+            <Button variant="primary" size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
+              <AlertCircle className="w-4 h-4" /> Sugerir Atualização
+            </Button>
           </div>
 
           <div className="grid gap-6">
@@ -219,6 +222,12 @@ export default function PoliticianProfile() {
             })}
           </div>
         </div>
+
+        <ReportPromiseModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          politicianName={MOCK_POLITICIAN.name}
+        />
       </div>
     </div>
   );
