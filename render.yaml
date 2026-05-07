@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: promessometro-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.0.0
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      # Segredos devem ser configurados no painel do Render (Environment Groups)
+      # VITE_SUPABASE_URL
+      # VITE_SUPABASE_ANON_KEY
+      # GROQ_API_KEY
+      # ADMIN_SECRET_KEY
