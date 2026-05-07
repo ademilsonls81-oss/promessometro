@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+.vercel
+.env*.local
+
+# Local dev scripts with potential secrets
+qwen.py
+cli/qwen-chat.py
+
+# Backup files — never commit
+*.bak

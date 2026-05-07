@@ -1,0 +1,52 @@
+﻿{
+  "name": "aifeast",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CLI oficial do AI Feast Engine â€” install and run AI skills",
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "bin": {
+    "aifeast": "./index.mjs"
+  },
+  "files": [
+    "index.js",
+    "dist/**/*",
+    "README.md"
+  ],
+  "keywords": [
+    "ai",
+    "feast",
+    "engine",
+    "cli",
+    "llm",
+    "skills",
+    "automation"
+  ],
+  "author": "AI Feast Engine",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ademilsonls81-oss/AI-Feast-Engine.git",
+    "directory": "cli"
+  },
+  "homepage": "https://www.aifeastengine.com",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ai": "^6.0.168",
+    "axios": "^1.0.0",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "conf": "^13.1.0",
+    "fs-extra": "^11.3.2",
+    "glob": "^11.0.3",
+    "ink": "^5.2.1",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "ora": "^5.4.1",
+    "react": "^18.3.1"
+  }
+}
