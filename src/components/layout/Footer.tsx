@@ -58,10 +58,10 @@ export default function Footer() {
             © 2026 Promessômetro. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-4">
-            <a href="https://github.com/ademilsonls81-oss/AI-Feast-Engine" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="GitHub">
+            <a href="https://github.com/ademilsonls81-oss/promessometro" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="GitHub">
               <Github className="w-5 h-5" />
             </a>
-            <a href="https://x.com/promessometro" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="Twitter / X">
+            <a href="https://x.com/promessometro" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors opacity-50 cursor-not-allowed" title="Twitter em breve">
               <Twitter className="w-5 h-5" />
             </a>
           </div>
