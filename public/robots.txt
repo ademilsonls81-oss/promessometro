@@ -1,9 +1,9 @@
-# AI Feast Engine - Robots.txt
+# Promessômetro - Robots.txt
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://www.aifeastengine.com/sitemap.xml
+Sitemap: https://www.promessometro.com.br/sitemap.xml
 
 # Disallow admin and private routes
 Disallow: /dashboard

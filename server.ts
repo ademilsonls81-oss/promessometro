@@ -38,7 +38,7 @@ function safeCompare(a: string, b: string): boolean {
   }
 }
 
-console.log(">>> AI FEAST ENGINE SERVER STARTING...");
+console.log(">>> PROMESSÔMETRO SERVER STARTING...");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -122,7 +122,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 app.set("trust proxy", 1);
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:3000", "https://aifeastengine.com", "https://www.aifeastengine.com", "https://api.aifeastengine.com", /\.aifeastengine\.com$/, /\.onrender\.com$/];
+const allowedOrigins = ["http://localhost:5173", "http://localhost:3333", "http://localhost:3000", "https://promessometro.com.br", "https://api.promessometro.com.br", /\.promessometro\.com\.br$/, /\.onrender\.com$/];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -462,8 +462,8 @@ async function startServer() {
     app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`>>> Server running at http://localhost:${PORT}`);
+  const server = app.listen(3333, "0.0.0.0", () => {
+      console.log(`>>> PROMESSÔMETRO UP: http://localhost:3333`);
     runIngestion();
   });
 
