@@ -1,6 +1,10 @@
 {
+  "projectName": "promessometro",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://api.promessometro.com.br/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "github": {
+    "silent": true
+  }
 }
