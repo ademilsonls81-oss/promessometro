@@ -20,6 +20,7 @@ import AuditLogs from "./pages/admin/AuditLogs";
 import Blog from "./pages/Blog";
 import Changelog from "./pages/Changelog";
 import Ranking from "./pages/Ranking";
+import PoliticianProfile from "./pages/PoliticianProfile";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
@@ -37,6 +38,9 @@ export default function App() {
             } />
             <Route path="/ranking" element={
               <ErrorBoundary context="Ranking"><Ranking /></ErrorBoundary>
+            } />
+            <Route path="/politico/:id" element={
+              <ErrorBoundary context="PoliticianProfile"><PoliticianProfile /></ErrorBoundary>
             } />
             <Route path="/dashboard" element={
               <ErrorBoundary context="Dashboard"><Dashboard /></ErrorBoundary>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Trophy, Search, Filter, TrendingUp, TrendingDown, Clock, ChevronRight, User } from "lucide-react";
 import { Badge, Button } from "../components/ui";
@@ -119,59 +120,60 @@ export default function Ranking() {
         {/* Ranking List */}
         <div className="space-y-4">
           {filteredPoliticians.map((politician, idx) => (
-            <motion.div
-              key={politician.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="group bg-dark-card border border-white/5 hover:border-white/10 p-4 md:p-6 rounded-3xl transition-all cursor-pointer"
-            >
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Position */}
-                <div className="text-2xl font-display font-bold text-gray-700 w-8">
-                  {idx + 1}º
-                </div>
+            <Link key={politician.id} to={`/politico/${politician.id}`} className="block">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="group bg-dark-card border border-white/5 hover:border-white/10 p-4 md:p-6 rounded-3xl transition-all cursor-pointer"
+              >
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  {/* Position */}
+                  <div className="text-2xl font-display font-bold text-gray-700 w-8">
+                    {idx + 1}º
+                  </div>
 
-                {/* Avatar */}
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/5 overflow-hidden">
-                  <span className="text-xl font-bold text-white/50">
-                    {politician.name.split(" ").map(n => n[0]).join("")}
-                  </span>
-                </div>
+                  {/* Avatar */}
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/5 overflow-hidden">
+                    <span className="text-xl font-bold text-white/50">
+                      {politician.name.split(" ").map(n => n[0]).join("")}
+                    </span>
+                  </div>
 
-                {/* Info */}
-                <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-lg font-bold group-hover:text-neon-cyan transition-colors">
-                    {politician.name}
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    {politician.role} • {politician.city || politician.state} · {politician.party}
-                  </p>
-                </div>
+                  {/* Info */}
+                  <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-lg font-bold group-hover:text-neon-cyan transition-colors">
+                      {politician.name}
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      {politician.role} • {politician.city || politician.state} · {politician.party}
+                    </p>
+                  </div>
 
-                {/* Fulfillment Bar */}
-                <div className="w-full md:w-64">
-                   <div className="flex justify-between text-xs font-bold mb-2">
-                     <span className="text-gray-500 uppercase tracking-wider">Cumprimento</span>
-                     <span className="text-neon-cyan">{politician.percentage}%</span>
-                   </div>
-                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                     <motion.div 
+                  {/* Fulfillment Bar */}
+                  <div className="w-full md:w-64">
+                    <div className="flex justify-between text-xs font-bold mb-2">
+                      <span className="text-gray-500 uppercase tracking-wider">Cumprimento</span>
+                      <span className="text-neon-cyan">{politician.percentage}%</span>
+                    </div>
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${politician.percentage}%` }}
                         className="h-full bg-gradient-to-r from-neon-purple to-neon-cyan shadow-[0_0_10px_rgba(168,85,247,0.4)]"
-                     />
-                   </div>
-                </div>
+                      />
+                    </div>
+                  </div>
 
-                {/* Action */}
-                <div className="hidden md:block">
-                  <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
-                    Ver Detalhes <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
+                  {/* Action */}
+                  <div className="hidden md:block">
+                    <Button variant="ghost" size="sm" className="group-hover:translate-x-1 transition-transform">
+                      Ver Detalhes <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </Link>
           ))}
         </div>
       </div>

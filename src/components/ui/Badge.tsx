@@ -28,6 +28,8 @@ export type BadgeVariant =
   | "origin-pending"
   | "trigger-manual"
   | "trigger-auto"
+  | "pro"
+  | "verified"
   | "popular";
 
 export interface BadgeProps {
@@ -88,6 +90,8 @@ const variantStyles: Record<BadgeVariant, string> = {
     "px-1.5 py-0.5 rounded text-[8px] uppercase font-bold bg-gray-500/20 text-gray-400",
   popular:
     "bg-neon-purple text-white text-[10px] font-bold px-3 py-1 uppercase tracking-wider rounded-full",
+  pro: "px-2 py-0.5 rounded-full text-[8px] font-bold bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30",
+  verified: "px-2 py-0.5 rounded-full text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30",
 };
 
 const variantIcon: Record<BadgeVariant, React.ReactNode | null> = {
@@ -117,6 +121,8 @@ const variantIcon: Record<BadgeVariant, React.ReactNode | null> = {
   "trigger-manual": null,
   "trigger-auto": null,
   popular: null,
+  pro: <Shield className="w-2.5 h-2.5" />,
+  verified: <Shield className="w-2.5 h-2.5" />,
 };
 
 const defaultLabel: Record<BadgeVariant, string> = {
@@ -146,6 +152,8 @@ const defaultLabel: Record<BadgeVariant, string> = {
   "trigger-manual": "MANUAL",
   "trigger-auto": "AUTO",
   popular: "MOST POPULAR",
+  pro: "PRO",
+  verified: "VERIFIED",
 };
 
 export function Badge({ variant, label, className, children }: BadgeProps) {
