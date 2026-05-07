@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🗳️ Promessômetro
 
-# Run and deploy your AI Studio app
+O **Promessômetro** é uma plataforma de transparência política voltada para o povo brasileiro. Nosso objetivo é rastrear, validar e expor o cumprimento (ou descumprimento) das promessas feitas por políticos durante suas campanhas e mandatos.
 
-This contains everything you need to run your app locally.
+## 🚀 Funcionalidades
 
-View your app in AI Studio: https://ai.studio/apps/3cec8f71-7ccc-4d93-b725-ec242cc411b5
+- **Ranking de Fidelidade:** Veja quais políticos realmente cumprem o que prometem.
+- **Detalhamento por Político:** Histórico completo de promessas com evidências reais.
+- **Validação por IA:** Monitoramento automatizado de notícias e diários oficiais.
+- **Participação Popular:** Sugira novas promessas ou envie evidências de atualizações.
+- **Design Moderno:** Interface de alta performance com estética premium para facilitar a consulta.
 
-## Run Locally
+## 🛠️ Tecnologias
 
-**Prerequisites:**  Node.js
+- **Frontend:** React + Vite + Tailwind CSS
+- **Backend:** Node.js + Express
+- **Banco de Dados:** Supabase (PostgreSQL)
+- **IA:** OpenAI / Groq (Llama-3.1) para análise de fatos.
 
+## 💻 Como Rodar Localmente
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+2. **Configure o Banco de Dados:**
+   - Execute o script em `supabase/promessometro_schema.sql` no seu console do Supabase.
+3. **Variáveis de Ambiente:**
+   - Configure seu `.env` com as chaves do Supabase e sua API Key da Groq/OpenAI.
+4. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
+
+---
+*Construído com o objetivo de trazer mais transparência para a democracia brasileira.*
