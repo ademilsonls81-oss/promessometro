@@ -36,6 +36,18 @@ const MOCK_POLITICIANS = [
 
 export default function Ranking() {
   const [search, setSearch] = useState("");
+  const [selectedRole, setSelectedRole] = useState("Todos");
+
+  const filteredPoliticians = MOCK_POLITICIANS.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+                         p.city?.toLowerCase().includes(search.toLowerCase()) ||
+                         p.state?.toLowerCase().includes(search.toLowerCase()) ||
+                         p.party?.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = selectedRole === "Todos" || p.role === selectedRole;
+    return matchesSearch && matchesRole;
+  });
+
+  const roles = ["Todos", "Prefeito", "Governador", "Deputado Federal"];
 
   return (
     <div className="min-h-screen py-12 px-4 bg-background">
@@ -47,7 +59,7 @@ export default function Ranking() {
             <span className="text-sm font-bold text-yellow-500 tracking-wider uppercase">Ranking Nacional</span>
           </div>
           <h1 className="text-4xl md:text-6xl font-display font-bold mb-6">
-            Quem <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan">cumpre</span> o que promete?
+            Quem <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan text-glow-purple">cumpre</span> o que promete?
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl">
             Acompanhe em tempo real o desempenho dos políticos brasileiros. Baseado em dados reais, notícias validadas e participação popular.
@@ -57,7 +69,7 @@ export default function Ranking() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           {[
-            { label: "Promessas Rastradas", value: "2.847", icon: Clock, color: "text-blue-400" },
+            { label: "Promessas Rastreadas", value: "2.847", icon: Clock, color: "text-blue-400" },
             { label: "Cumpridas", value: "34%", icon: TrendingUp, color: "text-green-400" },
             { label: "Quebradas", value: "41%", icon: TrendingDown, color: "text-red-400" },
             { label: "Políticos Monitorados", value: "312", icon: User, color: "text-neon-cyan" },
@@ -85,20 +97,28 @@ export default function Ranking() {
             <input 
               type="text" 
               placeholder="Buscar por nome, partido ou cidade..."
-              className="w-full bg-dark-card border border-white/5 rounded-2xl pl-12 pr-4 py-4 focus:border-neon-purple outline-none transition-all"
+              className="w-full bg-dark-card border border-white/5 rounded-2xl pl-12 pr-4 py-4 focus:border-neon-purple outline-none transition-all placeholder:text-gray-600"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button variant="secondary" className="gap-2 px-6">
-            <Filter className="w-4 h-4" />
-            Filtros Avançados
-          </Button>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            {roles.map(role => (
+              <Button 
+                key={role}
+                variant={selectedRole === role ? "primary" : "secondary"}
+                onClick={() => setSelectedRole(role)}
+                className="whitespace-nowrap rounded-2xl h-14 px-6"
+              >
+                {role}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Ranking List */}
         <div className="space-y-4">
-          {MOCK_POLITICIANS.map((politician, idx) => (
+          {filteredPoliticians.map((politician, idx) => (
             <motion.div
               key={politician.id}
               initial={{ opacity: 0, x: -20 }}
