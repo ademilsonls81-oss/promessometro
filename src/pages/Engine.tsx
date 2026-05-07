@@ -2,7 +2,7 @@
  * Engine — AI Content Factory Control Center
  * 
  * Visualization of the raw data -> AI processing -> Structured content pipeline.
- * This is the "Engine" of the AI Feast platform.
+ * This is the "Engine" of the Promessômetro platform.
  */
 
 import React, { useEffect, useState, useRef } from "react";
@@ -133,13 +133,13 @@ export default function Engine() {
     if (isProcessing) return;
     
     setIsProcessing(true);
-    addLog("Refreshing feed...", "info");
+    addLog("Atualizando feed...", "info");
     
     try {
       // Just reload the page - no API calls
       window.location.reload();
     } catch (err: any) {
-      addLog("Refresh failed: " + err.message, "error");
+      addLog("Erro na atualização: " + err.message, "error");
       setIsProcessing(false);
     }
   }
@@ -167,16 +167,16 @@ export default function Engine() {
               <div className="p-2.5 bg-neon-purple/10 rounded-xl border border-neon-purple/20">
                 <Cpu className="w-6 h-6 text-neon-purple shadow-glow-purple" />
               </div>
-              <Badge variant="live">CORE ENGINE v4.0</Badge>
+              <Badge variant="live">PROMESSÔMETRO CORE v4.0</Badge>
             </div>
             <h1 className="text-4xl md:text-5xl font-display font-bold">
-              Content <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan">Factory</span>
+              Promessômetro <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan">Engine</span>
             </h1>
             <p className="text-gray-400 mt-2 max-w-xl text-sm leading-relaxed">
-              Transforming raw data into distilled knowledge using the Gemini AI pipeline. 
+              Transformando dados brutos em promessas validadas usando IA (Gemini Pipeline). 
               <br />
               <span className="text-neon-cyan/80 text-[10px] uppercase font-bold tracking-tighter mt-1 block italic">
-                * Start Factory: Automatically syncs RSS feeds and triggers AI batch distillation.
+                * Start Engine: Sincroniza feeds e dispara a destilação automática por IA.
               </span>
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function Engine() {
                 className="bg-gradient-to-r from-neon-purple to-neon-cyan neon-glow-purple border-0 px-8 h-14 rounded-2xl gap-3 text-base font-bold"
              >
                 {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CloudLightning className="w-5 h-5" />}
-                {isProcessing ? "REFRESHING..." : "REFRESH FEED"}
+                {isProcessing ? "PROCESSANDO..." : "ATUALIZAR FEED"}
              </Button>
           </div>
         </motion.div>
@@ -205,7 +205,7 @@ export default function Engine() {
             </div>
             <div className="p-8">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Ingestion Pipeline</h3>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Pipeline de Ingestão</h3>
                 <div className="flex items-center gap-3">
                   <button 
                     onClick={async () => {
@@ -229,19 +229,18 @@ export default function Engine() {
                   </button>
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] text-green-400 font-bold">
                     <div className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-                    API ACTIVE
+                    STATUS: ATIVO
                   </div>
                 </div>
               </div>
               <div className="text-4xl font-display font-bold mb-2 flex items-baseline gap-2">
                 {pendingCount}
-                <span className="text-xs text-gray-400 uppercase tracking-tighter">Raw Items</span>
+                <span className="text-xs text-gray-400 uppercase tracking-tighter">Itens Brutos</span>
               </div>
-              <p className="text-xs text-gray-500 mb-2 font-mono">Status: Awaiting processing</p>
+              <p className="text-xs text-gray-500 mb-2 font-mono">Aguardando processamento</p>
               
-              {/* Filtered Noise Counter */}
               <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-                <span className="text-xs text-gray-400">Filtered Noise:</span>
+                <span className="text-xs text-gray-400">Ruído Filtrado:</span>
                 <span className="text-xs font-mono text-gray-500">{Math.floor(pendingCount * 0.15)}</span>
               </div>
               
@@ -263,7 +262,7 @@ export default function Engine() {
           <Card className="bg-neon-purple/5 border-neon-purple/20 relative overflow-hidden group ring-1 ring-neon-purple/20 shadow-2xl shadow-neon-purple/10">
             <div className="absolute inset-0 bg-gradient-to-br from-neon-purple/5 to-transparent pointer-events-none" />
             <div className="p-8 relative z-10 text-center flex flex-col items-center justify-center">
-              <h3 className="text-sm font-bold text-neon-purple uppercase tracking-widest mb-6">AI Processing</h3>
+              <h3 className="text-sm font-bold text-neon-purple uppercase tracking-widest mb-6">Processamento IA</h3>
               
               <div className="relative mb-6">
                  <div className="w-20 h-20 bg-neon-purple/10 rounded-3xl border border-neon-purple/30 flex items-center justify-center rotate-45 group-hover:rotate-180 transition-transform duration-1000">
@@ -282,12 +281,12 @@ export default function Engine() {
               </div>
 
               <div className="text-lg font-bold mb-1">
-                {isProcessing ? "Gemini 3 Flash" : "Standby"}
+                {isProcessing ? "Gemini 3 Flash" : "Em Espera"}
               </div>
               <div className="px-3 py-1 bg-neon-purple/10 border border-neon-purple/20 rounded-md text-[10px] text-neon-purple font-bold mb-2">
-                Active Skill: Content Engine
+                Skill Ativa: Validação de Promessas
               </div>
-              <p className="text-[10px] text-gray-400 font-mono">Distilling & Translating</p>
+              <p className="text-[10px] text-gray-400 font-mono">Destilando & Validando</p>
             </div>
           </Card>
 
@@ -297,10 +296,10 @@ export default function Engine() {
                <Layers className="w-24 h-24" />
             </div>
             <div className="p-8">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Output Layer</h3>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Camada de Saída</h3>
               <div className="text-4xl font-display font-bold mb-2 flex items-baseline gap-2">
                 {publishedCount}
-                <span className="text-xs text-gray-400 uppercase tracking-tighter">Distilled Posts</span>
+                <span className="text-xs text-gray-400 uppercase tracking-tighter">Posts Destilados</span>
               </div>
               
               {/* Export Selector */}
@@ -320,7 +319,7 @@ export default function Engine() {
 
               <div className="flex items-center gap-1.5 font-mono text-[10px] text-green-400">
                  <CheckCircle className="w-3 h-3" />
-                 100% Quality Assurance
+                 100% Qualidade Garantida
               </div>
             </div>
           </Card>
@@ -336,7 +335,7 @@ export default function Engine() {
                 <div className="bg-white/5 px-4 py-3 flex items-center justify-between border-b border-white/5">
                    <div className="flex items-center gap-2">
                       <Terminal className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Engine Pipeline Console</span>
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">Console do Pipeline</span>
                    </div>
                    <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-red-500" />
@@ -349,9 +348,9 @@ export default function Engine() {
                   className="p-4 flex-1 overflow-y-auto font-mono text-xs space-y-2"
                 >
                    {logs.length === 0 && (
-                     <div className="text-gray-600 italic">Waiting for pipeline ignition...</div>
+                     <div className="text-gray-600 italic">Aguardando ignição do pipeline...</div>
                    )}
-{logs.map((log) => (
+                   {logs.map((log) => (
                       <div key={log.id} className="flex gap-3">
                          <span className="text-gray-600">[{log.timestamp}]</span>
                          <span className={`
@@ -373,7 +372,7 @@ export default function Engine() {
                              </a>
                            )}
                            {log.status === 'skipped' && (
-                             <span className="ml-2 text-[10px] text-gray-500">Item duplicated or irrelevant</span>
+                             <span className="ml-2 text-[10px] text-gray-500">Item duplicado ou irrelevante</span>
                            )}
                          </span>
                       </div>
@@ -382,97 +381,97 @@ export default function Engine() {
              </div>
           </div>
 
-{/* Real-time Metrics - Public View */}
-              <Card className="bg-dark-card border-white/5 p-6">
-                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Gauge className="w-4 h-4" /> Live Performance
-                 </h3>
-                 
-                 <div className="space-y-6">
-                    <div>
-                      <div className="flex justify-between text-xs mb-2">
-                         <span className="text-gray-400">Insight Density</span>
-                         <span className="text-neon-cyan font-bold">{metrics.insightDensity}%</span>
-                      </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                         <motion.div 
-                           initial={{ width: 0 }}
-                           animate={{ width: `${metrics.insightDensity}%` }}
-                           className="h-full bg-neon-cyan" 
-                         />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs mb-2">
-                         <span className="text-gray-400">Update Frequency</span>
-                         <span className="text-green-400 font-bold">{metrics.lastSync || 'Just now'}</span>
-                      </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                         <motion.div 
-                           initial={{ width: 0 }}
-                           animate={{ width: '50%' }}
-                           className="h-full bg-green-400" 
-                         />
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-white/5">
-                       <div className="flex items-center justify-between">
-                          <div className="text-[10px] text-gray-500 uppercase">Data Processed Today</div>
-                          <div className="text-sm font-bold text-neon-purple">{metrics.processedToday.toLocaleString()}</div>
-                       </div>
-                    </div>
-                 </div>
-              </Card>
-
-<Card className="bg-dark-card border-white/5 p-6 border-t-2 border-t-neon-purple/50">
-                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">Output Feed</h3>
-                <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
-                   {recentPosts.map(post => (
-                     <a 
-                       key={post.id} 
-                       href={post.link} 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       className="block p-2 bg-black/40 border border-white/5 rounded-lg hover:border-primary/30 transition-all"
-                     >
-                       <p className="text-[10px] text-white truncate font-medium">{post.title}</p>
-                       
-                       {/* Badges: Sentiment & Tags */}
-                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                         {post.sentiment && (
-                           <span className={`
-                             inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-medium
-                             ${post.sentiment === 'Positive' ? 'bg-green-500/20 text-green-400' : 
-                               post.sentiment === 'Negative' ? 'bg-red-500/20 text-red-400' : 
-                               'bg-gray-500/20 text-gray-400'}
-                           `}>
-                             <span className={`w-1.5 h-1.5 rounded-full ${
-                               post.sentiment === 'Positive' ? 'bg-green-400' : 
-                               post.sentiment === 'Negative' ? 'bg-red-400' : 
-                               'bg-gray-400'
-                             }`} />
-                             {post.sentiment}
-                           </span>
-                         )}
-                         {post.tags && Array.isArray(post.tags) && post.tags.slice(0, 2).map((tag: string, i: number) => (
-                           <span key={i} className="px-1.5 py-0.5 rounded-full bg-neon-purple/20 text-[8px] text-neon-purple">
-                             #{tag}
-                           </span>
-                         ))}
-                       </div>
-                       
-                       <p className="text-[8px] text-gray-500 mt-1">{new Date(post.created_at).toLocaleTimeString()}</p>
-                     </a>
-                   ))}
+          <div className="space-y-8">
+            {/* Real-time Metrics */}
+            <Card className="bg-dark-card border-white/5 p-6">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Gauge className="w-4 h-4" /> Performance ao Vivo
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between text-xs mb-2">
+                    <span className="text-gray-400">Densidade de Insights</span>
+                    <span className="text-neon-cyan font-bold">{metrics.insightDensity}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${metrics.insightDensity}%` }}
+                      className="h-full bg-neon-cyan" 
+                    />
+                  </div>
                 </div>
-<Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-white/10 hover:bg-white/5" onClick={() => window.open('/feed', '_blank')}>
-                    VIEW LATEST
-                 </Button>
-              </Card>
-          </div>
 
+                <div>
+                  <div className="flex justify-between text-xs mb-2">
+                    <span className="text-gray-400">Freq. de Atualização</span>
+                    <span className="text-green-400 font-bold">{metrics.lastSync || 'Agora'}</span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: '50%' }}
+                      className="h-full bg-green-400" 
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] text-gray-500 uppercase">Processados Hoje</div>
+                    <div className="text-sm font-bold text-neon-purple">{metrics.processedToday.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-dark-card border-white/5 p-6 border-t-2 border-t-neon-purple/50">
+              <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">Feed de Saída</h3>
+              <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                {recentPosts.map(post => (
+                  <a 
+                    key={post.id} 
+                    href={post.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block p-2 bg-black/40 border border-white/5 rounded-lg hover:border-primary/30 transition-all"
+                  >
+                    <p className="text-[10px] text-white truncate font-medium">{post.title}</p>
+                    
+                    {/* Badges: Sentiment & Tags */}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      {post.sentiment && (
+                        <span className={`
+                          inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-medium
+                          ${post.sentiment === 'Positive' ? 'bg-green-500/20 text-green-400' : 
+                            post.sentiment === 'Negative' ? 'bg-red-500/20 text-red-400' : 
+                            'bg-gray-500/20 text-gray-400'}
+                        `}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            post.sentiment === 'Positive' ? 'bg-green-400' : 
+                            post.sentiment === 'Negative' ? 'bg-red-400' : 
+                            'bg-gray-400'
+                          }`} />
+                          {post.sentiment}
+                        </span>
+                      )}
+                      {post.tags && Array.isArray(post.tags) && post.tags.slice(0, 2).map((tag: string, i: number) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded-full bg-neon-purple/20 text-[8px] text-neon-purple">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    <p className="text-[8px] text-gray-500 mt-1">{new Date(post.created_at).toLocaleTimeString()}</p>
+                  </a>
+                ))}
+              </div>
+              <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-white/10 hover:bg-white/5" onClick={() => window.open('/feed', '_blank')}>
+                VER MAIS RECENTES
+              </Button>
+            </Card>
+          </div>
         </div>
 
       </div>
