@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 import { NormalizedSkill } from "./skillNormalizer.js";
 
 export interface ValidatedSkill {

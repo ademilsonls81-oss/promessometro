@@ -1,4 +1,4 @@
-import { supabaseAdmin as supabase } from "../lib/supabaseAdmin.js";
+import { supabase } from "../lib/supabase.js";
 import Parser from "rss-parser";
 
 const parser = new Parser({ customFields: { item: [["content:encoded", "contentEncoded"]] } });

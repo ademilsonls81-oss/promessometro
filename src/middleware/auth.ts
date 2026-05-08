@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 
 export async function checkAdmin(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.header("Authorization");
