@@ -1,8 +1,8 @@
 import OpenAI from "openai";
-import { supabaseAdmin as supabase } from "../lib/supabaseAdmin.js";
+import { supabase } from "../lib/supabase.js";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
   baseURL: process.env.OPENAI_BASE_URL || "https://api.groq.com/openai/v1"
 });
 

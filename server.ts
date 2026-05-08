@@ -62,6 +62,14 @@ app.use("/api/feeds", (req, res, next) => {
   import("./src/routes/feeds.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/promises", (req, res, next) => {
+  import("./src/routes/promises.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/scraper", (req, res, next) => {
+  import("./src/routes/promiseScraper.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api", (req, res, next) => {
   import("./src/routes/public.js").then(m => m.default(req, res, next)).catch(next);
 });
