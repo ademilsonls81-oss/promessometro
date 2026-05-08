@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { signInWithGoogle } from "../lib/supabaseClient";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Shield, LogOut, Zap, User, Puzzle, Activity, AlertTriangle, Wrench, Database, ListChecks, Cpu, Factory } from "lucide-react";
+import { LayoutDashboard, Shield, LogOut, Zap, User, Puzzle, Activity, AlertTriangle, Wrench, Database, ListChecks, Cpu, Factory, FileCheck } from "lucide-react";
 import { Button } from "./ui";
 import Footer from "./layout/Footer";
 
@@ -114,6 +114,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     >
                       <Database className="w-3.5 h-3.5" />
                       Backups
+                    </Link>
+                    <Link
+                      to="/admin/evidences"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                        isActive("/admin/evidences") ? "text-yellow-400 bg-yellow-500/10" : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <FileCheck className="w-3.5 h-3.5" />
+                      Evidências
                     </Link>
                     <div className="w-px h-4 bg-white/10 mx-1" />
                     <Link

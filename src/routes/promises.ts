@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
 import { fetchPoliticianPhoto } from "../services/politicianPhotoService.js";
+import { autoSearchAndSaveForPromise } from "../services/evidenceService.js";
 
 const router = Router();
 
@@ -40,6 +41,17 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
     }
 
     console.log(`[Promise] Nova promessa reportada: ${promise_title} - ${politician_name}`);
+
+    setTimeout(async () => {
+      try {
+        console.log(`[Promise] Starting auto-evidence search for: ${data.id}`);
+        const savedCount = await autoSearchAndSaveForPromise(data.id);
+        console.log(`[Promise] Auto-search found ${savedCount} evidences`);
+      } catch (err) {
+        console.error(`[Promise] Auto-search failed:`, err);
+      }
+    }, 2000);
+
     return res.status(201).json({ 
       success: true, 
       message: "Promessa registrada com sucesso! Nossa equipe vai analisar.",

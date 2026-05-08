@@ -66,8 +66,20 @@ app.use("/api/promises", (req, res, next) => {
   import("./src/routes/promises.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/politicians", (req, res, next) => {
+  import("./src/routes/politicians.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/evidence", (req, res, next) => {
+  import("./src/routes/evidence.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api/scraper", (req, res, next) => {
   import("./src/routes/promiseScraper.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/scrape", (req, res, next) => {
+  import("./src/routes/scraper.js").then(m => m.default(req, res, next)).catch(next);
 });
 
 app.use("/api", (req, res, next) => {

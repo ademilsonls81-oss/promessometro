@@ -6,6 +6,7 @@ import Admin from "./pages/Admin";
 import SystemDashboard from "./pages/SystemDashboard";
 import SystemErrors from "./pages/admin/SystemErrors";
 import AutoFixes from "./pages/admin/AutoFixes";
+import EvidenceValidation from "./pages/admin/EvidenceValidation";
 import NotFound from "./pages/NotFound";
 import Docs from "./pages/Docs";
 import PublicFeed from "./pages/PublicFeed";
@@ -62,6 +63,9 @@ export default function App() {
             } />
             <Route path="/admin/audit-logs" element={
               <ErrorBoundary context="AuditLogs"><AuditLogs /></ErrorBoundary>
+            } />
+            <Route path="/admin/evidences" element={
+              <ErrorBoundary context="EvidenceValidation"><EvidenceValidation /></ErrorBoundary>
             } />
             <Route path="/valide" element={
               <ErrorBoundary context="Valide"><Valide /></ErrorBoundary>
