@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
+import { fetchPoliticianPhoto } from "../services/politicianPhotoService.js";
 
 const router = Router();
 
@@ -50,6 +51,18 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
   }
 });
 
+router.get("/photo/:name", async (req: Request, res: Response) => {
+  try {
+    const { name } = req.params;
+    if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
+
+    const result = await fetchPoliticianPhoto(decodeURIComponent(name));
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -87,7 +100,19 @@ router.get("/", async (req: Request, res: Response) => {
       return res.status(500).json({ error: error.message });
     }
 
-    return res.json({ promises: data, total: count });
+    const uniqueNames = [...new Set((data || []).map((p: any) => p.politician_name))];
+    const photoResults = await Promise.allSettled(uniqueNames.map(name => fetchPoliticianPhoto(name)));
+    const photoMap: Record<string, string | null> = {};
+    photoResults.forEach((result, i) => {
+      photoMap[uniqueNames[i]] = result.status === "fulfilled" ? result.value.photoUrl : null;
+    });
+
+    const promisesWithPhotos = (data || []).map((p: any) => ({
+      ...p,
+      photo_url: photoMap[p.politician_name] || null
+    }));
+
+    return res.json({ promises: promisesWithPhotos, total: count });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
