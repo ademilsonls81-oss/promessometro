@@ -3,8 +3,8 @@ services:
     name: promessometro-api
     runtime: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install && npx tsx --version
+    startCommand: npx tsx server.ts
     envVars:
       - key: NODE_VERSION
         value: 22.0.0
@@ -12,11 +12,7 @@ services:
         value: 3000
       - key: NODE_ENV
         value: production
-      # Supabase (Required)
       - fromGroup: promessometro-supabase
-      # AI Provider
       - fromGroup: promessometro-ai
-      # Stripe
       - fromGroup: promessometro-stripe
-      # App Config
       - fromGroup: promessometro-app
