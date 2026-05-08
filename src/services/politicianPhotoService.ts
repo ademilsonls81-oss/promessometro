@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const WIKIPEDIA_API = "https://pt.wikipedia.org/w/api.php";
+const WIKIPEDIA_REST = "https://pt.wikipedia.org/api/rest_v1";
 const APP_NAME = "Promessometro/1.0";
 const CONTACT_EMAIL = "contato@promessometro.com.br";
 
@@ -25,43 +26,14 @@ function cleanPoliticianName(name: string): string {
     .trim();
 }
 
-async function searchWikipediaPage(searchQuery: string): Promise<string | null> {
-  try {
-    const searchRes = await httpClient.get(WIKIPEDIA_API, {
-      params: {
-        action: "query",
-        list: "search",
-        srsearch: searchQuery,
-        format: "json",
-        origin: "*",
-        srlimit: 5
-      }
-    });
-
-    const results = searchRes.data?.query?.search;
-    if (!results || results.length === 0) return null;
-
-    for (const result of results) {
-      if (result.title.toLowerCase().includes(searchQuery.toLowerCase().split(" ")[0])) {
-        return result.title;
-      }
-    }
-
-    return results[0].title;
-  } catch (err) {
-    console.error(`[PhotoService] Search failed for "${searchQuery}":`, err);
-    return null;
-  }
-}
-
-async function getPageImage(pageTitle: string): Promise<string | null> {
+async function getImageUrlFromPage(pageTitle: string): Promise<string | null> {
   try {
     const pageRes = await httpClient.get(WIKIPEDIA_API, {
       params: {
         action: "query",
         titles: pageTitle,
         prop: "pageimages",
-        piprop: "original|thumbnail",
+        piprop: "original",
         format: "json",
         origin: "*",
         redirects: 1
@@ -74,7 +46,54 @@ async function getPageImage(pageTitle: string): Promise<string | null> {
     const page = Object.values(pages)[0] as any;
     if (!page || page.missing !== undefined) return null;
 
-    return page.original?.source || page.thumbnail?.source || null;
+    const originalUrl = page.original?.source;
+    if (originalUrl) {
+      return originalUrl;
+    }
+
+    if (page.pageid) {
+      const imageRes = await httpClient.get(WIKIPEDIA_API, {
+        params: {
+          action: "query",
+          pageids: page.pageid,
+          prop: "images",
+          format: "json",
+          origin: "*",
+          redirects: 1
+        }
+      });
+
+      const images = imageRes.data?.query?.pages?.[page.pageid]?.images || [];
+      for (const img of images) {
+        const title = img.title;
+        if (/\.(jpg|jpeg|png|gif|svg)$/i.test(title) &&
+            !title.toLowerCase().includes("icon") &&
+            !title.toLowerCase().includes("logo") &&
+            !title.toLowerCase().includes("banner") &&
+            !title.toLowerCase().includes("bandeira") &&
+            !title.toLowerCase().includes("emblema") &&
+            !title.toLowerCase().includes("flag")) {
+
+          const infoRes = await httpClient.get(WIKIPEDIA_API, {
+            params: {
+              action: "query",
+              titles: title,
+              prop: "imageinfo",
+              iiprop: "url",
+              iiurlwidth: 300,
+              format: "json",
+              origin: "*"
+            }
+          });
+
+          const infoPage = Object.values(infoRes.data?.query?.pages || {})[0] as any;
+          const url = infoPage?.imageinfo?.[0]?.url;
+          if (url) return url;
+        }
+      }
+    }
+
+    return null;
   } catch (err) {
     console.error(`[PhotoService] Image fetch failed for "${pageTitle}":`, err);
     return null;
@@ -85,25 +104,52 @@ export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhot
   const cleanName = cleanPoliticianName(name);
 
   const searchQueries = [
-    cleanName,
-    `${cleanName} (político)`,
-    `${cleanName} (político brasileiro)`,
-    `${cleanName} prefeitura`,
-    `${cleanName} governor`
+    `"${cleanName}"`,
+    `${cleanName}`,
+    `"${cleanName}" político`,
+    `"${cleanName}" político brasileiro`,
+    `${cleanName} prefeito`,
+    `${cleanName} governador`,
+    `${cleanName} deputados`
   ];
 
   for (const query of searchQueries) {
-    const pageTitle = await searchWikipediaPage(query);
-    if (!pageTitle) continue;
+    try {
+      const searchRes = await httpClient.get(WIKIPEDIA_API, {
+        params: {
+          action: "query",
+          list: "search",
+          srsearch: query,
+          format: "json",
+          origin: "*",
+          srlimit: 3
+        }
+      });
 
-    const photoUrl = await getPageImage(pageTitle);
-    if (photoUrl) {
-      console.log(`[PhotoService] Found photo for "${name}" via "${pageTitle}"`);
-      return { name, photoUrl, source: "wikipedia" };
+      const results = searchRes.data?.query?.search || [];
+
+      for (const result of results) {
+        const title = result.title;
+        const score = result.wordcount || 0;
+
+        if (score < 50) continue;
+
+        const lowerTitle = title.toLowerCase();
+        const skipTerms = ["filme", "filmes", "ator", "série", "novela", "desenho", "banda", "cant", "album", "romance", "esporte", "time", "clube", "jogador"];
+        if (skipTerms.some(t => lowerTitle.includes(t))) continue;
+
+        const photoUrl = await getImageUrlFromPage(title);
+        if (photoUrl) {
+          console.log(`[PhotoService] ✓ Found: "${name}" via "${title}" → ${photoUrl.substring(0, 80)}`);
+          return { name, photoUrl, source: "wikipedia" };
+        }
+      }
+    } catch (err) {
+      console.error(`[PhotoService] Search failed for "${query}":`, err);
     }
   }
 
-  console.log(`[PhotoService] No photo found for "${name}"`);
+  console.log(`[PhotoService] ✗ No photo found for "${name}"`);
   return { name, photoUrl: null, source: "wikipedia" };
 }
 
