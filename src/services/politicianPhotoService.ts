@@ -1,6 +1,14 @@
 import axios from "axios";
 
 const WIKIPEDIA_API = "https://pt.wikipedia.org/w/api.php";
+const APP_NAME = "Promessometro/1.0";
+const CONTACT_EMAIL = "contato@promessometro.com.br";
+
+const httpClient = axios.create({
+  headers: {
+    "User-Agent": `${APP_NAME} (${CONTACT_EMAIL})`
+  }
+});
 
 export interface PoliticianPhoto {
   name: string;
@@ -8,53 +16,95 @@ export interface PoliticianPhoto {
   source: string;
 }
 
-export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhoto> {
-  try {
-    const searchName = name.replace(/^(Deputado|Senador|Governador|Prefeito|Presidente| Vereador)\s+/i, "").trim();
+function cleanPoliticianName(name: string): string {
+  return name
+    .replace(/^(Deputado|Senador|Governador|Prefeito|Presidente|Ver[eé]ador)\s+/i, "")
+    .replace(/\s*(MDB|PT|PSL|PP|PSD|REPUBLICANOS|UNI[AÃ]O|PSB|PDT|PCdoB|PV|NOVO|CIDADANIA|PCDSOL|PODE|REDE|AGIR|AVANTE|SOLIDARIEDADE|PSC)\s*$/gi, "")
+    .replace(/\,?\s*(SP|RJ|MG|BA|RS|PR|SC|PE|CE|PA|MA|GO|AM|ES|PI|MA|AL|SE|RO|RR|AP|TO|DF|MT|MS)\s*$/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-    const searchRes = await axios.get(WIKIPEDIA_API, {
+async function searchWikipediaPage(searchQuery: string): Promise<string | null> {
+  try {
+    const searchRes = await httpClient.get(WIKIPEDIA_API, {
       params: {
         action: "query",
         list: "search",
-        srsearch: `${searchName} político brasileiro`,
+        srsearch: searchQuery,
         format: "json",
         origin: "*",
-        srlimit: 1
+        srlimit: 5
       }
     });
 
-    const searchResults = searchRes.data?.query?.search;
-    if (!searchResults || searchResults.length === 0) {
-      return { name, photoUrl: null, source: "wikipedia" };
+    const results = searchRes.data?.query?.search;
+    if (!results || results.length === 0) return null;
+
+    for (const result of results) {
+      if (result.title.toLowerCase().includes(searchQuery.toLowerCase().split(" ")[0])) {
+        return result.title;
+      }
     }
 
-    const pageId = searchResults[0].pageid;
+    return results[0].title;
+  } catch (err) {
+    console.error(`[PhotoService] Search failed for "${searchQuery}":`, err);
+    return null;
+  }
+}
 
-    const pageRes = await axios.get(WIKIPEDIA_API, {
+async function getPageImage(pageTitle: string): Promise<string | null> {
+  try {
+    const pageRes = await httpClient.get(WIKIPEDIA_API, {
       params: {
         action: "query",
-        pageids: pageId,
-        prop: "pageimages|extracts",
-        piprop: "original",
+        titles: pageTitle,
+        prop: "pageimages",
+        piprop: "original|thumbnail",
         format: "json",
-        origin: "*"
+        origin: "*",
+        redirects: 1
       }
     });
 
-    const page = pageRes.data?.query?.pages?.[pageId];
-    if (!page) {
-      return { name, photoUrl: null, source: "wikipedia" };
-    }
+    const pages = pageRes.data?.query?.pages;
+    if (!pages) return null;
 
-    return {
-      name,
-      photoUrl: page.original?.source || null,
-      source: "wikipedia"
-    };
+    const page = Object.values(pages)[0] as any;
+    if (!page || page.missing !== undefined) return null;
+
+    return page.original?.source || page.thumbnail?.source || null;
   } catch (err) {
-    console.error(`[PhotoService] Error fetching photo for ${name}:`, err);
-    return { name, photoUrl: null, source: "wikipedia" };
+    console.error(`[PhotoService] Image fetch failed for "${pageTitle}":`, err);
+    return null;
   }
+}
+
+export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhoto> {
+  const cleanName = cleanPoliticianName(name);
+
+  const searchQueries = [
+    cleanName,
+    `${cleanName} (político)`,
+    `${cleanName} (político brasileiro)`,
+    `${cleanName} prefeitura`,
+    `${cleanName} governor`
+  ];
+
+  for (const query of searchQueries) {
+    const pageTitle = await searchWikipediaPage(query);
+    if (!pageTitle) continue;
+
+    const photoUrl = await getPageImage(pageTitle);
+    if (photoUrl) {
+      console.log(`[PhotoService] Found photo for "${name}" via "${pageTitle}"`);
+      return { name, photoUrl, source: "wikipedia" };
+    }
+  }
+
+  console.log(`[PhotoService] No photo found for "${name}"`);
+  return { name, photoUrl: null, source: "wikipedia" };
 }
 
 export async function fetchPoliticianPhotos(names: string[]): Promise<PoliticianPhoto[]> {
