@@ -126,10 +126,6 @@ const allowedOrigins = [
   "http://localhost:5173", 
   "http://localhost:3333", 
   "http://localhost:3000", 
-  "https://promessometro.com.br",
-  "https://www.promessometro.com.br",
-  "https://api.promessometro.com.br",
-  /\.promessometro\.com\.br$/, 
   /\.vercel\.app$/,
   /\.onrender\.com$/
 ];
@@ -361,7 +357,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
   if (!userId || !email) return res.status(400).json({ error: "Missing data" });
   if (process.env.STRIPE_ENABLED !== "true") return res.status(503).json({ error: "Stripe not enabled" });
   try {
-    const baseUrl = req.headers.origin || process.env.APP_URL || "https://www.promessometro.com.br";
+    const baseUrl = req.headers.origin || process.env.APP_URL || "https://promessometro-qqhs3n1lj-ademilsonls81-7493s-projects.vercel.app";
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{ price: process.env.STRIPE_PRO_PRICE_ID, quantity: 1 }],
@@ -387,7 +383,7 @@ app.post("/api/create-portal-session", async (req, res) => {
     const { data: user, error } = await supabase.from("users").select("stripe_customer_id, plan").eq("id", userId).single();
     if (error || !user) return res.status(404).json({ error: "User not found" });
     if (user.plan !== "pro" || !user.stripe_customer_id) return res.status(400).json({ error: "Only Pro users can manage subscriptions" });
-    const baseUrl = req.headers.origin || process.env.APP_URL || "https://www.promessometro.com.br";
+    const baseUrl = req.headers.origin || process.env.APP_URL || "https://promessometro-qqhs3n1lj-ademilsonls81-7493s-projects.vercel.app";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
       return_url: `${baseUrl}/dashboard`
@@ -405,7 +401,7 @@ app.get("/sitemap.xml", async (req, res) => {
     if (cached) { res.setHeader("Content-Type", "application/xml"); res.setHeader("Cache-Control", "public, max-age=300"); return res.send(cached); }
 
     const { data: posts } = await supabase.from("posts").select("link, created_at, title").eq("status", "published").order("created_at", { ascending: false }).limit(5000);
-    const baseUrl = process.env.APP_URL || "https://www.promessometro.com.br";
+    const baseUrl = process.env.APP_URL || "https://promessometro-qqhs3n1lj-ademilsonls81-7493s-projects.vercel.app";
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
   <url><loc>${baseUrl}/feed</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>

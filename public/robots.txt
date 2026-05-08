@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://www.promessometro.com.br/sitemap.xml
+Sitemap: https://promessometro-qqhs3n1lj-ademilsonls81-7493s-projects.vercel.app/sitemap.xml
 
 # Disallow admin and private routes
 Disallow: /dashboard
