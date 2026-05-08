@@ -2,8 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Request } from "express";
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  process.env.S_URL || process.env.SUPABASE_URL || '',
+  process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
 /**
