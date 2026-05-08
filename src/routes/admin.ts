@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../lib/supabaseClient.js";
+import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { queueService } from "../services/queueService.js";
 import { runIngestion } from "../services/ingestionService.js";

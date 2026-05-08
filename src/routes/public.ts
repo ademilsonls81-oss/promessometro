@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { supabaseAdmin as supabase } from "../lib/supabaseAdmin.js";
+import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
 import Parser from "rss-parser";
 

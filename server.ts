@@ -11,7 +11,7 @@ import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import * as Sentry from "@sentry/node";
 
-import { supabaseAdmin as supabase } from "./src/lib/supabaseAdmin.js";
+import { supabase } from "./src/lib/supabase.js";
 // QueueService movido para Supabase Edge Function
 // import { queueService } from "./src/services/queueService.js";
 import { globalIpLimit, apiKeyRateLimit } from "./src/middleware/rateLimit.js";
