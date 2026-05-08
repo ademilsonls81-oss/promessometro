@@ -468,18 +468,25 @@ async function startServer() {
     app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
-  const server = app.listen(3333, "0.0.0.0", () => {
-      console.log(`>>> PROMESSÔMETRO UP: http://localhost:3333`);
-    runIngestion();
-  });
+  const PORT = process.env.PORT || 3000;
 
-  wss = new WebSocketServer({ server, path: "/ws/stats" });
-  wss.on("connection", (ws) => {
-    wsClients.add(ws);
-    supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "published").then(({ count }) => { ws.send(JSON.stringify({ type: "stats", postsCount: count })); });
-    ws.on("close", () => wsClients.delete(ws));
-    ws.on("error", () => wsClients.delete(ws));
-  });
+  try {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server is live on port ${PORT}`);
+      console.log(`>>> PROMESSÔMETRO API running at http://localhost:${PORT}`);
+      runIngestion();
+    });
+
+    wss = new WebSocketServer({ server, path: "/ws/stats" });
+    wss.on("connection", (ws) => {
+      wsClients.add(ws);
+      supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "published").then(({ count }) => { ws.send(JSON.stringify({ type: "stats", postsCount: count })); });
+      ws.on("close", () => wsClients.delete(ws));
+      ws.on("error", () => wsClients.delete(ws));
+    });
+  } catch (err: any) {
+    console.error(`❌ Failed to start server: ${err.message}`);
+  }
 }
 
 startServer();
