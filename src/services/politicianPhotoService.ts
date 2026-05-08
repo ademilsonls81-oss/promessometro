@@ -1,7 +1,6 @@
 import axios from "axios";
 
 const WIKIPEDIA_API = "https://pt.wikipedia.org/w/api.php";
-const WIKIPEDIA_REST = "https://pt.wikipedia.org/api/rest_v1";
 const APP_NAME = "Promessometro/1.0";
 const CONTACT_EMAIL = "contato@promessometro.com.br";
 
@@ -26,9 +25,17 @@ function cleanPoliticianName(name: string): string {
     .trim();
 }
 
-async function getImageUrlFromPage(pageTitle: string): Promise<string | null> {
+function isValidImage(url: string | undefined | null): boolean {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return !lower.includes("poster") && !lower.includes("map") &&
+         !lower.includes("chart") && !lower.includes("logo") &&
+         !lower.includes("questionmark") && !lower.includes("default");
+}
+
+async function getInfoboxImage(pageTitle: string): Promise<string | null> {
   try {
-    const pageRes = await httpClient.get(WIKIPEDIA_API, {
+    const res = await httpClient.get(WIKIPEDIA_API, {
       params: {
         action: "query",
         titles: pageTitle,
@@ -40,62 +47,68 @@ async function getImageUrlFromPage(pageTitle: string): Promise<string | null> {
       }
     });
 
-    const pages = pageRes.data?.query?.pages;
+    const pages = res.data?.query?.pages;
     if (!pages) return null;
 
     const page = Object.values(pages)[0] as any;
     if (!page || page.missing !== undefined) return null;
 
-    const originalUrl = page.original?.source;
-    if (originalUrl) {
-      return originalUrl;
+    const url = page.original?.source;
+    if (isValidImage(url)) {
+      console.log(`[PhotoService] ✓ Infobox image found: ${url.substring(0, 80)}`);
+      return url;
     }
 
-    if (page.pageid) {
-      const imageRes = await httpClient.get(WIKIPEDIA_API, {
-        params: {
-          action: "query",
-          pageids: page.pageid,
-          prop: "images",
-          format: "json",
-          origin: "*",
-          redirects: 1
-        }
-      });
+    return null;
+  } catch (err) {
+    console.error(`[PhotoService] InfoboxImage failed: ${pageTitle}`, err);
+    return null;
+  }
+}
 
-      const images = imageRes.data?.query?.pages?.[page.pageid]?.images || [];
-      for (const img of images) {
-        const title = img.title;
-        if (/\.(jpg|jpeg|png|gif|svg)$/i.test(title) &&
-            !title.toLowerCase().includes("icon") &&
-            !title.toLowerCase().includes("logo") &&
-            !title.toLowerCase().includes("banner") &&
-            !title.toLowerCase().includes("bandeira") &&
-            !title.toLowerCase().includes("emblema") &&
-            !title.toLowerCase().includes("flag")) {
+async function getGalleryFallback(pageTitle: string): Promise<string | null> {
+  try {
+    const res = await httpClient.get(WIKIPEDIA_API, {
+      params: {
+        action: "query",
+        titles: pageTitle,
+        prop: "images",
+        format: "json",
+        origin: "*",
+        redirects: 1
+      }
+    });
 
-          const infoRes = await httpClient.get(WIKIPEDIA_API, {
-            params: {
-              action: "query",
-              titles: title,
-              prop: "imageinfo",
-              iiprop: "url",
-              iiurlwidth: 300,
-              format: "json",
-              origin: "*"
-            }
-          });
+    const page = Object.values(res.data?.query?.pages || {})[0] as any;
+    const images: Array<{title: string}> = page?.images || [];
 
-          const infoPage = Object.values(infoRes.data?.query?.pages || {})[0] as any;
-          const url = infoPage?.imageinfo?.[0]?.url;
-          if (url) return url;
+    for (const img of images) {
+      const title = img.title;
+      if (/\.(jpg|jpeg|png)$/i.test(title)) {
+        const infoRes = await httpClient.get(WIKIPEDIA_API, {
+          params: {
+            action: "query",
+            titles: title,
+            prop: "imageinfo",
+            iiprop: "url",
+            iiurlwidth: 400,
+            format: "json",
+            origin: "*"
+          }
+        });
+
+        const infoPage = Object.values(infoRes.data?.query?.pages || {})[0] as any;
+        const url = infoPage?.imageinfo?.[0]?.url;
+        if (isValidImage(url)) {
+          console.log(`[PhotoService] ✓ Gallery fallback: ${url.substring(0, 80)}`);
+          return url;
         }
       }
     }
 
     return null;
   } catch (err) {
-    console.error(`[PhotoService] Image fetch failed for "${pageTitle}":`, err);
+    console.error(`[PhotoService] Gallery fallback failed: ${pageTitle}`, err);
     return null;
   }
 }
@@ -103,17 +116,16 @@ async function getImageUrlFromPage(pageTitle: string): Promise<string | null> {
 export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhoto> {
   const cleanName = cleanPoliticianName(name);
 
-  const searchQueries = [
+  const queries = [
     `"${cleanName}"`,
     `${cleanName}`,
-    `"${cleanName}" político`,
-    `"${cleanName}" político brasileiro`,
+    `"${cleanName}" politico brasileiro`,
+    `${cleanName} politico`,
     `${cleanName} prefeito`,
-    `${cleanName} governador`,
-    `${cleanName} deputados`
+    `${cleanName} gobernador`
   ];
 
-  for (const query of searchQueries) {
+  for (const query of queries) {
     try {
       const searchRes = await httpClient.get(WIKIPEDIA_API, {
         params: {
@@ -122,7 +134,7 @@ export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhot
           srsearch: query,
           format: "json",
           origin: "*",
-          srlimit: 3
+          srlimit: 5
         }
       });
 
@@ -130,30 +142,31 @@ export async function fetchPoliticianPhoto(name: string): Promise<PoliticianPhot
 
       for (const result of results) {
         const title = result.title;
-        const score = result.wordcount || 0;
-
-        if (score < 50) continue;
-
         const lowerTitle = title.toLowerCase();
-        const skipTerms = ["filme", "filmes", "ator", "série", "novela", "desenho", "banda", "cant", "album", "romance", "esporte", "time", "clube", "jogador"];
-        if (skipTerms.some(t => lowerTitle.includes(t))) continue;
 
-        const photoUrl = await getImageUrlFromPage(title);
-        if (photoUrl) {
-          console.log(`[PhotoService] ✓ Found: "${name}" via "${title}" → ${photoUrl.substring(0, 80)}`);
-          return { name, photoUrl, source: "wikipedia" };
+        if (lowerTitle.includes("filme") || lowerTitle.includes("ator") ||
+            lowerTitle.includes("serie") || lowerTitle.includes("novela") ||
+            lowerTitle.includes("banda") || lowerTitle.includes("cant") ||
+            lowerTitle.includes("album") || lowerTitle.includes("time") ||
+            lowerTitle.includes("desenho")) {
+          continue;
         }
+
+        const url = await getInfoboxImage(title);
+        if (url) return { name, photoUrl: url, source: "wikipedia" };
+
+        const fallbackUrl = await getGalleryFallback(title);
+        if (fallbackUrl) return { name, photoUrl: fallbackUrl, source: "wikipedia" };
       }
     } catch (err) {
-      console.error(`[PhotoService] Search failed for "${query}":`, err);
+      console.error(`[PhotoService] Search failed: ${query}`, err);
     }
   }
 
-  console.log(`[PhotoService] ✗ No photo found for "${name}"`);
+  console.log(`[PhotoService] ✗ No photo for "${name}"`);
   return { name, photoUrl: null, source: "wikipedia" };
 }
 
 export async function fetchPoliticianPhotos(names: string[]): Promise<PoliticianPhoto[]> {
-  const results = await Promise.all(names.map(name => fetchPoliticianPhoto(name)));
-  return results;
+  return Promise.all(names.map(name => fetchPoliticianPhoto(name)));
 }
