@@ -70,16 +70,69 @@ app.use("/api/politicians", (req, res, next) => {
   import("./src/routes/politicians.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+// =============================================
+// ENDPOINTS DE PIPELINE DE EVIDÊNCIAS (antes do middleware evidence)
+// =============================================
+
+// GET /api/evidence/pipeline/run
+app.get("/api/evidence/pipeline/run", async (req, res) => {
+  try {
+    const { runEvidencePipeline } = await import("./src/services/evidencePipeline.js");
+    const result = await runEvidencePipeline();
+    res.json({
+      status: "ok",
+      feeds_processados: 6,
+      artigos_encontrados: result.articles_fetched,
+      evidencias_salvas: result.evidences_found
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// GET /api/evidence/pipeline/status
+app.get("/api/evidence/pipeline/status", async (req, res) => {
+  try {
+    const { supabase } = await import("./src/lib/supabase.js");
+    
+    const { data: lastArticle } = await supabase
+      .from("rss_articles")
+      .select("fetched_at")
+      .order("fetched_at", { ascending: false })
+      .limit(1)
+      .single();
+    
+    const { count: articlesCount } = await supabase
+      .from("rss_articles")
+      .select("*", { count: "exact", head: true });
+    
+    const { count: evidenciasCount } = await supabase
+      .from("promise_evidences")
+      .select("*", { count: "exact", head: true })
+      .eq("source_type", "rss");
+    
+    res.json({
+      status: "ok",
+      last_run: lastArticle?.fetched_at || null,
+      total_artigos: articlesCount || 0,
+      total_evidencias: evidenciasCount || 0
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Middleware de evidence (depois dos endpoints específicos)
 app.use("/api/evidence", (req, res, next) => {
   import("./src/routes/evidence.js").then(m => m.default(req, res, next)).catch(next);
 });
 
-app.use("/api/scraper", (req, res, next) => {
-  import("./src/routes/promiseScraper.js").then(m => m.default(req, res, next)).catch(next);
-});
-
 app.use("/api/scrape", (req, res, next) => {
   import("./src/routes/scraper.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/score", (req, res, next) => {
+  import("./src/routes/score.js").then(m => m.default(req, res, next)).catch(next);
 });
 
 app.use("/api", (req, res, next) => {
