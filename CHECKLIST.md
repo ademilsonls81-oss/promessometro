@@ -66,10 +66,23 @@
 
 | Serviço | URL |
 |---------|-----|
-| Frontend (Vercel) | promessometro-*.vercel.app |
+| Frontend (Vercel) | promessometro-brasil.vercel.app |
 | Backend (Render) | promessometro-api.onrender.com |
 | Health | promessometro-api.onrender.com/api/health |
 | Stats | promessometro-api.onrender.com/api/stats |
+
+---
+
+## Fundação Institucional ✅
+
+*   [x] Termos de Uso em português
+*   [x] Política de Privacidade em português
+*   [x] Página "Quem Somos"
+*   [x] Página "Como Funciona"
+*   [x] Página "Metodologia"
+*   [x] Página "Correções"
+*   [x] Página "Fontes"
+*   [ ] Domínio customizado (promessometro.com.br)
 
 ---
 
