@@ -35,6 +35,16 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
       updated_at: new Date().toISOString()
     }).select().single();
 
+    // Classification automática via IA
+    setTimeout(async () => {
+      try {
+        const { classifyPromise } = await import("../services/promiseAiClassification.js");
+        await classifyPromise(data.id);
+      } catch (err) {
+        console.error("[Promise] Classification error:", err);
+      }
+    }, 1000);
+
     if (error) {
       console.error("Promise submission error:", error);
       return res.status(500).json({ error: "Erro ao submeter promessa" });
@@ -156,6 +166,46 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
 
     console.log(`[Promise] Status atualizado: ${id} -> ${status}`);
     return res.json({ success: true, data });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Classificar promessa específica
+router.post("/classify/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { data: promise, error } = await supabase
+      .from("promises")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (error || !promise) {
+      return res.status(404).json({ error: "Promessa não encontrada" });
+    }
+
+    const { classifyPromise } = await import("../services/promiseAiClassification.js");
+    const success = await classifyPromise(id);
+
+    if (success) {
+      return res.json({ success: true, message: "Promessa classificada" });
+    } else {
+      return res.status(500).json({ error: "Erro ao classificar promessa" });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Classificar todas as promessas pendentes
+router.post("/classify-all", async (req: Request, res: Response) => {
+  try {
+    const { classifyAllPending } = await import("../services/promiseAiClassification.js");
+    const count = await classifyAllPending();
+
+    return res.json({ success: true, classified: count });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

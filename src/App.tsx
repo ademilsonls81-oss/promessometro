@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
@@ -22,15 +22,19 @@ import Blog from "./pages/Blog";
 import Changelog from "./pages/Changelog";
 import Ranking from "./pages/Ranking";
 import PoliticianProfile from "./pages/PoliticianProfile";
+import Mapa from "./pages/Mapa";
+import Reportar from "./pages/Reportar";
+import QuemSomos from "./pages/QuemSomos";
+import ComoFunciona from "./pages/ComoFunciona";
+import Metodologia from "./pages/Metodologia";
+import Correcoes from "./pages/Correcoes";
+import Fontes from "./pages/Fontes";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-export default function App() {
-
+function AppRoutes() {
+  const location = useLocation();
   return (
-    <BrowserRouter>
-      <Layout>
-        <ErrorBoundary context="root">
-          <Routes>
+    <Routes key={location.pathname}>
             <Route path="/" element={
               <ErrorBoundary context="Landing"><Landing /></ErrorBoundary>
             } />
@@ -42,6 +46,12 @@ export default function App() {
             } />
             <Route path="/politico/:id" element={
               <ErrorBoundary context="PoliticianProfile"><PoliticianProfile /></ErrorBoundary>
+            } />
+            <Route path="/mapa" element={
+              <ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>
+            } />
+            <Route path="/reportar" element={
+              <ErrorBoundary context="Reportar"><Reportar /></ErrorBoundary>
             } />
             <Route path="/dashboard" element={
               <ErrorBoundary context="Dashboard"><Dashboard /></ErrorBoundary>
@@ -85,10 +95,24 @@ export default function App() {
             <Route path="/changelog" element={
               <ErrorBoundary context="Changelog"><Changelog /></ErrorBoundary>
             } />
+            <Route path="/quem-somos" element={<QuemSomos />} />
+            <Route path="/como-funciona" element={<ComoFunciona />} />
+            <Route path="/metodologia" element={<Metodologia />} />
+            <Route path="/fontes" element={<Fontes />} />
+            <Route path="/correcoes" element={<Correcoes />} />
             <Route path="*" element={
               <ErrorBoundary context="NotFound"><NotFound /></ErrorBoundary>
             } />
           </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Layout>
+        <ErrorBoundary context="root">
+          <AppRoutes />
         </ErrorBoundary>
       </Layout>
     </BrowserRouter>

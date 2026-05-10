@@ -36,16 +36,18 @@ export default function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-4 text-white">Recursos</h4>
             <ul className="space-y-3">
-              <li><Link to="/status" className="text-sm text-muted-foreground hover:text-white transition-colors">Status</Link></li>
-              <li><Link to="/blog" className="text-sm text-muted-foreground hover:text-white transition-colors">Blog</Link></li>
-              <li><Link to="/changelog" className="text-sm text-muted-foreground hover:text-white transition-colors">Changelog</Link></li>
+              <li><Link to="/quem-somos" className="text-sm text-muted-foreground hover:text-white transition-colors">Quem Somos</Link></li>
+              <li><Link to="/como-funciona" className="text-sm text-muted-foreground hover:text-white transition-colors">Como Funciona</Link></li>
+              <li><Link to="/metodologia" className="text-sm text-muted-foreground hover:text-white transition-colors">Metodologia</Link></li>
+              <li><Link to="/fontes" className="text-sm text-muted-foreground hover:text-white transition-colors">Fontes</Link></li>
             </ul>
           </div>
 
-          {/* Legal */}
+          {/* Institucional */}
           <div>
-            <h4 className="text-sm font-semibold mb-4 text-white">Legal</h4>
+            <h4 className="text-sm font-semibold mb-4 text-white">Institucional</h4>
             <ul className="space-y-3">
+              <li><Link to="/correcoes" className="text-sm text-muted-foreground hover:text-white transition-colors">Correções</Link></li>
               <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-white transition-colors">Privacidade</Link></li>
               <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-white transition-colors">Termos</Link></li>
             </ul>

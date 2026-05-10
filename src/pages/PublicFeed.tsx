@@ -1,98 +1,158 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "../lib/supabaseClient";
-import { Post } from "../types";
-import { Globe, Clock, ChevronRight, Search } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Badge, SkeletonGrid, EmptyState } from "../components/ui";
-import { OnboardingTooltip } from "../components/onboarding";
+import { CheckCircle, XCircle, Clock, Search, Filter, ChevronRight, ExternalLink, PartyPopper, TrendingUp, User, AlertCircle, Link as LinkIcon } from "lucide-react";
+
+interface Promise {
+  id: string;
+  politician_name: string;
+  party: string | null;
+  state: string | null;
+  promise_title: string;
+  promise_description: string | null;
+  source_link: string | null;
+  source_doc_url: string | null;
+  evidence: string | null;
+  category: string;
+  status: string;
+  fulfillment_score: number;
+  created_at: string;
+}
+
+const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  cumprida: { label: "Cumprida", color: "text-green-400", bg: "bg-green-500/10", icon: <CheckCircle className="w-4 h-4" /> },
+  parcialmente_cumprida: { label: "Parcial", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: <Clock className="w-4 h-4" /> },
+  em_andamento: { label: "Em Andamento", color: "text-orange-400", bg: "bg-orange-500/10", icon: <TrendingUp className="w-4 h-4" /> },
+  nao_iniciada: { label: "Não Iniciada", color: "text-blue-400", bg: "bg-blue-500/10", icon: <Clock className="w-4 h-4" /> },
+  descumprida: { label: "Descumprida", color: "text-red-400", bg: "bg-red-500/10", icon: <XCircle className="w-4 h-4" /> },
+  nao_classificada: { label: "Não Classificada", color: "text-gray-400", bg: "bg-gray-500/10", icon: <Clock className="w-4 h-4" /> },
+  pendente: { label: "Pendente", color: "text-gray-400", bg: "bg-gray-500/10", icon: <Clock className="w-4 h-4" /> },
+};
+
+const statusFilters = [
+  { key: "all", label: "Todas" },
+  { key: "cumprida", label: "Cumpridas" },
+  { key: "parcialmente_cumprida", label: "Parciais" },
+  { key: "em_andamento", label: "Em Andamento" },
+  { key: "descumprida", label: "Descumpridas" },
+];
+
+const categories = [
+  "Saúde", "Educação", "Segurança", "Economia", "Infraestrutura", 
+  "Meio Ambiente", "Trabalho", "Habitação", "Transporte", "Outros"
+];
 
 export default function PublicFeed() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [promises, setPromises] = useState<Promise[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
-
-  const categories = ["All", "Tech", "Finance", "Science", "Health", "General"];
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPosts();
-    
-    // Subscribe to new published posts
-    const sub = supabase
-      .channel('public-feed')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'posts',
-        filter: "status=eq.published"
-      }, () => fetchPosts())
-      .subscribe();
-
-    return () => { supabase.removeChannel(sub); };
+    fetchPromises();
   }, []);
 
-  async function fetchPosts() {
+  async function fetchPromises() {
     try {
-      const { data } = await supabase
-        .from('posts')
+      setError(null);
+      const { data, error } = await supabase
+        .from('promises')
         .select('*')
-        .eq('status', 'published')
-        .order('pub_date', { ascending: false })
-        .limit(30);
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-      setPosts((data as Post[]) || []);
-    } catch (err) {
-      console.error("[PublicFeed] fetchPosts error:", err);
-      setPosts([]);
+      if (error) {
+        console.error("[PublicFeed] Supabase error:", error);
+        setError(error.message);
+        setPromises([]);
+      } else {
+        setPromises((data as Promise[]) || []);
+      }
+    } catch (err: unknown) {
+      console.error("[PublicFeed] fetchPromises error:", err);
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      setPromises([]);
     } finally {
       setLoading(false);
     }
   }
 
-  const filteredPosts = posts.filter(p => {
-    const postCat = (p.category || "General").toLowerCase();
-    const filterCat = filter.toLowerCase();
-    const matchesCategory = filter === "All" || postCat === filterCat;
-    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
-                         p.summary?.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
+  const filteredPromises = promises?.filter((p) => {
+    const matchesStatus = filter === "all" || p.status === filter;
+    const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+    const matchesSearch = 
+      p.promise_title.toLowerCase().includes(search.toLowerCase()) ||
+      p.politician_name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.category && p.category.toLowerCase().includes(search.toLowerCase()));
+    
+    return matchesStatus && matchesCategory && matchesSearch;
   });
+
+  const getStatusConfig = (status: string) => {
+    return statusConfig[status] || statusConfig["nao_classificada"];
+  };
+
+  const fulfilledCount = promises.filter(p => p.status === "cumprida").length;
+  const partialCount = promises.filter(p => p.status === "parcialmente_cumprida" || p.status === "em_andamento").length;
+  const brokenCount = promises.filter(p => p.status === "descumprida").length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen py-12 px-4 bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-neon-purple border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20 px-4">
       <div className="container mx-auto max-w-5xl">
-        {/* Hero Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="pt-16 pb-12 text-center"
         >
-          <div className="mb-6 flex justify-center">
-            <Badge variant="live"><Globe className="w-3 h-3" /> LIVE AI FEED</Badge>
-          </div>
           <h1 className="text-4xl md:text-6xl font-display font-bold mb-6">
-            Global Knowledge, <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan text-glow-purple">Distilled</span>
+            Promessas <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan text-glow-purple">Políticas</span>
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Real-time insights from global news sources, summarized and translated by Gemini AI.
+            Acompanhe as promessas dos políticos brasileiros. Cada promessa é verificada com evidências reais.
           </p>
         </motion.div>
 
-        {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12 p-2 bg-dark-card border border-white/5 rounded-2xl">
+        {!loading && promises.length > 0 && (
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="bg-dark-card border border-green-500/20 rounded-2xl p-4 text-center">
+              <div className="text-2xl font-bold text-green-400">{fulfilledCount}</div>
+              <div className="text-xs text-gray-500">Cumpridas</div>
+            </div>
+            <div className="bg-dark-card border border-yellow-500/20 rounded-2xl p-4 text-center">
+              <div className="text-2xl font-bold text-yellow-400">{partialCount}</div>
+              <div className="text-xs text-gray-500">Parciais/Andamento</div>
+            </div>
+            <div className="bg-dark-card border border-red-500/20 rounded-2xl p-4 text-center">
+              <div className="text-2xl font-bold text-red-400">{brokenCount}</div>
+              <div className="text-xs text-gray-500">Descumpridas</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 p-2 bg-dark-card border border-white/5 rounded-2xl">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 px-2 w-full md:w-auto">
-            {categories.map((cat) => (
+            {statusFilters.map((f) => (
               <button
-                key={cat}
-                onClick={() => setFilter(cat)}
+                key={f.key}
+                onClick={() => setFilter(f.key)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  filter === cat 
+                  filter === f.key 
                     ? "bg-neon-purple text-white shadow-lg shadow-neon-purple/20" 
                     : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
                 }`}
               >
-                {cat}
+                {f.label}
               </button>
             ))}
           </div>
@@ -100,7 +160,7 @@ export default function PublicFeed() {
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input 
               type="text" 
-              placeholder="Search insights..."
+              placeholder="Buscar promessas..."
               className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-2.5 text-sm focus:border-neon-purple outline-none transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -108,67 +168,124 @@ export default function PublicFeed() {
           </div>
         </div>
 
-        {/* Feed Grid */}
-        {loading ? (
-          <SkeletonGrid count={4} height="h-64" />
-        ) : filteredPosts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {filteredPosts.map((post, idx) => (
-              <motion.article
-                key={post.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.05 }}
-                className="group relative bg-dark-card border border-white/10 rounded-3xl overflow-hidden hover:border-neon-purple/30 transition-all flex flex-col"
-              >
-                <div className="p-8 flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-4">
-                    <Badge variant="category" label={post.category} />
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Clock className="w-3 h-3" />
-                      {new Date(post.pub_date).toLocaleDateString()}
-                    </div>
-                  </div>
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
+              categoryFilter === "all" ? "bg-neon-cyan text-black" : "bg-white/5 text-gray-400"
+            }`}
+          >
+            Todas
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
+                categoryFilter === cat ? "bg-neon-cyan text-black" : "bg-white/5 text-gray-400"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
 
-                  <h3 className="text-xl font-bold mb-4 group-hover:text-neon-cyan transition-colors line-clamp-2">
-                    {post.title}
-                  </h3>
-
-                  <div className="text-gray-400 text-sm leading-relaxed mb-6 flex-1 prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown>{post.summary || "Processing..."}</ReactMarkdown>
-                  </div>
-
-                  <div className="pt-6 border-t border-white/5 mt-auto flex items-center justify-between">
-                    <div className="flex -space-x-2">
-                      {['en', 'es', 'fr', 'de'].map(lang => (
-                        <div key={lang} className="w-6 h-6 rounded-full border-2 border-dark-card bg-black/40 flex items-center justify-center text-[8px] font-bold text-gray-400 uppercase">
-                          {lang}
-                        </div>
-                      ))}
-                      <div className="w-6 h-6 rounded-full border-2 border-dark-card bg-neon-purple/20 flex items-center justify-center text-[8px] font-bold text-neon-purple">
-                        +7
+        {filteredPromises.length > 0 ? (
+          <div className="space-y-4">
+            {filteredPromises.map((promise, idx) => {
+              const status = getStatusConfig(promise.status);
+              return (
+                <motion.div
+                  key={promise.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  className="bg-dark-card border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <span className={`flex items-center gap-1.5 text-xs font-bold ${status.color}`}>
+                          {status.icon}
+                          {status.label}
+                        </span>
+                        {promise.category && (
+                          <span className="text-xs bg-white/10 text-gray-400 px-2 py-0.5 rounded">
+                            {promise.category}
+                          </span>
+                        )}
+                        <span className="text-gray-600 text-xs">
+                          {new Date(promise.created_at).toLocaleDateString('pt-BR')}
+                        </span>
                       </div>
+                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">
+                        {promise.promise_title}
+                      </h3>
+                      {promise.promise_description && (
+                        <p className="text-gray-400 text-sm line-clamp-2 mb-3 italic">
+                          "{promise.promise_description}"
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 text-sm flex-wrap">
+                        <span className="text-neon-cyan font-medium flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {promise.politician_name}
+                        </span>
+                        {promise.party && (
+                          <span className="text-gray-500">{promise.party}</span>
+                        )}
+                        {promise.state && (
+                          <span className="text-gray-600 text-xs">• {promise.state}</span>
+                        )}
+                      </div>
+                      {promise.evidence || promise.source_link ? (
+                          <>
+                            {(promise.source_link?.includes('tse.jus.br') || promise.source_link?.includes('divulgacand') || !promise.source_link) ? (
+                              <div className="inline-flex items-center gap-2 mt-3">
+                                <ExternalLink className="w-3 h-3 text-gray-500" />
+                                <span className="text-xs text-gray-500">Fonte: TSE (temporariamente indisponível)</span>
+                              </div>
+                            ) : (
+                              <a
+                                href={promise.source_link || promise.source_doc_url || ''}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-neon-cyan hover:underline mt-3"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Ver Fonte Oficial
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <div className="mt-3 flex items-center gap-2">
+                            <AlertCircle className="w-3 h-3 text-yellow-500" />
+                            <span className="text-xs text-yellow-500">Sem evidência cadastrada</span>
+                            <Link to="/reportar" className="text-xs text-neon-cyan hover:underline">
+                              Ajude a encontrar
+                            </Link>
+                          </div>
+                        )}
                     </div>
-                    
-                    <a 
-                      href={post.link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-xs font-bold text-neon-cyan hover:underline group-hover:gap-3 transition-all"
+                    <Link 
+                      to={`/politico/${encodeURIComponent(promise.politician_name)}`}
+                      className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-neon-cyan transition-colors"
                     >
-                      Read Source <ChevronRight className="w-3 h-3" />
-                    </a>
+                      Ver perfil <ChevronRight className="w-3 h-3" />
+                    </Link>
                   </div>
-                </div>
-              </motion.article>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         ) : (
-          <EmptyState
-            context="feed"
-            onAction={() => window.location.href = '/skills'}
-            ctaLabel="View available skills"
-          />
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">Nenhuma promessa encontrada.</p>
+            <p className="text-gray-600 text-sm mt-2">Comece acompanhando os políticos no Ranking.</p>
+            <Link to="/ranking" className="inline-block mt-4 px-6 py-3 bg-neon-purple text-white rounded-xl font-bold hover:opacity-90 transition-opacity">
+              Ver Ranking
+            </Link>
+          </div>
         )}
       </div>
     </div>

@@ -21,15 +21,14 @@ import { supabase } from "../lib/supabaseClient";
 
 interface PromiseData {
   id: string;
-  title: string;
-  description: string | null;
+  promise_title: string;
+  promise_description: string | null;
   category: string | null;
   status: string;
   evidence: string | null;
   source_link: string | null;
   fulfillment_score: number;
   created_at: string;
-  updated_at: string;
 }
 
 interface PoliticianData {
@@ -81,34 +80,44 @@ export default function PoliticianProfile() {
       
       const decoded = decodeURIComponent(nameOrId);
       
-      // Primeiro tenta buscar por politician_id (UUID)
-      const { data: promisesById, error: errorById } = await supabase
+      // Buscar promessas pelo nome do político (campo existente)
+      const { data: promises, error: promisesError } = await supabase
         .from('promises')
-        .select('*, politicians(name, party, state)')
-        .eq('politician_id', decoded)
+        .select('*')
+        .ilike('politician_name', `%${decoded}%`)
         .order('created_at', { ascending: false });
 
-      let promises = promisesById;
-      
-      // Se não encontrou por ID, busca pelo nome
-      if (!promises || promises.length === 0) {
-        const { data: promisesByName, error: errorByName } = await supabase
-          .from('promises')
-          .select('*, politicians(name, party, state)')
-          .ilike('politician_name', `%${decoded}%`)
-          .order('created_at', { ascending: false });
-          
-        promises = promisesByName;
-      }
-
-      if (errorById || !promises || promises.length === 0) {
+      if (promisesError || !promises || promises.length === 0) {
         setError("Político não encontrado");
         return;
       }
 
-      // Pegar dados do político (do primeiro registro)
-      const politicianData = promises[0].politicians || {};
-      const fullName = politicianData.name || promises[0].politician_name;
+      // Buscar dados do político na tabela politicians (tentar ambos os campos)
+      // Alguns politicos têm 'name', outros podem ter 'nome'
+      let { data: politicians } = await supabase
+        .from('politicians')
+        .select('name, party, state')
+        .ilike('name', `%${decoded}%`);
+
+      // Se não encontrou, tentar com 'nome'
+      if (!politicians || politicians.length === 0) {
+        const { data: politicians2 } = await supabase
+          .from('politicians')
+          .select('nome, partido, estado')
+          .ilike('nome', `%${decoded}%`);
+        if (politicians2 && politicians2.length > 0) {
+          // Mapear para formato consistente
+          politicians = politicians2.map(p => ({
+            name: p.nome,
+            party: p.partido,
+            state: p.estado
+          }));
+        }
+      }
+
+      // Pegar dados do político
+      const politicianData = politicians?.[0] || {};
+      const fullName = politicianData.name || promises[0].politician_name || decoded;
       
       const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 50 };
       
@@ -116,30 +125,30 @@ export default function PoliticianProfile() {
         const s = p.status?.toLowerCase() || '';
         if (s === 'fulfilled' || s === 'realizada' || s === 'cumprida') stats.fulfilled++;
         else if (s === 'partial' || s === 'partial_fulfilled' || s === 'em_andamento' || s === 'parcial') stats.partial++;
-        else if (s === 'broken' || s === 'not_fulfilled' || s === 'quebrada' || s === 'não cumprida') stats.broken++;
+        else if (s === 'broken' || s === 'not_fulfilled' || s === 'quebrada') stats.broken++;
         else stats.pending++;
       });
       
-      stats.percentage = stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50;
+      const totalWithPending = stats.fulfilled + stats.partial + stats.broken + stats.pending;
+      stats.percentage = totalWithPending > 0 ? Math.round((stats.fulfilled / totalWithPending) * 100) : 0;
 
       setPolitician({
         name: fullName,
         position: null,
-        party: politicianData.party || null,
-        state: politicianData.state || null,
+        party: politicianData.party || promises[0]?.party || null,
+        state: politicianData.state || promises[0]?.state || null,
         photo_url: null,
         stats,
-        promises: promises.map((p: any) => ({
+promises: promises.map((p: any) => ({
           id: p.id,
-          title: p.promise_title,
-          description: p.promise_description,
+          promise_title: p.promise_title || p.title || '',
+          promise_description: p.promise_description || p.description || null,
           category: p.category,
           status: p.status,
-          evidence: p.evidence,
-          source_link: p.source_link,
-          fulfillment_score: p.fulfillment_score,
-          created_at: p.created_at,
-          updated_at: p.updated_at
+          evidence: p.evidence || null,
+          source_link: p.source_link || p.source_doc_url || null,
+          fulfillment_score: p.fulfillment_score || 0,
+          created_at: p.created_at
         }))
       });
       setError(null);
@@ -323,7 +332,7 @@ export default function PoliticianProfile() {
           ) : (
             <div className="grid gap-6">
               {filteredPromises.map(promise => {
-                const config = statusConfig[promise.status] || statusConfig.pending;
+                const config = statusConfig[promise.status?.toLowerCase()] || statusConfig.pending;
                 const StatusIcon = config.icon;
                 
                 return (
@@ -343,10 +352,10 @@ export default function PoliticianProfile() {
                              {config.label}
                            </div>
                         </div>
-                        <h3 className="text-xl font-bold mb-3">{promise.title}</h3>
-                        {promise.description && (
+                        <h3 className="text-xl font-bold mb-3">{promise.promise_title}</h3>
+                        {promise.promise_description && (
                           <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                            {promise.description}
+                            {promise.promise_description}
                           </p>
                         )}
                         <div className="flex items-center gap-4 text-xs text-gray-500">

@@ -157,6 +157,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </button>
                 </div>
               </div>
+            ) : user ? (
+              <Link to="/admin">
+                <Button variant="primary" size="sm" className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white border-0 gap-2 h-10 px-5 text-sm font-bold shadow-lg shadow-neon-purple/20">
+                  Admin
+                </Button>
+              </Link>
             ) : (
               <Button variant="primary" size="sm" onClick={signInWithGoogle} className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white border-0 gap-2 h-10 px-5 text-sm font-bold shadow-lg shadow-neon-purple/20">
                 Começar Grátis

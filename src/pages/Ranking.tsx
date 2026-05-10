@@ -45,25 +45,30 @@ export default function Ranking() {
     try {
       setLoading(true);
       
-      // Buscar promessas com dados do político
+      // Buscar promessas - apenas campos que existem
       const { data: promises, error } = await supabase
         .from('promises')
-        .select('politician_id, politician_name, status, fulfillment_score, politicians(name, party, state)');
+        .select('id, politician_name, party, status, fulfillment_score');
 
       if (error) throw error;
+
+      // Buscar políticos para get party/state
+      const { data: politicians } = await supabase.from('politicians').select('id, name, party, state');
 
       const statsMap: Record<string, any> = {};
       
       (promises || []).forEach((p: any) => {
-        const politicianId = p.politician_id || p.politician_name;
+        const politicianKey = p.politician_name;
         
-        if (!statsMap[politicianId]) {
-          // Pegar nome completo da tabela politicians ou usar nome da promise
-          const fullName = p.politicians?.name || p.politician_name;
-          statsMap[politicianId] = { 
-            name: fullName,
-            party: p.politicians?.party || null,
-            state: p.politicians?.state || null,
+        // Find politician data
+        const polData = politicians?.find((pol: any) => pol.name === p.politician_name);
+        
+        if (!statsMap[politicianKey]) {
+          statsMap[politicianKey] = { 
+            name: polData?.name || p.politician_name,
+            party: polData?.party || p.party || null,
+            state: polData?.state || null,
+            cargo: 'Presidente',
             fulfilled: 0, 
             partial: 0, 
             broken: 0, 
@@ -71,37 +76,44 @@ export default function Ranking() {
           };
         }
         
-        statsMap[politicianId].total = (statsMap[politicianId].fulfilled + statsMap[politicianId].partial + statsMap[politicianId].broken + statsMap[politicianId].pending + 1);
+        statsMap[politicianKey].total = (statsMap[politicianKey].fulfilled || 0) + (statsMap[politicianKey].partial || 0) + (statsMap[politicianKey].broken || 0) + (statsMap[politicianKey].pending || 0);
         
-        // Suporta status em inglês E português
+        // suporta status novos em português
         const status = p.status?.toLowerCase() || '';
+        const hasScore = (p.fulfillment_score || 0) > 0;
         
-        if (status === 'fulfilled' || status === 'realizada' || status === 'cumprida') {
-          statsMap[politicianId].fulfilled++;
-        } else if (status === 'partial' || status === 'partial_fulfilled' || status === 'em_andamento' || status === 'parcial') {
-          statsMap[politicianId].partial++;
-        } else if (status === 'broken' || status === 'not_fulfilled' || status === 'quebrada' || status === 'não cumprida') {
-          statsMap[politicianId].broken++;
+        if ((status === 'cumprida') && hasScore) {
+          statsMap[politicianKey].fulfilled++;
+        } else if ((status === 'parcialmente_cumprida' || status === 'em_andamento') && hasScore) {
+          statsMap[politicianKey].partial++;
+        } else if ((status === 'descumprida' || status === 'quebrada') && hasScore) {
+          statsMap[politicianKey].broken++;
         } else {
-          statsMap[politicianId].pending++;
+          // pending, nao_classificada ou qualquer outro status = pendente
+          statsMap[politicianKey].pending++;
         }
       });
 
-      const rankingData = Object.values(statsMap).map((data: any) => ({
-        name: data.name,
-        role: null as string | null,
-        state: data.state,
-        party: data.party,
-        percentage: data.total > 0 ? Math.round((data.fulfilled + data.partial * 0.5) / data.total * 100) : 50,
-        stats: {
-          fulfilled: data.fulfilled,
-          partial: data.partial,
-          broken: data.broken,
-          pending: data.pending,
-          total: data.total
-        },
-        promise_count: data.fulfilled + data.partial + data.broken + data.pending
-      }));
+      const rankingData = Object.values(statsMap).map((data: any) => {
+        const approved = data.fulfilled + data.partial + data.broken;
+        const totalWithPending = approved + data.pending;
+        const percentage = totalWithPending > 0 ? Math.round((data.fulfilled / totalWithPending) * 100) : 0;
+        return {
+          name: data.name,
+          role: data.cargo,
+          state: data.state,
+          party: data.party,
+          percentage,
+          stats: {
+            fulfilled: data.fulfilled,
+            partial: data.partial,
+            broken: data.broken,
+            pending: data.pending,
+            total: totalWithPending
+          },
+          promise_count: approved + data.pending
+        };
+      });
 
       rankingData.sort((a, b) => b.percentage - a.percentage);
       setRanking(rankingData);
