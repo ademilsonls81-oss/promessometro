@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Github, Code } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -16,16 +16,15 @@ export default function Footer() {
           
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
             <Link to="/metodologia" className="hover:text-foreground transition-colors">Metodologia</Link>
+            <Link to="/transparencia" className="hover:text-foreground transition-colors">Transparência</Link>
+            <Link to="/auditoria" className="hover:text-foreground transition-colors">Auditoria</Link>
             <Link to="/fontes" className="hover:text-foreground transition-colors">Fontes</Link>
-            <Link to="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
-            <Link to="/quem-somos" className="hover:text-foreground transition-colors">Quem Somos</Link>
-            <Link to="/correcoes" className="hover:text-foreground transition-colors">Correções</Link>
-            <Link to="/privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
-            <Link to="/termos" className="hover:text-foreground transition-colors">Termos</Link>
+            <a href="/api/v1/docs" className="hover:text-foreground transition-colors flex items-center gap-1">API <Code className="w-3 h-3" /></a>
+            <a href="https://github.com/brunocosta/promessometro" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1">GitHub <Github className="w-3 h-3" /></a>
           </div>
           
           <p className="text-sm text-muted-foreground">
-            © 2026 — A transparência que o Brasil precisa
+            © 2026 — Dados abertos sob licença MIT
           </p>
         </div>
       </div>

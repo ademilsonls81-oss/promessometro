@@ -202,7 +202,7 @@ export default function PromiseEvaluation({ evaluation, loading, onRefresh, expa
               Avaliação com baixa confiança
             </p>
             <p className="text-yellow-400/70 text-sm mt-1">
-              {evaluation.motivo_confianca || "Poucos dados disponíveis para uma análise precisa."}
+              {evaluation.motivo_confianca || "Poucos dados disponíveis para uma análise confiável."}
             </p>
           </div>
         </div>

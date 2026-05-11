@@ -227,6 +227,13 @@ export default function PromiseDetail() {
             </div>
           </motion.div>
 
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-gray-300">
+              As avaliações são geradas por inteligência artificial e revisadas por humanos. Os dados, fontes e metodologia estão disponíveis nas páginas de <Link to="/metodologia" className="text-blue-400 hover:underline">Metodologia</Link> e <Link to="/transparencia" className="text-blue-400 hover:underline">Transparência</Link>.
+            </p>
+          </div>
+
           <div className="space-y-4 mb-8">
             <button
               onClick={() => setShowEvaluation(!showEvaluation)}

@@ -75,7 +75,7 @@ export default function Features() {
             className="text-3xl sm:text-4xl font-bold mb-4"
           >
             Tudo o que você precisa para{' '}
-            <span className="gradient-text">cobrar resultados</span>
+            <span className="gradient-text">acompanhar promessas</span>
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}

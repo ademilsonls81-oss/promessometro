@@ -72,7 +72,7 @@ export default function Correcoes() {
             <section>
               <h2 className="text-xl font-bold mb-4">Compromisso com a Verdade</h2>
               <p className="text-gray-400 leading-relaxed">
-                Levamos a sério qualquer correção. Nosso objetivo é fornecer informação precisa e verificável. Agradecemos a todos que nos ajudam a melhorar a qualidade dos dados. Toda correção é bem-vinda e creditada quando possível.
+                Levamos a sério qualquer correção. O objetivo é fornecer informação verificável. Agradecemos a todos que nos ajudam a melhorar a qualidade dos dados. Toda correção é bem-vinda e creditada quando possível.
               </p>
             </section>
 
