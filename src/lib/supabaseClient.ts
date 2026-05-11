@@ -1,13 +1,20 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_S_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_ANON_KEY || '';
+
+let supabase: SupabaseClient;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials missing. Please check your .env file.');
+  console.warn('Supabase credentials missing. Using fallback client.');
+  console.warn('VITE_S_URL:', supabaseUrl ? 'set' : 'missing');
+  console.warn('VITE_ANON_KEY:', supabaseAnonKey ? 'set' : 'missing');
+  supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
+} else {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export { supabase };
 
 export const signInWithGoogle = async () => {
   const { error } = await supabase.auth.signInWithOAuth({
