@@ -32,9 +32,15 @@ function generateSlug(text: string): string {
 
 export function useSEOMetadata(data: SEOPageData) {
   const location = useLocation();
-  const canonical = `${BASE_URL}${data.path}`;
+  // Always use the ACTUAL current path from the router — never a hardcoded one.
+  // This guarantees canonical / og:url reflect the real page URL.
+  const currentPath = location.pathname;
+  const canonical = `${BASE_URL}${currentPath}`;
   const ogImage = data.image || DEFAULT_IMAGE;
-  const fullTitle = `${data.title} | ${SITE_NAME}`;
+  // Build the full title; if the caller already appended the site name, don't duplicate it.
+  const fullTitle = data.title.includes(SITE_NAME)
+    ? data.title
+    : `${data.title} | ${SITE_NAME}`;
 
   useEffect(() => {
     const updateMeta = (name: string, content: string, property?: boolean) => {
@@ -50,20 +56,22 @@ export function useSEOMetadata(data: SEOPageData) {
 
     document.title = fullTitle;
     updateMeta("description", data.description);
-    updateMeta("og:title", data.title);
-    updateMeta("og:description", data.description);
-    updateMeta("og:url", canonical);
-    updateMeta("og:type", data.type || "website");
-    updateMeta("og:image", ogImage);
-    updateMeta("og:image:width", "1200");
-    updateMeta("og:image:height", "630");
-    updateMeta("og:site_name", SITE_NAME);
+    // og:title and twitter:title use the FULL title (with site name suffix)
+    updateMeta("og:title", fullTitle, true);
+    updateMeta("og:description", data.description, true);
+    // og:url / canonical always reflect the ACTUAL current URL
+    updateMeta("og:url", canonical, true);
+    updateMeta("og:type", data.type || "website", true);
+    updateMeta("og:image", ogImage, true);
+    updateMeta("og:image:width", "1200", true);
+    updateMeta("og:image:height", "630", true);
+    updateMeta("og:site_name", SITE_NAME, true);
     updateMeta("twitter:card", "summary_large_image");
-    updateMeta("twitter:title", data.title);
-    updateMeta("twitter:description", data.description);
-    updateMeta("twitter:image", ogImage);
+    updateMeta("twitter:title", fullTitle, true);
+    updateMeta("twitter:description", data.description, true);
+    updateMeta("twitter:image", ogImage, true);
     updateMeta("twitter:site", "@promessometro");
-    updateMeta("article:publisher", "https://promessometro-brasil.vercel.app");
+    updateMeta("article:publisher", "https://promessometro-brasil.vercel.app", true);
 
     if (data.noindex) {
       updateMeta("robots", "noindex, nofollow");
@@ -75,9 +83,9 @@ export function useSEOMetadata(data: SEOPageData) {
     if (data.publishedTime) updateMeta("article:published_time", data.publishedTime, true);
     if (data.modifiedTime) updateMeta("article:modified_time", data.modifiedTime, true);
 
-    let link = document.querySelector("link[rel='canonical']");
+    let link = document.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
     if (!link) {
-      link = document.createElement("link");
+      link = document.createElement("link") as HTMLLinkElement;
       link.setAttribute("rel", "canonical");
       document.head.appendChild(link);
     }
@@ -86,7 +94,8 @@ export function useSEOMetadata(data: SEOPageData) {
     return () => {
       document.title = SITE_NAME;
     };
-  }, [location.pathname, data]);
+  // Re-run whenever the actual URL path changes, or data changes
+  }, [location.pathname, JSON.stringify(data)]);
 }
 
 export function generatePoliticianSEO(politician: {
