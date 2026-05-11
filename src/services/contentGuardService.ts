@@ -6,7 +6,7 @@ interface Violation {
   severity: "low" | "medium" | "high" | "critical";
 }
 
-const BLOCKED_TERMS = [
+const BLOCKED_TERMS: Array<{pattern: RegExp; replacement: string; severity: "low" | "medium" | "high" | "critical"; type: string}> = [
   { pattern: /\b(fraude|fraudou|fraudador|fraudar)\b/gi, replacement: "sem evidência de cumprimento", severity: "high", type: "acusacao_crime" },
   { pattern: /\b(mentiu|mentira|mentir|enganou|enganar)\b/gi, replacement: "promessa não cumprida no prazo", severity: "high", type: "acusacao_moral" },
   { pattern: /\b(corrupto|corrupção|corrupta|corromper)\b/gi, replacement: "responde a investigação em andamento", severity: "high", type: "acusacao_crime" },
@@ -39,18 +39,18 @@ const IRONY_PATTERNS = [
   { pattern: /\babominação\b/gi, severity: "medium", type: "expressao_carregada" },
 ];
 
-const PARTISAN_PATTERNS = [
-  { pattern: /todo(s)?\s+(esquerdista|direitista)/gi, type: "generalizacao_partidaria" },
-  { pattern: /esquerda\s+(é|está|sempre)/gi, type: "generalizacao_partidaria" },
-  { pattern: /direita\s+(é|está|sempre)/gi, type: "generalizacao_partidaria" },
-  { pattern: /petista|ptista/gi, type: "ataque_partidario" },
-  { pattern: /bolsoronista|bolsominion/gi, type: "ataque_partidario" },
-  { pattern: /partid(o|ário)\s+(do|da)\s+.*?(roubou|é|foi)/gi, type: "generalizacao_partidaria" },
-  { pattern: /governo\s+(de\s+)?esquerda/gi, type: "ataque_ideologico" },
-  { pattern: /governo\s+(de\s+)?direita/gi, type: "ataque_ideologico" },
+const PARTISAN_PATTERNS: Array<{pattern: RegExp; type: string; severity: "low" | "medium" | "high" | "critical"}> = [
+  { pattern: /todo(s)?\s+(esquerdista|direitista)/gi, type: "generalizacao_partidaria", severity: "high" },
+  { pattern: /esquerda\s+(é|está|sempre)/gi, type: "generalizacao_partidaria", severity: "high" },
+  { pattern: /direita\s+(é|está|sempre)/gi, type: "generalizacao_partidaria", severity: "high" },
+  { pattern: /petista|ptista/gi, type: "ataque_partidario", severity: "high" },
+  { pattern: /bolsoronista|bolsominion/gi, type: "ataque_partidario", severity: "high" },
+  { pattern: /partid(o|ário)\s+(do|da)\s+.*?(roubou|é|foi)/gi, type: "generalizacao_partidaria", severity: "high" },
+  { pattern: /governo\s+(de\s+)?esquerda/gi, type: "ataque_ideologico", severity: "high" },
+  { pattern: /governo\s+(de\s+)?direita/gi, type: "ataque_ideologico", severity: "high" },
 ];
 
-const CRIME_CLAIMS = [
+const CRIME_CLAIMS: Array<{pattern: RegExp; severity: "low" | "medium" | "high" | "critical"; type: string}> = [
   { pattern: /\bcometeu\s+(crime|estelionato|peculato|corrupção passiva)\b/gi, severity: "critical", type: "acusacao_crime" },
   { pattern: /\bpraticou\s+(crime|irregularidade)\b/gi, severity: "high", type: "acusacao_crime" },
   { pattern: /\bcondenado\s+(por|por\s+crim)\b/gi, severity: "high", type: "acusacao_crime" },

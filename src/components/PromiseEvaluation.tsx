@@ -39,6 +39,7 @@ interface EvaluationDetail {
   modelo_ia?: string;
   gerado_em?: string;
   revisado_em?: string;
+  revisado_por?: string;
   tipo_promessa?: string;
 }
 
