@@ -113,6 +113,42 @@ O sistema garante:
 
 ---
 
+## Módulo: Arquitetura Aberta (CRÍTICO) ✅
+
+**Regra principal: NENHUMA ação exige login obrigatório.**
+
+**Proteções implementadas (sem autenticação):**
+
+*   [x] **Rate limiting por IP** — Limita requisições excessivas (100 req/min)
+*   [x] **Cooldown por ação** — Mesmo IP só pode contestar 1x por 24h
+*   [x] **Honeypot** — Campos ocultos em formulários para pegar bots
+*   [x] **Fingerprint do navegador** — Identifica dispositivo sem conta
+*   [x] **Validação de entrada** — Mínimo de caracteres, sanitização
+*   [x] **Login opcional incentivado** — `LoginBenefits.tsx` mostra benefícios sem bloquear
+
+**Componentes:**
+
+*   `src/services/abuseProtection.ts` — Sistema completo de proteção
+*   `src/components/LoginBenefits.tsx` — Mostra benefícios do login
+*   `ContestationModal.tsx` — Integrado com todas as proteções
+
+**O que funciona SEM login:**
+- Pesquisar políticos ✅
+- Ver rankings ✅
+- Ver promessas ✅
+- Ver evidências ✅
+- Compartilhar páginas ✅
+- Navegação completa ✅
+- Contestações ✅
+- Envio de evidências ✅
+
+**Tabelas mantidas nullable (sem user_id obrigatório):**
+- `promise_contestations` ✅
+- `community_submissions` ✅
+- `promise_reports` ✅
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

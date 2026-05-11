@@ -217,17 +217,21 @@ CREATE TABLE IF NOT EXISTS promise_contestations (
   email_contestante VARCHAR(255),
   motivo TEXT NOT NULL,
   evidencia_url TEXT,
+  fingerprint VARCHAR(255),
+  user_id UUID,
   status VARCHAR(50) DEFAULT 'pendente',
   resposta_editorial TEXT,
   criado_em TIMESTAMPTZ DEFAULT NOW(),
   atualizado_em TIMESTAMPTZ,
   respondido_em TIMESTAMPTZ,
-  CONSTRAINT contest_promise_id_fkey FOREIGN KEY (promise_id) REFERENCES promises(id) ON DELETE CASCADE
+  CONSTRAINT contest_promise_id_fkey FOREIGN KEY (promise_id) REFERENCES promises(id) ON DELETE CASCADE,
+  CONSTRAINT contest_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_contest_status ON promise_contestations(status);
 CREATE INDEX IF NOT EXISTS idx_contest_promise ON promise_contestations(promise_id);
 CREATE INDEX IF NOT EXISTS idx_contest_created ON promise_contestations(criado_em DESC);
+CREATE INDEX IF NOT EXISTS idx_contest_fingerprint ON promise_contestations(fingerprint);
 
 -- =============================================
 -- Row Level Security (RLS)
