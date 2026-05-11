@@ -58,15 +58,24 @@ interface PoliticianData {
 }
 
 const statusConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string; bg: string; border: string }> = {
+  cumprida: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
   fulfilled: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
+  realizada: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
+  parcialmente_cumprida: { label: "Parcial", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
   partial: { label: "Parcial", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
   partial_fulfilled: { label: "Parcial", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  em_andamento: { label: "Em Andamento", icon: AlertCircle, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+  in_progress: { label: "Em Andamento", icon: AlertCircle, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+  descumprida: { label: "Descumprida", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
   broken: { label: "Quebrada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
   not_fulfilled: { label: "Quebrada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+  quebrada: { label: "Quebrada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+  nao_iniciada: { label: "Não Iniciada", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/20" },
   pending: { label: "Pendente", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/20" },
   pending_analysis: { label: "Em Análise", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/20" },
   verified: { label: "Verificada", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
-  rejected: { label: "Rejeitada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" }
+  rejected: { label: "Rejeitada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+  nao_classificada: { label: "Não Classificada", icon: AlertTriangle, color: "text-gray-500", bg: "bg-gray-500/10", border: "border-gray-500/20" }
 };
 
 export default function PoliticianProfile() {
