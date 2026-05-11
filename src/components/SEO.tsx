@@ -5,13 +5,14 @@ interface SEOPageData {
   title: string;
   description: string;
   path: string;
-  type?: "website" | "article" | "profile";
+  type?: "website" | "article" | "profile" | "person";
   image?: string;
   noindex?: boolean;
   author?: string;
   publishedTime?: string;
   modifiedTime?: string;
   tags?: string[];
+  schemaOrg?: object;
 }
 
 interface SEOProps extends SEOPageData {}
@@ -56,10 +57,8 @@ export function useSEOMetadata(data: SEOPageData) {
 
     document.title = fullTitle;
     updateMeta("description", data.description);
-    // og:title and twitter:title use the FULL title (with site name suffix)
     updateMeta("og:title", fullTitle, true);
     updateMeta("og:description", data.description, true);
-    // og:url / canonical always reflect the ACTUAL current URL
     updateMeta("og:url", canonical, true);
     updateMeta("og:type", data.type || "website", true);
     updateMeta("og:image", ogImage, true);
@@ -91,10 +90,21 @@ export function useSEOMetadata(data: SEOPageData) {
     }
     link.setAttribute("href", canonical);
 
+    let existingSchema = document.querySelector("script[type='application/ld+json']");
+    if (existingSchema) existingSchema.remove();
+
+    if (data.schemaOrg) {
+      const script = document.createElement("script");
+      script.type = "application/ld+json";
+      script.textContent = JSON.stringify(data.schemaOrg);
+      document.head.appendChild(script);
+    }
+
     return () => {
       document.title = SITE_NAME;
+      const schema = document.querySelector("script[type='application/ld+json']");
+      if (schema) schema.remove();
     };
-  // Re-run whenever the actual URL path changes, or data changes
   }, [location.pathname, JSON.stringify(data)]);
 }
 
@@ -102,21 +112,115 @@ export function generatePoliticianSEO(politician: {
   name: string;
   party?: string | null;
   state?: string | null;
+  position?: string | null;
   photo_url?: string | null;
   stats?: { percentage: number; total: number };
 }): SEOPageData {
   const slug = generateSlug(politician.name);
   const title = `${politician.name} — ${politician.party || ""} | Promessômetro`;
-  const description = politician.stats 
+  const description = politician.stats
     ? `${politician.name} tem ${politician.stats.percentage}% de suas promessas cumpridas. Acompanhe o histórico completo de ${politician.stats.total} promessas rastreadas.`
     : `Acompanhe as promessas de ${politician.name} e veja o score de cumprimento.`;
+
+  const schemaOrg = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": `${BASE_URL}/politico/${slug}`,
+    name: politician.name,
+    jobTitle: politician.position || "Político",
+    party: politician.party || undefined,
+    address: politician.state ? { "@type": "Place", addressRegion: politician.state, addressCountry: "BR" } : undefined,
+    image: politician.photo_url || `${BASE_URL}/og-default.png`,
+    url: `${BASE_URL}/politico/${slug}`,
+    sameAs: [],
+    description: description,
+    aggregateRating: politician.stats ? {
+      "@type": "AggregateRating",
+      ratingValue: politician.stats.percentage,
+      bestRating: 100,
+      worstRating: 0,
+      ratingCount: politician.stats.total
+    } : undefined
+  };
 
   return {
     title,
     description,
     path: `/politico/${slug}`,
     type: "profile",
-    image: politician.photo_url || undefined
+    image: politician.photo_url || undefined,
+    schemaOrg
+  };
+}
+
+export function generatePromiseSEO(promise: {
+  title: string;
+  description?: string | null;
+  status: string;
+  fulfillment_score: number;
+  politician_name: string;
+  category?: string | null;
+  created_at?: string;
+  slug?: string;
+}): SEOPageData {
+  const baseSlug = generateSlug(promise.title);
+  const yearMatch = promise.title.match(/(?:de |em |para )?(\d{4})/);
+  const year = yearMatch ? yearMatch[1] : "";
+  const slug = `${baseSlug}-${generateSlug(promise.politician_name)}${year ? `-${year}` : ""}`;
+
+  const statusLabels: Record<string, string> = {
+    cumprida: "Cumprida",
+    parcialmente_cumprida: "Parcialmente Cumprida",
+    em_andamento: "Em Andamento",
+    nao_iniciada: "Não Iniciada",
+    descumprida: "Descumprida",
+    nao_classificada: "Não Classificada"
+  };
+
+  const statusText = statusLabels[promise.status] || promise.status;
+  const title = `${promise.title} — ${promise.politician_name} | Promessômetro`;
+  const description = `${promise.politician_name}: ${statusText} (${promise.fulfillment_score}/100). ${promise.description || "Acompanhe a avaliação completa desta promessa."}`;
+
+  const statusMap: Record<string, string> = {
+    cumprida: "Completed",
+    parcialmente_cumprida: "PartiallyCompleted",
+    em_andamento: "InProgress",
+    nao_iniciada: "NotStarted",
+    descumprida: "Failed",
+    nao_classificada: "NotClassified"
+  };
+
+  const schemaOrg = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: promise.title,
+    description: description,
+    startDate: promise.created_at || undefined,
+    organizer: {
+      "@type": "Person",
+      name: promise.politician_name,
+      url: `${BASE_URL}/politico/${generateSlug(promise.politician_name)}`
+    },
+    location: { "@type": "Place", name: "Brasil", addressCountry: "BR" },
+    url: `${BASE_URL}/promessa/${slug}`,
+    eventStatus: `https://schema.org/Event${statusMap[promise.status] || "NotClassified"}EventStatusType`,
+    eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: promise.fulfillment_score,
+      bestRating: 100,
+      worstRating: 0
+    }
+  };
+
+  return {
+    title,
+    description,
+    path: `/promessa/${slug}`,
+    type: "article",
+    publishedTime: promise.created_at,
+    tags: [promise.category, promise.status].filter(Boolean) as string[],
+    schemaOrg
   };
 }
 
@@ -171,7 +275,7 @@ export function generateOGImageUrl(politician: string, promise: string, score: n
 
 export { generateSlug };
 
-export default function SEO({ title, description, path, type, image, noindex, author, publishedTime, modifiedTime, tags }: SEOProps) {
-  useSEOMetadata({ title, description, path, type, image, noindex, author, publishedTime, modifiedTime, tags });
+export default function SEO({ title, description, path, type, image, noindex, author, publishedTime, modifiedTime, tags, schemaOrg }: SEOProps) {
+  useSEOMetadata({ title, description, path, type, image, noindex, author, publishedTime, modifiedTime, tags, schemaOrg });
   return null;
 }

@@ -17,7 +17,8 @@ import {
 import { Badge, Button } from "../components/ui";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";
-import SEO, { generateSlug } from "../components/SEO";
+import SEO, { generateSlug, generatePromiseSEO } from "../components/SEO";
+import { ShareButtons } from "../components/ShareButtons";
 import { supabase } from "../lib/supabaseClient";
 
 const statusConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string; bg: string }> = {
@@ -154,18 +155,17 @@ export default function PromiseDetail() {
   const StatusIcon = config.icon;
   const politicianSlug = generateSlug(promise.politician_name);
   const promiseSlug = generateSlug(promise.title);
-
-  const seoTitle = `${promise.title} — ${promise.politician_name} | Promessômetro`;
-  const seoDescription = `${promise.politician_name}: ${config.label} (${promise.fulfillment_score}/100). ${promise.description || "Acompanhe a avaliação completa."}`;
+  const seoData = generatePromiseSEO({ ...promise, slug: `${promiseSlug}-${politicianSlug}` });
 
   return (
     <>
       <SEO
-        title={seoTitle}
-        description={seoDescription}
-        path={`/promessa/${promiseSlug}`}
+        title={seoData.title}
+        description={seoData.description}
+        path={seoData.path}
         type="article"
-        publishedTime={promise.created_at}
+        publishedTime={seoData.publishedTime}
+        schemaOrg={seoData.schemaOrg}
       />
 
       <div className="min-h-screen py-12 px-4 bg-background">
@@ -207,6 +207,16 @@ export default function PromiseDetail() {
                 <Share2 className="w-4 h-4" />
                 Compartilhar
               </Button>
+              <ShareButtons
+                data={{
+                  title: promise.title,
+                  politician: promise.politician_name,
+                  status: promise.status,
+                  score: promise.fulfillment_score,
+                  url: window.location.href
+                }}
+                compact={true}
+              />
               {promise.source_link && (
                 <a href={promise.source_link} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 transition-colors">

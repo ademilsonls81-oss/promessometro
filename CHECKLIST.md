@@ -458,6 +458,60 @@ O sistema garante:
 
 ---
 
+## Módulo: Crescimento Viral ✅
+
+**SEO Forte:**
+
+- [x] JSON-LD Schema.org Person para políticos (`generatePoliticianSEO`)
+- [x] JSON-LD Schema.org Event para promessas (`generatePromiseSEO`)
+- [x] `og:url`, `og:title`, `og:description` únicos por página via `useSEOMetadata`
+- [x] Canonical URL automático em todas as páginas
+- [x] H1 único com nome do político / título da promessa
+- [x] Twitter Card `summary_large_image` configurado
+- [x] `robots` meta com `max-snippet:-1, max-image-preview:large`
+- [x] Sitemap.xml dinâmico (já existente)
+
+**URLs Únicas:**
+
+- [x] `/politico/{slug}` — slug lowercase, sem acentos, a partir do nome
+- [x] `/promessa/{slug}-{politicianSlug}-{year}` — inclui político e ano
+- [x] `generateSlug()` em SEO.tsx com NFD normalize
+- [x] `politicians` tabela com slug (existente)
+
+**Compartilhamento:**
+
+- [x] `ShareButtons.tsx` com `navigator.share` API (mobile native)
+- [x] WhatsApp, X (Twitter), Telegram, Facebook
+- [x] Copiar link com fallback textarea
+- [x] Texto pré-formatado: `"Político prometeu X — Status (Score/100). Promessômetro 👉 link"`
+- [x] Integrados em PromiseDetail e Ranking
+
+**OG Images:**
+
+- [x] `/api/og` retorna SVG dinâmico (1200x630)
+- [x] Mostra: político, promessa, status, score, badge de cor
+- [x] Branding Promessômetro
+- [x] Cache-Control: 24h
+
+**Ranking Visual:**
+
+- [x] Filtros: partido, score (alto/médio/baixo)
+- [x] Buscar por nome/partido/estado
+- [x] Badges coloridos: verde (70%+), amarelo (40-69%), vermelho (<40%)
+- [x] Barra de progresso colorida por performance
+- [x] Scroll infinito (20 por vez)
+- [x] Share do ranking
+
+**Performance Mobile:**
+
+- [x] Touch targets mínimo 48x48px em todos os botões
+- [x] Code splitting via Vite (react-vendor, motion, ui chunks)
+- [x] Lazy loading de componentes
+- [x] `font-display: swap` em fontes
+- [x] Preconnect para Supabase
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

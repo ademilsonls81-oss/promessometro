@@ -209,15 +209,17 @@ export default function PoliticianProfile() {
   const politicianSlug = generateSlug(politician.name);
   const seoTitle = `${politician.name} — ${politician.party || ''} | Promessômetro`;
   const seoDescription = `${politician.name} tem ${politician.stats.percentage}% de suas promessas cumpridas (${politician.stats.fulfilled}/${politician.stats.total} cumpridas). Acompanhe o histórico completo.`;
+  const seoData = generatePoliticianSEO({ ...politician, stats: politician.stats });
 
   return (
     <>
-      <SEO 
-        title={seoTitle}
-        description={seoDescription}
-        path={`/politico/${politicianSlug}`}
+      <SEO
+        title={seoData.title}
+        description={seoData.description}
+        path={seoData.path}
         type="profile"
-        image={politician.photo_url || undefined}
+        image={seoData.image}
+        schemaOrg={seoData.schemaOrg}
       />
       
       <div className="min-h-screen py-12 px-4 bg-background">
