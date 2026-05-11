@@ -512,6 +512,72 @@ O sistema garante:
 
 ---
 
+## Módulo: Escalabilidade Nacional ✅
+
+**Estrutura Multiestado:**
+
+- [x] Filtro por estado em todas as listagens via `state` parameter
+- [x] Página `/estado/:UF` listando políticos por UF
+- [x] `StatePage.tsx` com ranking filtrado por estado
+- [x] UF_NAMES mapeado para 27 estados + BR (federal)
+- [x] Suporte a `state = 'BR'` para políticos federais
+
+**Estrutura Multi-Eleição:**
+
+- [x] `ano_eleitoral` na tabela promises
+- [x] `election_year` coluna na tabela politicians
+- [x] Página `/eleicao/:year` com ranking por ciclo
+- [x] `ElectionPage.tsx` com stats por status, top politicians
+- [x] `getPoliticianHistory()` retorna histórico por eleição
+- [x] Comparação entre mandatos do mesmo político
+
+**Estrutura Multipolítico:**
+
+- [x] Cargo enum: presidente, governador, prefeito, senador, deputados
+- [x] Página `/comparar/:name1-vs-:name2` (ComparePage.tsx)
+- [x] Busca por nome + partido + cargo + estado em conjunto
+- [x] Suporte a 5.000+ políticos simultâneos
+
+**Versionamento Histórico:**
+
+- [x] `promise_audit_log` com histórico de alterações
+- [x] `status_history` existente
+- [x] `is_latest` em promise_explanations
+- [x] Snapshots semanais em Supabase Storage
+- [x] Histórico completo acessível sem login
+
+**APIs v1:**
+
+- [x] `GET /api/v1/politicians` — ranking com cursor pagination
+- [x] `GET /api/v1/politicians/compare?name1=&name2=` — comparação
+- [x] `GET /api/v1/politicians/history/:name` — histórico por eleição
+- [x] `GET /api/v1/promises` — lista com filtros
+- [x] `GET /api/v1/search?q=&state=&year=` — busca integrada
+- [x] `GET /api/v1/suggest?q=` — autocomplete
+- [x] `GET /api/v1/elections` — anos disponíveis
+- [x] `GET /api/v1/elections/:year` — dados por eleição
+- [x] `GET /api/v1/stats` — estatísticas gerais
+- [x] `GET /api/v1/docs` — documentação da API
+
+**Sistema Modular:**
+
+- [x] `rankingService.ts` — ranking isolado
+- [x] `searchService.ts` — busca isolada
+- [x] `electionService.ts` — eleição isolada
+- [x] `aiEvaluator.ts` — IA isolada
+- [x] `snapshotService.ts` — snapshots isolados
+- [x] Interfaces TypeScript em todos os serviços
+
+**Banco Preparado para Milhões:**
+
+- [x] Índices compostos: `(ano_eleitoral, status)`, `(state, status)`, `(state, position)`
+- [x] Full-text search GIN: `idx_promises_title_search`, `idx_politicians_name_search`
+- [x] Cursor-based pagination (sem OFFSET) em todos os listamentos
+- [x] Connection Pooling via Supabase (PgBouncer)
+- [x] Migration 024 com todos os índices
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

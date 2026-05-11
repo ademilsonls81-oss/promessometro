@@ -260,6 +260,10 @@ app.use("/api/evidences", (req, res, next) => {
   import("./src/routes/evidences.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/v1", (req, res, next) => {
+  import("./src/routes/v1.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api/scrape", (req, res, next) => {
   import("./src/routes/scraper.js").then(m => m.default(req, res, next)).catch(next);
 });
