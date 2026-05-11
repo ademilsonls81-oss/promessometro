@@ -78,10 +78,11 @@ export default function PoliticianProfile() {
   const [expandedTimelines, setExpandedTimelines] = useState<Record<string, boolean>>({});
   const [explanations, setExplanations] = useState<Record<string, any>>({});
   const [loadingExplanation, setLoadingExplanation] = useState<Record<string, boolean>>({});
-  const [contestationModal, setContestationModal] = useState<{ isOpen: boolean; promiseId: string; promiseTitle: string }>({
+  const [contestationModal, setContestationModal] = useState<{ isOpen: boolean; promiseId: string; promiseTitle: string; politicianName: string }>({
     isOpen: false,
     promiseId: "",
-    promiseTitle: ""
+    promiseTitle: "",
+    politicianName: ""
   });
   const [contestations, setContestations] = useState<Record<string, any[]>>({});
 
@@ -447,7 +448,8 @@ promises: promises.map((p: any) => ({
                             onClick={() => setContestationModal({
                               isOpen: true,
                               promiseId: promise.id,
-                              promiseTitle: promise.promise_title
+                              promiseTitle: promise.promise_title,
+                              politicianName: politician.name
                             })}
                             className="flex items-center gap-1 text-yellow-400 hover:text-white transition-colors bg-yellow-500/10 px-2 py-1 rounded"
                           >
@@ -515,9 +517,17 @@ promises: promises.map((p: any) => ({
           )}
         </div>
 
-        <ReportPromiseModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+        <ReportPromiseModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          politicianName={politician.name}
+        />
+
+        <ContestationModal
+          isOpen={contestationModal.isOpen}
+          onClose={() => setContestationModal({ ...contestationModal, isOpen: false })}
+          promiseId={contestationModal.promiseId}
+          promiseTitle={contestationModal.promiseTitle}
           politicianName={politician.name}
         />
       </div>
