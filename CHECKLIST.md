@@ -399,6 +399,65 @@ O sistema garante:
 
 ---
 
+## Módulo: Sistema de Avaliação IA ✅
+
+**AI Isolada (src/services/aiEvaluator.ts):**
+
+- [x] Service isolado — nenhuma lógica de negócio dentro
+- [x] IA recebe dados via parâmetros, retorna resultado estruturado
+- [x] Falha da IA não derruba o sistema — fallback com status nao_classificada
+- [x] Modelo: llama-3.3-70b-versatile
+
+**Registro de Análises (promise_explanations):**
+
+- [x] Campo `modelo_ia`, `gerado_em`, `confianca`, `criterio_aplicado` em cada registro
+- [x] `is_latest` flag — nunca sobrescreve análise anterior
+- [x] Marca anterior como `is_latest = false` ao criar novo registro
+- [x] Histórico completo acessível publicamente
+
+**Score de Confiança (0.0 - 1.0):**
+
+- [x] Escala: 0.0-0.39 (Baixa → revisão obrigatória), 0.4-0.69 (Média → aviso), 0.7-1.0 (Alta → publicar)
+- [x] Exibido visualmente na interface (PromiseEvaluation.tsx)
+- [x] Barra de confiança com cores (verde/amarelo/vermelho)
+
+**Validação Cruzada:**
+
+- [x] Tabela `trusted_sources` com 14 fontes confiáveis (G1, Folha, UOL, CNN, governo, etc.)
+- [x] Se 2+ fontes confiáveis confirmam → confianca sobe automaticamente
+- [x] Se fontes conflitam → confianca reduz para 0.15-0.45
+- [x] `evidencias_usadas` registra fontes consultadas (JSONB)
+
+**Detecção de Inconsistências:**
+
+- [x] `detectInconsistency()` compara nova avaliação com histórico
+- [x] Score muda >30 pontos sem nova evidência → sinaliza
+- [x] Regressão de status (cumprida→descumprida) sem evidência → bloqueia e exige revisão
+- [x] Registrado em bias_violation_log com severity='high'
+
+**Revisão Humana:**
+
+- [x] `needsHumanReview` para confianca < 0.4
+- [x] Rota `/api/ai-review` lista avaliações pendentes de revisão
+- [x] Admin pode: approve, reject, recalculate
+- [x] `revisado_por` e `revisado_em` registrados
+
+**Anti-Alucinação:**
+
+- [x] `validateUrls()` faz HEAD request antes de salvar URL
+- [x] URL inválida → removida e confianca reduzida
+- [x] Prompt com instrução explícita: "Nunca afirme fatos não verificáveis"
+- [x] Comparação AI vs fontes — se divergir muito → reavaliar
+
+**Estrutura de Resposta (JSON):**
+
+- [x] `status`, `fulfillment_score`, `criterio_aplicado`, `justificativa`
+- [x] `evidencias_usadas`, `o_que_falta`, `o_que_foi_feito`
+- [x] `confianca`, `motivo_confianca`
+- [x] Exibido completo em PromiseEvaluation.tsx sem login
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

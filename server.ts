@@ -115,6 +115,10 @@ app.use("/api/skills", (req, res, next) => {
   import("./src/routes/skills.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/ai-review", (req, res, next) => {
+  import("./src/routes/aiReview.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api/feeds", (req, res, next) => {
   import("./src/routes/feeds.js").then(m => m.default(req, res, next)).catch(next);
 });
