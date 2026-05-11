@@ -14,6 +14,9 @@ import Fontes from "./pages/Fontes";
 import Correcoes from "./pages/Correcoes";
 import QuemSomos from "./pages/QuemSomos";
 import ComoFunciona from "./pages/ComoFunciona";
+import ComparePage from "./pages/Compare";
+import ElectionPage from "./pages/ElectionPage";
+import StatePage from "./pages/StatePage";
 import SEO from "./components/SEO";
 
 function HomePage() {
@@ -199,6 +202,9 @@ function AppRoutes() {
       <Route path="/ranking" element={<ErrorBoundary context="Ranking"><RankingPage /></ErrorBoundary>} />
       <Route path="/politico/:id" element={<ErrorBoundary context="PoliticianProfile"><PoliticoPage /></ErrorBoundary>} />
       <Route path="/promessa/:slug" element={<ErrorBoundary context="PromiseDetail"><PromessaPage /></ErrorBoundary>} />
+      <Route path="/comparar/:names" element={<ErrorBoundary context="Compare"><ComparePage /></ErrorBoundary>} />
+      <Route path="/eleicao/:year" element={<ErrorBoundary context="Election"><ElectionPage /></ErrorBoundary>} />
+      <Route path="/estado/:uf" element={<ErrorBoundary context="State"><StatePage /></ErrorBoundary>} />
       <Route path="/metodologia" element={<ErrorBoundary context="Metodologia"><MetodologiaPage /></ErrorBoundary>} />
       <Route path="/privacidade" element={<ErrorBoundary context="Privacy"><PrivacidadePage /></ErrorBoundary>} />
       <Route path="/termos" element={<ErrorBoundary context="Terms"><TermosPage /></ErrorBoundary>} />
