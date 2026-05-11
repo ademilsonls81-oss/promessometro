@@ -149,6 +149,60 @@ O sistema garante:
 
 ---
 
+## Arquitetura Aberta — Foco em Viralização e SEO ✅
+
+**URLs amigáveis implementadas:**
+
+- [x] `/politico/nome-do-politico` (slugified)
+- [x] `/promessa/titulo-da-promessa` (slugified)
+- [x] `/politico/:id` (backwards compatible)
+- [x] `/promessa/:slug` (nova rota)
+
+**SEO e Open Graph:**
+
+- [x] Componente `SEO.tsx` com meta tags dinâmicas por página
+- [x] Open Graph tags: title, description, image, url, type
+- [x] Twitter Card tags: summary_large_image
+- [x] Canonical URLs únicos por página
+- [x] Schema.org JSON-LD para Organization
+
+**Imagens OG dinâmicas:**
+
+- [x] `og-default.svg` — imagem padrão do site
+- [x] `/api/og` — endpoint para gerar OG images dinâmicas com:
+  - Nome do político
+  - Título da promessa
+  - Score de cumprimento
+  - Status (cores diferentes)
+  - Branding Promessômetro
+
+**Sitemap.xml automático:**
+
+- [x] `/api/sitemap.xml` — gera sitemap dinâmico com:
+  - Rotas estáticas (prioridade alta)
+  - Todos os políticos (até 500)
+  - Todas as promessas (até 1000)
+  - Lastmod baseado em updated_at
+  - Prioridades e changefreq diferenciados
+
+**Performance e Core Web Vitals:**
+
+- [x] Code splitting com chunks: react-vendor, motion, ui
+- [x] Minificação com terser
+- [x] Preconnect para fontes e Supabase
+- [x] DNS prefetch para banco de dados
+- [x] CSS code splitting
+- [x] Lazy loading de componentes
+
+**Meta tags por página:**
+
+- [x] Landing, Promessas, Ranking
+- [x] Perfil de Político, Detalhe de Promessa
+- [x] Metodologia, Fontes, Quem Somos, etc.
+- [x] Noindex para 404
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

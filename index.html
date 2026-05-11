@@ -3,40 +3,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0B0E14" />
     
     <!-- Primary Meta Tags -->
-    <title>Promessômetro - A voz do povo tem poder</title>
-    <meta name="title" content="Promessômetro - A voz do povo tem poder" />
-    <meta name="description" content="Acompanhe, fiscalize e valide as promessas dos políticos brasileiros. O portal da transparência real com inteligência artificial." />
-    <meta name="keywords" content="política, promessas, brasil, transparência, fiscalização, ranking políticos, promessômetro" />
-    <meta name="robots" content="index, follow" />
+    <title>Promessômetro — Acompanhe as promessas dos políticos brasileiros</title>
+    <meta name="title" content="Promessômetro — Acompanhe as promessas dos políticos brasileiros" />
+    <meta name="description" content="Rastreie e valide o cumprimento das promessas feitas por políticos durante suas campanhas e mandatos. Transparência política para o Brasil." />
+    <meta name="keywords" content="política, promessas, brasil, transparência, fiscalização, ranking políticos, promessômetro, cumprimento promessa, político brasileiro" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <meta name="language" content="Portuguese" />
     <meta name="author" content="Promessômetro" />
+    <meta name="revisit-after" content="7 days" />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.promessometro.com.br/" />
-    <meta property="og:title" content="Promessômetro - Fiscalização Política" />
-    <meta property="og:description" content="Acompanhe o que os políticos prometem e o que realmente cumprem." />
+    <meta property="og:url" content="https://promessometro-brasil.vercel.app/" />
+    <meta property="og:title" content="Promessômetro — Acompanhe as promessas dos políticos brasileiros" />
+    <meta property="og:description" content="Rastreie e valide o cumprimento das promessas feitas por políticos durante suas campanhas e mandatos." />
+    <meta property="og:image" content="/og-default.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Promessômetro" />
+    <meta property="og:locale" content="pt_BR" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://www.promessometro.com.br/" />
-    <meta property="twitter:title" content="Promessômetro - Fiscalização Política" />
-    <meta property="twitter:description" content="Acompanhe o que os políticos prometem e o que realmente cumprem." />
+    <meta property="twitter:url" content="https://promessometro-brasil.vercel.app/" />
+    <meta property="twitter:title" content="Promessômetro — Acompanhe as promessas dos políticos brasileiros" />
+    <meta property="twitter:description" content="Rastreie e valide o cumprimento das promessas feitas por políticos." />
+    <meta property="twitter:image" content="/og-default.svg" />
+    <meta property="twitter:site" content="@promessometro" />
+    <meta property="twitter:creator" content="@promessometro" />
+    
+    <!-- Canonical URL (will be overwritten by SEO component) -->
+    <link rel="canonical" href="https://promessometro-brasil.vercel.app/" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/api/sitemap.xml" />
+    
+    <!-- Performance hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://liqutcjzzrqstivvfele.supabase.co" />
+    
     <!-- Plausible Analytics (Privacy-friendly, no cookies) -->
     <script defer data-domain="promessometro.com.br" src="https://plausible.io/js/script.js"></script>
+    
+    <!-- JSON-LD Structured Data for Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Promessômetro",
+      "url": "https://promessometro-brasil.vercel.app",
+      "description": "Plataforma de transparência política para rastrear e validar promessas de políticos brasileiros.",
+      "sameAs": [
+        "https://github.com/ademilsonls81-oss/promessometro"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Google Search Console Verification (placeholder) -->
-    <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE" /> -->
   </body>
 </html>
-

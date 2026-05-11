@@ -1,109 +1,214 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useParams } from "react-router-dom";
 import Layout from "./components/Layout";
 import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Admin from "./pages/Admin";
-import SystemDashboard from "./pages/SystemDashboard";
-import SystemErrors from "./pages/admin/SystemErrors";
-import AutoFixes from "./pages/admin/AutoFixes";
-import EvidenceValidation from "./pages/admin/EvidenceValidation";
-import NotFound from "./pages/NotFound";
-import Docs from "./pages/Docs";
 import PublicFeed from "./pages/PublicFeed";
-import Skills from "./pages/Skills";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import Status from "./pages/Status";
-import Valide from "./pages/Valide";
-import Engine from "./pages/Engine";
-import Backups from "./pages/admin/Backups";
-import AuditLogs from "./pages/admin/AuditLogs";
-import Blog from "./pages/Blog";
-import Changelog from "./pages/Changelog";
 import Ranking from "./pages/Ranking";
 import PoliticianProfile from "./pages/PoliticianProfile";
-import Mapa from "./pages/Mapa";
-import Reportar from "./pages/Reportar";
+import PromiseDetail from "./pages/PromiseDetail";
+import NotFound from "./pages/NotFound";
+import ErrorBoundary from "./components/ErrorBoundary";
+import Metodologia from "./pages/Metodologia";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import Fontes from "./pages/Fontes";
+import Correcoes from "./pages/Correcoes";
 import QuemSomos from "./pages/QuemSomos";
 import ComoFunciona from "./pages/ComoFunciona";
-import Metodologia from "./pages/Metodologia";
-import Correcoes from "./pages/Correcoes";
-import Fontes from "./pages/Fontes";
-import ErrorBoundary from "./components/ErrorBoundary";
+import SEO from "./components/SEO";
+
+function HomePage() {
+  return (
+    <>
+      <SEO 
+        title="Promessômetro — Acompanhe as promessas dos políticos brasileiros"
+        description="Rastreie e valide o cumprimento das promessas feitas por políticos durante suas campanhas e mandatos. Transparência política para o Brasil."
+        path="/"
+      />
+      <Landing />
+    </>
+  );
+}
+
+function PromessasPage() {
+  return (
+    <>
+      <SEO 
+        title="Todas as Promessas — Promessômetro"
+        description="Veja todas as promessas rastreadas de políticos brasileiros com status, evidências e score de cumprimento."
+        path="/promessas"
+      />
+      <PublicFeed />
+    </>
+  );
+}
+
+function RankingPage() {
+  return (
+    <>
+      <SEO 
+        title="Ranking de Políticos — Promessômetro"
+        description="Veja o ranking de políticos brasileiros baseado no cumprimento de suas promessas de campanha."
+        path="/ranking"
+      />
+      <Ranking />
+    </>
+  );
+}
+
+function PoliticoPage() {
+  const { id } = useParams();
+  return (
+    <>
+      <SEO 
+        title={`Político — Promessômetro`}
+        description="Acompanhe as promessas e score de cumprimento deste político."
+        path={`/politico/${id}`}
+        type="profile"
+      />
+      <PoliticianProfile />
+    </>
+  );
+}
+
+function PromessaPage() {
+  const { slug } = useParams();
+  return (
+    <>
+      <SEO 
+        title={`Promessa — Promessômetro`}
+        description="Detalhes e avaliação de uma promessa política."
+        path={`/promessa/${slug}`}
+        type="article"
+      />
+      <PromiseDetail />
+    </>
+  );
+}
+
+function MetodologiaPage() {
+  return (
+    <>
+      <SEO 
+        title="Metodologia — Promessômetro"
+        description="Entenda como avaliamos o cumprimento das promessas políticas."
+        path="/metodologia"
+      />
+      <Metodologia />
+    </>
+  );
+}
+
+function PrivacidadePage() {
+  return (
+    <>
+      <SEO 
+        title="Política de Privacidade — Promessômetro"
+        description="Conheça nossa política de privacidade e como protegemos seus dados."
+        path="/privacidade"
+      />
+      <Privacy />
+    </>
+  );
+}
+
+function TermosPage() {
+  return (
+    <>
+      <SEO 
+        title="Termos de Uso — Promessômetro"
+        description="Leia os termos de uso do Promessômetro."
+        path="/termos"
+      />
+      <Terms />
+    </>
+  );
+}
+
+function FontesPage() {
+  return (
+    <>
+      <SEO 
+        title="Fontes — Promessômetro"
+        description="Conheça as fontes de notícias e dados utilizadas pelo Promessômetro."
+        path="/fontes"
+      />
+      <Fontes />
+    </>
+  );
+}
+
+function CorrecoesPage() {
+  return (
+    <>
+      <SEO 
+        title="Correções — Promessômetro"
+        description="Solicite correções em nossas avaliações de promessas."
+        path="/correcoes"
+      />
+      <Correcoes />
+    </>
+  );
+}
+
+function QuemSomosPage() {
+  return (
+    <>
+      <SEO 
+        title="Quem Somos — Promessômetro"
+        description="Conheça o projeto Promessômetro e nossa missão de transparência política."
+        path="/quem-somos"
+      />
+      <QuemSomos />
+    </>
+  );
+}
+
+function ComoFuncionaPage() {
+  return (
+    <>
+      <SEO 
+        title="Como Funciona — Promessômetro"
+        description="Entenda como o Promessômetro funciona e como avaliamos as promessas políticas."
+        path="/como-funciona"
+      />
+      <ComoFunciona />
+    </>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <>
+      <SEO 
+        title="Página Não Encontrada — Promessômetro"
+        description="A página que você procura não foi encontrada."
+        path="/404"
+        noindex
+      />
+      <NotFound />
+    </>
+  );
+}
 
 function AppRoutes() {
   const location = useLocation();
   return (
     <Routes key={location.pathname}>
-            <Route path="/" element={
-              <ErrorBoundary context="Landing"><Landing /></ErrorBoundary>
-            } />
-            <Route path="/promessas" element={
-              <ErrorBoundary context="PublicFeed"><PublicFeed /></ErrorBoundary>
-            } />
-            <Route path="/ranking" element={
-              <ErrorBoundary context="Ranking"><Ranking /></ErrorBoundary>
-            } />
-            <Route path="/politico/:id" element={
-              <ErrorBoundary context="PoliticianProfile"><PoliticianProfile /></ErrorBoundary>
-            } />
-            <Route path="/mapa" element={
-              <ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>
-            } />
-            <Route path="/reportar" element={
-              <ErrorBoundary context="Reportar"><Reportar /></ErrorBoundary>
-            } />
-            <Route path="/dashboard" element={
-              <ErrorBoundary context="Dashboard"><Dashboard /></ErrorBoundary>
-            } />
-            <Route path="/admin" element={
-              <ErrorBoundary context="Admin"><Admin /></ErrorBoundary>
-            } />
-            <Route path="/admin/system" element={
-              <ErrorBoundary context="SystemDashboard"><SystemDashboard /></ErrorBoundary>
-            } />
-            <Route path="/admin/system-errors" element={
-              <ErrorBoundary context="SystemErrors"><SystemErrors /></ErrorBoundary>
-            } />
-            <Route path="/admin/auto-fixes" element={
-              <ErrorBoundary context="AutoFixes"><AutoFixes /></ErrorBoundary>
-            } />
-            <Route path="/admin/backups" element={
-              <ErrorBoundary context="Backups"><Backups /></ErrorBoundary>
-            } />
-            <Route path="/admin/audit-logs" element={
-              <ErrorBoundary context="AuditLogs"><AuditLogs /></ErrorBoundary>
-            } />
-            <Route path="/admin/evidences" element={
-              <ErrorBoundary context="EvidenceValidation"><EvidenceValidation /></ErrorBoundary>
-            } />
-            <Route path="/valide" element={
-              <ErrorBoundary context="Valide"><Valide /></ErrorBoundary>
-            } />
-             <Route path="/engine" element={
-               <ErrorBoundary context="Engine"><Engine /></ErrorBoundary>
-             } />
-             <Route path="/docs" element={<Docs />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/status" element={
-              <ErrorBoundary context="Status"><Status /></ErrorBoundary>
-            } />
-            <Route path="/blog" element={
-              <ErrorBoundary context="Blog"><Blog /></ErrorBoundary>
-            } />
-            <Route path="/changelog" element={
-              <ErrorBoundary context="Changelog"><Changelog /></ErrorBoundary>
-            } />
-            <Route path="/quem-somos" element={<QuemSomos />} />
-            <Route path="/como-funciona" element={<ComoFunciona />} />
-            <Route path="/metodologia" element={<Metodologia />} />
-            <Route path="/fontes" element={<Fontes />} />
-            <Route path="/correcoes" element={<Correcoes />} />
-            <Route path="*" element={
-              <ErrorBoundary context="NotFound"><NotFound /></ErrorBoundary>
-            } />
-          </Routes>
+      <Route path="/" element={<ErrorBoundary context="Landing"><HomePage /></ErrorBoundary>} />
+      <Route path="/promessas" element={<ErrorBoundary context="PublicFeed"><PromessasPage /></ErrorBoundary>} />
+      <Route path="/ranking" element={<ErrorBoundary context="Ranking"><RankingPage /></ErrorBoundary>} />
+      <Route path="/politico/:id" element={<ErrorBoundary context="PoliticianProfile"><PoliticoPage /></ErrorBoundary>} />
+      <Route path="/promessa/:slug" element={<ErrorBoundary context="PromiseDetail"><PromessaPage /></ErrorBoundary>} />
+      <Route path="/metodologia" element={<ErrorBoundary context="Metodologia"><MetodologiaPage /></ErrorBoundary>} />
+      <Route path="/privacidade" element={<ErrorBoundary context="Privacy"><PrivacidadePage /></ErrorBoundary>} />
+      <Route path="/termos" element={<ErrorBoundary context="Terms"><TermosPage /></ErrorBoundary>} />
+      <Route path="/fontes" element={<ErrorBoundary context="Fontes"><FontesPage /></ErrorBoundary>} />
+      <Route path="/correcoes" element={<ErrorBoundary context="Correcoes"><CorrecoesPage /></ErrorBoundary>} />
+      <Route path="/quem-somos" element={<ErrorBoundary context="QuemSomos"><QuemSomosPage /></ErrorBoundary>} />
+      <Route path="/como-funciona" element={<ErrorBoundary context="ComoFunciona"><ComoFuncionaPage /></ErrorBoundary>} />
+      <Route path="/404" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
+      <Route path="*" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
+    </Routes>
   );
 }
 
