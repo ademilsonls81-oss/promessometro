@@ -208,7 +208,7 @@ export default function PoliticianProfile() {
 
   const politicianSlug = generateSlug(politician.name);
   const seoTitle = `${politician.name} — ${politician.party || ''} | Promessômetro`;
-  const seoDescription = `${politician.name} tem ${politician.stats.percentage}% de suas promessas cumpridas (${stats.fulfilled}/${politician.stats.total} cumpridas). Acompanhe o histórico completo.`;
+  const seoDescription = `${politician.name} tem ${politician.stats.percentage}% de suas promessas cumpridas (${politician.stats.fulfilled}/${politician.stats.total} cumpridas). Acompanhe o histórico completo.`;
 
   return (
     <>
