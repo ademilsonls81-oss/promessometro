@@ -176,6 +176,22 @@ CREATE TABLE IF NOT EXISTS promise_reports (
 
 CREATE INDEX IF NOT EXISTS idx_reports_status ON promise_reports(status);
 
+-- Tabela de log de violações de viés e proteções
+CREATE TABLE IF NOT EXISTS bias_violation_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  promise_id UUID REFERENCES promises(id) ON DELETE SET NULL,
+  campo VARCHAR(100) NOT NULL,
+  texto_original TEXT,
+  texto_sanitizado TEXT,
+  violacoes JSONB DEFAULT '[]',
+  gravidade VARCHAR(20) DEFAULT 'low',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bias_log_promise ON bias_violation_log(promise_id);
+CREATE INDEX IF NOT EXISTS idx_bias_log_gravidade ON bias_violation_log(gravidade);
+CREATE INDEX IF NOT EXISTS idx_bias_log_created ON bias_violation_log(created_at DESC);
+
 -- =============================================
 -- Row Level Security (RLS)
 -- =============================================
@@ -205,6 +221,10 @@ CREATE POLICY "explanations_insert" ON promise_explanations FOR INSERT WITH CHEC
 -- Reports: inserção pública, leitura para auth
 CREATE POLICY "reports_insert" ON promise_reports FOR INSERT WITH CHECK (true);
 CREATE POLICY "reports_view" ON promise_reports FOR SELECT USING (true);
+
+-- Bias violation log: inserção pelo sistema, leitura para auth
+CREATE POLICY "bias_log_insert" ON bias_violation_log FOR INSERT WITH CHECK (true);
+CREATE POLICY "bias_log_view" ON bias_violation_log FOR SELECT USING (true);
 
 -- =============================================
 -- Functions e Triggers

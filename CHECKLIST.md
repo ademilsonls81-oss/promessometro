@@ -58,6 +58,33 @@ Para cada avaliação, o sistema exibe obrigatoriamente:
 
 ---
 
+## Módulo: Proteção Contra Viés (CRÍTICO) ✅
+
+O sistema garante:
+
+*   [x] **Isonomia partidária** — Mesmo critério aplicado a todos os partidos, sem exceção
+*   [x] **Isonomia individual** — Mesmo peso para todos os políticos, independente de cargo ou relevância
+*   [x] **Linguagem neutra** — Sem adjetivos carregados, tom jornalístico objetivo
+*   [x] **Sem ataques pessoais** — Avaliações focadas em atos públicos, nunca na pessoa
+*   [x] **Presunção de inocência** — Jamais acusar crimes sem decisão judicial transitada em julgado
+*   [x] **Sem ironia política** — Proibido uso de sarcasmo ou recursos retóricos
+*   [x] **Sem editorialização** — O sistema apresenta os fatos, não opiniões sobre resultados
+
+**Implementação:**
+
+*   `src/services/contentGuardService.ts` — Sistema completo com:
+    *   `BLOCKED_TERMS` — Termos bloqueados com substituição automática
+    *   `IRONY_PATTERNS` — Padrões de ironia/sarcasmo detectados
+    *   `PARTISAN_PATTERNS` — Generalizações partidárias bloqueadas
+    *   `CRIME_CLAIMS` — Afirmações de crime sem decisão judicial
+    *   `checkBias()` — Verifica texto e retorna violações
+    *   `sanitizeText()` — Remove/substitui termos proibidos
+    *   `getProtectionReport()` — Gera relatório de conformidade
+*   Tabela `bias_violation_log` para auditoria de violações
+*   RLS policies para segurança
+
+---
+
 ## URLs dos Serviços
 
 | Serviço | URL |
