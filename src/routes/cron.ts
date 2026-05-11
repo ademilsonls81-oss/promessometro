@@ -30,7 +30,7 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
     const { data: promises } = await supabase
       .from("promises")
       .select("id, status, updated_at")
-      .in("status", ["em_andamento", "parcialmente"])
+      .in("status", ["em_andamento", "parcialmente_cumprida"])
       .gt("updated_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .limit(50);
 

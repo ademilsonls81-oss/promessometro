@@ -128,7 +128,11 @@ export function generatePoliticianSEO(politician: {
     "@id": `${BASE_URL}/politico/${slug}`,
     name: politician.name,
     jobTitle: politician.position || "Político",
-    party: politician.party || undefined,
+    // 'affiliation' is the correct schema.org property for party/organization
+    affiliation: politician.party ? {
+      "@type": "Organization",
+      name: politician.party
+    } : undefined,
     address: politician.state ? { "@type": "Place", addressRegion: politician.state, addressCountry: "BR" } : undefined,
     image: politician.photo_url || `${BASE_URL}/og-default.png`,
     url: `${BASE_URL}/politico/${slug}`,
@@ -164,9 +168,8 @@ export function generatePromiseSEO(promise: {
   slug?: string;
 }): SEOPageData {
   const baseSlug = generateSlug(promise.title);
-  const yearMatch = promise.title.match(/(?:de |em |para )?(\d{4})/);
-  const year = yearMatch ? yearMatch[1] : "";
-  const slug = `${baseSlug}-${generateSlug(promise.politician_name)}${year ? `-${year}` : ""}`;
+  // Slug MUST match generateSlug(title) used in PromiseDetail.tsx for lookups
+  const slug = baseSlug;
 
   const statusLabels: Record<string, string> = {
     cumprida: "Cumprida",

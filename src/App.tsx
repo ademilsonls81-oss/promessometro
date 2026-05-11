@@ -17,6 +17,9 @@ import ComoFunciona from "./pages/ComoFunciona";
 import ComparePage from "./pages/Compare";
 import ElectionPage from "./pages/ElectionPage";
 import StatePage from "./pages/StatePage";
+import Reportar from "./pages/Reportar";
+import Mapa from "./pages/Mapa";
+import Dashboard from "./pages/Dashboard";
 import SEO from "./components/SEO";
 
 function HomePage() {
@@ -58,34 +61,15 @@ function RankingPage() {
   );
 }
 
+// PoliticoPage: SEO dinâmico é gerenciado DENTRO do PoliticianProfile (com dados reais).
+// Não renderizamos SEO aqui para evitar dupla renderização com dados genéricos.
 function PoliticoPage() {
-  const { id } = useParams();
-  return (
-    <>
-      <SEO 
-        title={`Político — Promessômetro`}
-        description="Acompanhe as promessas e score de cumprimento deste político."
-        path={`/politico/${id}`}
-        type="profile"
-      />
-      <PoliticianProfile />
-    </>
-  );
+  return <PoliticianProfile />;
 }
 
+// PromessaPage: idem — SEO gerenciado dentro do PromiseDetail.
 function PromessaPage() {
-  const { slug } = useParams();
-  return (
-    <>
-      <SEO 
-        title={`Promessa — Promessômetro`}
-        description="Detalhes e avaliação de uma promessa política."
-        path={`/promessa/${slug}`}
-        type="article"
-      />
-      <PromiseDetail />
-    </>
-  );
+  return <PromiseDetail />;
 }
 
 function MetodologiaPage() {
@@ -212,6 +196,10 @@ function AppRoutes() {
       <Route path="/correcoes" element={<ErrorBoundary context="Correcoes"><CorrecoesPage /></ErrorBoundary>} />
       <Route path="/quem-somos" element={<ErrorBoundary context="QuemSomos"><QuemSomosPage /></ErrorBoundary>} />
       <Route path="/como-funciona" element={<ErrorBoundary context="ComoFunciona"><ComoFuncionaPage /></ErrorBoundary>} />
+      {/* Rotas que existiam como links mas faltavam aqui */}
+      <Route path="/reportar" element={<ErrorBoundary context="Reportar"><Reportar /></ErrorBoundary>} />
+      <Route path="/mapa" element={<ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>} />
+      <Route path="/dashboard" element={<ErrorBoundary context="Dashboard"><Dashboard /></ErrorBoundary>} />
       <Route path="/404" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
       <Route path="*" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
     </Routes>

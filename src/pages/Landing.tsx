@@ -1,17 +1,11 @@
-import React, { useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import React from "react";
 import Hero from "@/components/landing/Hero";
 import Features from "@/components/landing/Features";
 import Pricing from "@/components/landing/Pricing";
 
 export default function Landing() {
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (user) {
-      window.location.href = "/dashboard";
-    }
-  }, [user]);
+  // Plataforma pública: sem redirecionamento obrigatório (checklist item 10)
+  // Usuário logado enxerga a home normalmente; acesso admin é pelo menu
 
   return (
     <div className="min-h-screen bg-background">
