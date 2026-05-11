@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui";
 import { ArrowRight, Sparkles, Shield, Zap, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import TerminalWidget from './TerminalWidget';
 
 export default function Hero() {
   return (
@@ -106,46 +107,15 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        {/* Terminal — 3 bolinhas coloridas */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.5 }}
-          className="mt-16 lg:mt-24 max-w-3xl mx-auto"
-        >
-          <div className="rounded-xl border border-border/50 bg-card/50 glass overflow-hidden glow">
-            {/* Barra do terminal com 3 bolinhas */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-secondary/30">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
-              </div>
-              <span className="text-xs text-muted-foreground font-mono ml-2">terminal</span>
-            </div>
-
-            {/* Conteúdo do terminal */}
-            <div className="p-4 font-mono text-sm space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-chart-3">$</span>
-                <span className="text-muted-foreground">promessometro status</span>
-                <span className="text-primary font-bold">ricardo-nunes</span>
-              </div>
-              <div className="text-muted-foreground/70 mt-2">
-                <span className="text-chart-3">✓</span> Analisando 150 notícias recentes...
-              </div>
-              <div className="text-muted-foreground/70">
-                <span className="text-chart-3">✓</span> Promessa "Zerar déficit" detectada como QUEBRADA.
-              </div>
-              <div className="text-muted-foreground/70">
-                <span className="text-chart-3">✓</span> Evidência encontrada no Diário Oficial.
-              </div>
-              <div className="mt-2 text-red-400 font-semibold">
-                ⚠️ Ranking atualizado: -15 pontos.
-              </div>
-            </div>
-          </div>
-        </motion.div>
+{/* Terminal com dados reais */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+            className="mt-16 lg:mt-24 max-w-3xl mx-auto"
+          >
+            <TerminalWidget />
+          </motion.div>
       </div>
     </section>
   );
