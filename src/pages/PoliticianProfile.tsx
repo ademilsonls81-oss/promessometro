@@ -24,9 +24,8 @@ import ReportPromiseModal from "../components/ReportPromiseModal";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";
 import ContestationModal from "../components/ContestationModal";
-import SEO from "../components/SEO";
+import SEO, { generateSlug, generatePoliticianSEO } from "../components/SEO";
 import { supabase } from "../lib/supabaseClient";
-import { generateSlug } from "../components/SEO";
 
 interface PromiseData {
   id: string;
