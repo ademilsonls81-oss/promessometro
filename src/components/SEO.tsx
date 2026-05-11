@@ -224,39 +224,6 @@ export function generatePromiseSEO(promise: {
   };
 }
 
-export function generatePromiseSEO(promise: {
-  title: string;
-  description?: string | null;
-  status: string;
-  fulfillment_score: number;
-  politician_name: string;
-  category?: string | null;
-  created_at?: string;
-}): SEOPageData {
-  const slug = generateSlug(promise.title);
-  const statusLabels: Record<string, string> = {
-    cumprida: "Cumprida",
-    parcialmente_cumprida: "Parcialmente Cumprida",
-    em_andamento: "Em Andamento",
-    nao_iniciada: "Não Iniciada",
-    descumprida: "Descumprida",
-    nao_classificada: "Não Classificada"
-  };
-  
-  const statusText = statusLabels[promise.status] || promise.status;
-  const title = `${promise.title} — ${promise.politician_name} | Promessômetro`;
-  const description = `${promise.politician_name}: ${statusText} (${promise.fulfillment_score}/100). ${promise.description || "Acompanhe a avaliação completa desta promessa."}`;
-  
-  return {
-    title,
-    description,
-    path: `/promessa/${slug}`,
-    type: "article",
-    publishedTime: promise.created_at,
-    tags: [promise.category, promise.status].filter(Boolean) as string[]
-  };
-}
-
 export function generateOGImageUrl(politician: string, promise: string, score: number, status: string): string {
   const statusColor = status === "cumprida" ? "22c55e" : 
                       status === "descumprida" ? "ef4444" : 
