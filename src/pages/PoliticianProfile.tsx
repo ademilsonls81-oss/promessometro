@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft, 
   MapPin, 
@@ -13,10 +13,15 @@ import {
   Clock,
   Share2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Info
 } from "lucide-react";
 import { Badge, Button } from "../components/ui";
 import ReportPromiseModal from "../components/ReportPromiseModal";
+import PromiseEvaluation from "../components/PromiseEvaluation";
+import ContestationModal from "../components/ContestationModal";
 import { supabase } from "../lib/supabaseClient";
 
 interface PromiseData {
@@ -67,6 +72,15 @@ export default function PoliticianProfile() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [expandedPromises, setExpandedPromises] = useState<Record<string, boolean>>({});
+  const [explanations, setExplanations] = useState<Record<string, any>>({});
+  const [loadingExplanation, setLoadingExplanation] = useState<Record<string, boolean>>({});
+  const [contestationModal, setContestationModal] = useState<{ isOpen: boolean; promiseId: string; promiseTitle: string }>({
+    isOpen: false,
+    promiseId: "",
+    promiseTitle: ""
+  });
+  const [contestations, setContestations] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     if (id) {
@@ -351,6 +365,11 @@ promises: promises.map((p: any) => ({
                              <StatusIcon className="w-3.5 h-3.5" />
                              {config.label}
                            </div>
+                           {promise.fulfillment_score > 0 && (
+                             <span className="text-xs font-bold text-gray-500">
+                               {promise.fulfillment_score}/100
+                             </span>
+                           )}
                         </div>
                         <h3 className="text-xl font-bold mb-3">{promise.promise_title}</h3>
                         {promise.promise_description && (
@@ -358,7 +377,7 @@ promises: promises.map((p: any) => ({
                             {promise.promise_description}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" /> 
                             {new Date(promise.created_at).toLocaleDateString("pt-BR")}
@@ -373,7 +392,89 @@ promises: promises.map((p: any) => ({
                               <ExternalLink className="w-3 h-3" /> Ver Evidência
                             </a>
                           )}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const newExpanded = { ...expandedPromises };
+                              newExpanded[promise.id] = !newExpanded[promise.id];
+                              setExpandedPromises(newExpanded);
+                              
+                              if (newExpanded[promise.id] && !explanations[promise.id]) {
+                                setLoadingExplanation({ ...loadingExplanation, [promise.id]: true });
+                                try {
+                                  const { data } = await supabase
+                                    .from("promise_explanations")
+                                    .select("*")
+                                    .eq("promise_id", promise.id)
+                                    .order("gerado_em", { ascending: false })
+                                    .limit(1)
+                                    .single();
+                                  setExplanations({ ...explanations, [promise.id]: data });
+                                } catch (err) {
+                                  console.error("Error loading explanation:", err);
+                                } finally {
+                                  setLoadingExplanation({ ...loadingExplanation, [promise.id]: false });
+                                }
+                              }
+                              
+                              if (newExpanded[promise.id] && !contestations[promise.id]) {
+                                try {
+                                  const { data } = await supabase
+                                    .from("promise_contestations")
+                                    .select("*")
+                                    .eq("promise_id", promise.id)
+                                    .eq("status", "aceita")
+                                    .order("criado_em", { ascending: false });
+                                  setContestations({ ...contestations, [promise.id]: data || [] });
+                                } catch (err) {
+                                  console.error("Error loading contestations:", err);
+                                }
+                              }
+                            }}
+                            className="flex items-center gap-1 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-2 py-1 rounded"
+                          >
+                            {expandedPromises[promise.id] ? (
+                              <>Ver menos <ChevronUp className="w-3 h-3" /></>
+                            ) : (
+                              <>Ver detalhes <Info className="w-3 h-3" /></>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setContestationModal({
+                              isOpen: true,
+                              promiseId: promise.id,
+                              promiseTitle: promise.promise_title
+                            })}
+                            className="flex items-center gap-1 text-yellow-400 hover:text-white transition-colors bg-yellow-500/10 px-2 py-1 rounded"
+                          >
+                            <AlertTriangle className="w-3 h-3" /> Contestar
+                          </button>
                         </div>
+                        
+                        <AnimatePresence>
+                          {expandedPromises[promise.id] && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="mt-4 overflow-hidden"
+                            >
+                              {loadingExplanation[promise.id] ? (
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Carregando avaliação detalhada...
+                                </div>
+                              ) : explanations[promise.id] ? (
+                                <PromiseEvaluation evaluation={explanations[promise.id]} />
+                              ) : (
+                                <div className="text-gray-500 text-sm">
+                                  Nenhuma avaliação detalhada disponível.
+                                </div>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>

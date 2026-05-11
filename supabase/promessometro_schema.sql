@@ -119,7 +119,42 @@ CREATE TABLE IF NOT EXISTS promise_evidences (
 
 CREATE INDEX IF NOT EXISTS idx_evidences_promise ON promise_evidences(promise_id);
 
--- Tabela de submissions (relatórios de usuários)
+-- Tabela de explicações de promessas (avaliações detalhadas)
+CREATE TABLE IF NOT EXISTS promise_explanations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  promise_id UUID REFERENCES promises(id) ON DELETE CASCADE,
+  
+  -- Resultado da avaliação
+  status promise_status NOT NULL,
+  fulfillment_score INTEGER NOT NULL DEFAULT 0,
+  criterio_aplicado TEXT,
+  justificativa TEXT,
+  tipo_promessa VARCHAR(50),
+  
+  -- Detalhamento
+  evidencias_usadas JSONB DEFAULT '[]',
+  o_que_foi_feito TEXT,
+  o_que_falta TEXT,
+  
+  -- Confiança da IA
+  confianca DECIMAL(3,2) DEFAULT 0.5,
+  motivo_confianca TEXT,
+  
+  -- Metadata
+  modelo_ia VARCHAR(100),
+  gerado_em TIMESTAMPTZ DEFAULT NOW(),
+  revisado_em TIMESTAMPTZ,
+  revisado_por VARCHAR(255),
+  is_latest BOOLEAN DEFAULT true,
+  
+  CONSTRAINT valid_confianca CHECK (confianca >= 0 AND confianca <= 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_explanations_promise ON promise_explanations(promise_id);
+CREATE INDEX IF NOT EXISTS idx_explanations_latest ON promise_explanations(promise_id, is_latest) WHERE is_latest = true;
+CREATE INDEX IF NOT EXISTS idx_explanations_gerado ON promise_explanations(gerado_em DESC);
+
+-- Tabela de submissões (relatórios de usuários)
 CREATE TABLE IF NOT EXISTS promise_reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome_reportante VARCHAR(255),
@@ -149,6 +184,7 @@ ALTER TABLE promises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE politicians ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promise_evidences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promise_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promise_explanations ENABLE ROW LEVEL SECURITY;
 
 -- Promises: leitura pública, escrita para auth
 CREATE POLICY "promises_view" ON promises FOR SELECT USING (true);
@@ -161,6 +197,10 @@ CREATE POLICY "politicians_view" ON politicians FOR SELECT USING (true);
 -- Evidence: leitura pública
 CREATE POLICY "evidence_view" ON promise_evidences FOR SELECT USING (true);
 CREATE POLICY "evidence_insert" ON promise_evidences FOR INSERT WITH CHECK (true);
+
+-- Explanations: leitura pública
+CREATE POLICY "explanations_view" ON promise_explanations FOR SELECT USING (true);
+CREATE POLICY "explanations_insert" ON promise_explanations FOR INSERT WITH CHECK (true);
 
 -- Reports: inserção pública, leitura para auth
 CREATE POLICY "reports_insert" ON promise_reports FOR INSERT WITH CHECK (true);

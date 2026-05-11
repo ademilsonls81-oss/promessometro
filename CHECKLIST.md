@@ -35,30 +35,26 @@
 
 ---
 
-## Promessas e Scraper ✅
+## Avaliação Detalhada de Promessas ✅
 
-*   **API de Promessas:**
-    *   [x] POST /api/promises/submit - Submeter promessa
-    *   [x] GET /api/promises - Listar promessas
-    *   [x] GET /api/promises/:id - Detalhar promessa
-    *   [x] PATCH /api/promises/:id/status - Atualizar status
+Para cada avaliação, o sistema exibe obrigatoriamente:
 
-*   **Scraper de Notícias:**
-    *   [x] POST /api/scraper/scrape - Iniciar scraping
-    *   [x] POST /api/scraper/analyze - Analisar com IA
-    *   [x] Fontes: G1, UOL, Folha, Estadão, CNN Brasil, Terra
-    *   [x] Análise de IA com Groq
+*   [x] **Motivo do score** — Por que aquela nota foi atribuída (campo: `justificativa`)
+*   [x] **Evidências utilizadas** — O que embasou a análise (campo: `evidencias_usadas`)
+*   [x] **Fontes consultadas** — De onde vieram os dados (extraído de evidências)
+*   [x] **O que foi concluído** — Resultado da avaliação (campo: `o_que_foi_feito`)
+*   [x] **O que ainda falta** — Lacunas ou pontos incompletos (campo: `o_que_falta`)
+*   [x] **Grau de confiança da IA** — O quão certa a IA está (campo: `confianca`)
+*   [x] **Última atualização** — Quando aquela avaliação foi gerada/revisada (campos: `gerado_em`, `revisado_em`)
 
-*   **Banco de Dados:**
-    *   [x] Tabela promises
-    *   [x] Tabela politicians
-    *   [x] Tabela promise_evidences
-    *   [x] Tabela promise_reports
-    *   [x] RLS policies configuradas
-    *   [x] Índices para performance
-
-*   **Schema SQL:**
-    *   [x] supabase/promessometro_schema.sql
+**Componentes:**
+*   [x] `PromiseEvaluation.tsx` - Componente React com todas as seções obrigatórias
+*   [x] Tabela `promise_explanations` no schema SQL com campos:
+    *   `status`, `fulfillment_score`, `criterio_aplicado`, `justificativa`
+    *   `evidencias_usadas` (JSONB), `o_que_foi_feito`, `o_que_falta`
+    *   `confianca`, `motivo_confianca`, `modelo_ia`, `gerado_em`, `revisado_em`
+*   [x] RLS policies para leitura pública de explicações
+*   [x] Integrado ao `PoliticianProfile.tsx` substituindo `PromiseExplanation`
 
 ---
 
