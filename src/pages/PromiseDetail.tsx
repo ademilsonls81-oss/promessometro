@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useParams } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   ChevronLeft, 
@@ -17,8 +17,8 @@ import {
 import { Badge, Button } from "../components/ui";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";
+import SEO, { generateSlug } from "../components/SEO";
 import { supabase } from "../lib/supabaseClient";
-import { generateSlug } from "../components/SEO";
 
 const statusConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string; bg: string }> = {
   cumprida: { label: "Cumprida", icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10" },
@@ -109,9 +109,7 @@ export default function PromiseDetail() {
         .order("gerado_em", { ascending: false })
         .limit(1)
         .single()
-        .then(({ data }) => {
-          setExplanation(data);
-        })
+        .then(({ data }) => setExplanation(data))
         .catch(console.error)
         .finally(() => setLoadingExplanation(false));
     }
@@ -120,7 +118,6 @@ export default function PromiseDetail() {
   const handleShare = async () => {
     const url = window.location.href;
     const text = `${promise?.title} - ${statusConfig[promise?.status || ""]?.label || promise?.status} (${promise?.fulfillment_score}/100)`;
-    
     if (navigator.share) {
       await navigator.share({ title: text, url });
     } else {
@@ -156,141 +153,123 @@ export default function PromiseDetail() {
   const config = statusConfig[promise.status] || statusConfig.nao_classificada;
   const StatusIcon = config.icon;
   const politicianSlug = generateSlug(promise.politician_name);
+  const promiseSlug = generateSlug(promise.title);
+
+  const seoTitle = `${promise.title} — ${promise.politician_name} | Promessômetro`;
+  const seoDescription = `${promise.politician_name}: ${config.label} (${promise.fulfillment_score}/100). ${promise.description || "Acompanhe a avaliação completa."}`;
 
   return (
-    <div className="min-h-screen py-12 px-4 bg-background">
-      <div className="container max-w-4xl">
-        <Link to="/promessas" className="inline-flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors">
-          <ChevronLeft className="w-4 h-4" />
-          Voltar para Promessas
-        </Link>
+    <>
+      <SEO
+        title={seoTitle}
+        description={seoDescription}
+        path={`/promessa/${promiseSlug}`}
+        type="article"
+        publishedTime={promise.created_at}
+      />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-dark-card border border-white/5 rounded-3xl p-8 mb-8"
-        >
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            {promise.category && <Badge variant="category">{promise.category}</Badge>}
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${config.bg} ${config.color}`}>
-              <StatusIcon className="w-3.5 h-3.5" />
-              {config.label}
-            </div>
-            {promise.fulfillment_score > 0 && (
-              <span className="text-sm font-bold text-white">
-                {promise.fulfillment_score}/100
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-3xl font-bold mb-4">{promise.title}</h1>
-
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            <Link 
-to={`/politico/${encodeURIComponent(politicianSlug)}`}
-              className="text-lg text-neon-cyan hover:underline"
-            >
-              {promise.politician_name}
-            </Link>
-            {promise.party && (
-              <span className="text-gray-500">
-                {promise.party} {promise.state && `/ ${promise.state}`}
-              </span>
-            )}
-          </div>
-
-          {promise.description && (
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              {promise.description}
-            </p>
-          )}
-
-          <div className="flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={handleShare} className="gap-2">
-              <Share2 className="w-4 h-4" />
-              Compartilhar
-            </Button>
-            {promise.source_link && (
-              <a
-                href={promise.source_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Ver Fonte
-              </a>
-            )}
-          </div>
-        </motion.div>
-
-        <div className="space-y-4 mb-8">
-          <button
-            onClick={() => setShowEvaluation(!showEvaluation)}
-            className="w-full flex items-center justify-between p-4 bg-dark-card border border-white/10 rounded-xl hover:border-white/20 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Info className="w-5 h-5 text-neon-cyan" />
-              <span className="font-bold">Ver Avaliação Detalhada</span>
-            </div>
-            <span className="text-gray-500 text-sm">
-              {showEvaluation ? "Ocultar" : "Expandir"}
-            </span>
-          </button>
-
-          {showEvaluation && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              {loadingExplanation ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-neon-purple" />
-                </div>
-              ) : explanation ? (
-                <PromiseEvaluation evaluation={explanation} />
-              ) : (
-                <div className="bg-dark-card border border-white/10 rounded-xl p-6 text-center">
-                  <p className="text-gray-500">Esta promessa ainda não foi avaliada.</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          <button
-            onClick={() => setShowTimeline(!showTimeline)}
-            className="w-full flex items-center justify-between p-4 bg-dark-card border border-white/10 rounded-xl hover:border-white/20 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <History className="w-5 h-5 text-blue-400" />
-              <span className="font-bold">Histórico de Alterações</span>
-            </div>
-            <span className="text-gray-500 text-sm">
-              {showTimeline ? "Ocultar" : "Expandir"}
-            </span>
-          </button>
-
-          {showTimeline && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <PromiseTimeline promiseId={promise.id} expanded />
-            </motion.div>
-          )}
-        </div>
-
-        <div className="text-center">
-          <Link 
-            to={`/politico/${encodeURIComponent(politicianSlug)}`}
-            className="inline-flex items-center gap-2 text-neon-cyan hover:underline"
-          >
-            Ver todas as promessas de {promise.politician_name}
+      <div className="min-h-screen py-12 px-4 bg-background">
+        <div className="container max-w-4xl">
+          <Link to="/promessas" className="inline-flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Voltar para Promessas
           </Link>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-dark-card border border-white/5 rounded-3xl p-8 mb-8"
+          >
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              {promise.category && <Badge variant="category">{promise.category}</Badge>}
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${config.bg} ${config.color}`}>
+                <StatusIcon className="w-3.5 h-3.5" />
+                {config.label}
+              </div>
+              {promise.fulfillment_score > 0 && (
+                <span className="text-sm font-bold text-white">{promise.fulfillment_score}/100</span>
+              )}
+            </div>
+
+            <h1 className="text-3xl font-bold mb-4">{promise.title}</h1>
+
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <Link to={`/politico/${encodeURIComponent(politicianSlug)}`} className="text-lg text-neon-cyan hover:underline">
+                {promise.politician_name}
+              </Link>
+              {promise.party && <span className="text-gray-500">{promise.party} {promise.state && `/ ${promise.state}`}</span>}
+            </div>
+
+            {promise.description && <p className="text-gray-400 mb-6 leading-relaxed">{promise.description}</p>}
+
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" onClick={handleShare} className="gap-2">
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </Button>
+              {promise.source_link && (
+                <a href={promise.source_link} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 transition-colors">
+                  <ExternalLink className="w-4 h-4" />
+                  Ver Fonte
+                </a>
+              )}
+            </div>
+          </motion.div>
+
+          <div className="space-y-4 mb-8">
+            <button
+              onClick={() => setShowEvaluation(!showEvaluation)}
+              className="w-full flex items-center justify-between p-4 bg-dark-card border border-white/10 rounded-xl hover:border-white/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Info className="w-5 h-5 text-neon-cyan" />
+                <span className="font-bold">Ver Avaliação Detalhada</span>
+              </div>
+              <span className="text-gray-500 text-sm">{showEvaluation ? "Ocultar" : "Expandir"}</span>
+            </button>
+
+            {showEvaluation && (
+              <div>
+                {loadingExplanation ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-neon-purple" />
+                  </div>
+                ) : explanation ? (
+                  <PromiseEvaluation evaluation={explanation} />
+                ) : (
+                  <div className="bg-dark-card border border-white/10 rounded-xl p-6 text-center">
+                    <p className="text-gray-500">Esta promessa ainda não foi avaliada.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowTimeline(!showTimeline)}
+              className="w-full flex items-center justify-between p-4 bg-dark-card border border-white/10 rounded-xl hover:border-white/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <History className="w-5 h-5 text-blue-400" />
+                <span className="font-bold">Histórico de Alterações</span>
+              </div>
+              <span className="text-gray-500 text-sm">{showTimeline ? "Ocultar" : "Expandir"}</span>
+            </button>
+
+            {showTimeline && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                <PromiseTimeline promiseId={promise.id} expanded />
+              </motion.div>
+            )}
+          </div>
+
+          <div className="text-center">
+            <Link to={`/politico/${encodeURIComponent(politicianSlug)}`} className="inline-flex items-center gap-2 text-neon-cyan hover:underline">
+              Ver todas as promessas de {promise.politician_name}
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

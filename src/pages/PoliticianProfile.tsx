@@ -24,7 +24,9 @@ import ReportPromiseModal from "../components/ReportPromiseModal";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";
 import ContestationModal from "../components/ContestationModal";
+import SEO from "../components/SEO";
 import { supabase } from "../lib/supabaseClient";
+import { generateSlug } from "../components/SEO";
 
 interface PromiseData {
   id: string;
@@ -98,7 +100,6 @@ export default function PoliticianProfile() {
       
       const decoded = decodeURIComponent(nameOrId);
       
-      // Buscar promessas pelo nome do político (campo existente)
       const { data: promises, error: promisesError } = await supabase
         .from('promises')
         .select('*')
@@ -110,21 +111,17 @@ export default function PoliticianProfile() {
         return;
       }
 
-      // Buscar dados do político na tabela politicians (tentar ambos os campos)
-      // Alguns politicos têm 'name', outros podem ter 'nome'
       let { data: politicians } = await supabase
         .from('politicians')
         .select('name, party, state')
         .ilike('name', `%${decoded}%`);
 
-      // Se não encontrou, tentar com 'nome'
       if (!politicians || politicians.length === 0) {
         const { data: politicians2 } = await supabase
           .from('politicians')
           .select('nome, partido, estado')
           .ilike('nome', `%${decoded}%`);
         if (politicians2 && politicians2.length > 0) {
-          // Mapear para formato consistente
           politicians = politicians2.map(p => ({
             name: p.nome,
             party: p.partido,
@@ -133,9 +130,9 @@ export default function PoliticianProfile() {
         }
       }
 
-      // Pegar dados do político
       const politicianData = politicians?.[0] || {};
       const fullName = politicianData.name || promises[0].politician_name || decoded;
+      const slug = generateSlug(fullName);
       
       const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 50 };
       
@@ -157,7 +154,7 @@ export default function PoliticianProfile() {
         state: politicianData.state || promises[0]?.state || null,
         photo_url: null,
         stats,
-promises: promises.map((p: any) => ({
+        promises: promises.map((p: any) => ({
           id: p.id,
           promise_title: p.promise_title || p.title || '',
           promise_description: p.promise_description || p.description || null,
@@ -209,328 +206,342 @@ promises: promises.map((p: any) => ({
 
   const initials = politician.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
+  const politicianSlug = generateSlug(politician.name);
+  const seoTitle = `${politician.name} — ${politician.party || ''} | Promessômetro`;
+  const seoDescription = `${politician.name} tem ${politician.stats.percentage}% de suas promessas cumpridas (${stats.fulfilled}/${politician.stats.total} cumpridas). Acompanhe o histórico completo.`;
+
   return (
-    <div className="min-h-screen py-12 px-4 bg-background">
-      <div className="container max-w-5xl">
-        <Link to="/ranking" className="inline-flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors">
-          <ChevronLeft className="w-4 h-4" />
-          Voltar para o Ranking
-        </Link>
+    <>
+      <SEO 
+        title={seoTitle}
+        description={seoDescription}
+        path={`/politico/${politicianSlug}`}
+        type="profile"
+        image={politician.photo_url || undefined}
+      />
+      
+      <div className="min-h-screen py-12 px-4 bg-background">
+        <div className="container max-w-5xl">
+          <Link to="/ranking" className="inline-flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+            Voltar para o Ranking
+          </Link>
 
-        <div className="bg-dark-card border border-white/5 rounded-3xl p-8 mb-12 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-neon-purple/5 blur-[80px] -z-10" />
-          
-          <div className="flex flex-col md:flex-row gap-8 items-start">
-            <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-neon-purple to-neon-cyan flex items-center justify-center border border-white/10 overflow-hidden shrink-0 shadow-2xl">
-               {politician.photo_url ? (
-                 <img src={politician.photo_url} alt={politician.name} className="w-full h-full object-cover" />
-               ) : (
-                 <span className="text-4xl font-bold text-white/50">{initials}</span>
-               )}
-            </div>
+          <div className="bg-dark-card border border-white/5 rounded-3xl p-8 mb-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-neon-purple/5 blur-[80px] -z-10" />
             
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                <h1 className="text-3xl md:text-4xl font-display font-bold">{politician.name}</h1>
-                {politician.promises.length > 0 && <Badge variant="pro">Verificado</Badge>}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6 mb-6">
-                {politician.position && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Briefcase className="w-4 h-4" />
-                    <span>{politician.position}</span>
-                  </div>
-                )}
-                {politician.state && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <MapPin className="w-4 h-4" />
-                    <span>{politician.state}</span>
-                  </div>
-                )}
-                {politician.party && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Users className="w-4 h-4" />
-                    <span>Partido: {politician.party}</span>
-                  </div>
+            <div className="flex flex-col md:flex-row gap-8 items-start">
+              <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-neon-purple to-neon-cyan flex items-center justify-center border border-white/10 overflow-hidden shrink-0 shadow-2xl">
+                {politician.photo_url ? (
+                  <img src={politician.photo_url} alt={politician.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-4xl font-bold text-white/50">{initials}</span>
                 )}
               </div>
               
-              <p className="text-gray-400 mb-8 leading-relaxed max-w-2xl">
-                {politician.promises.length > 0 
-                  ? `Político monitorado com ${politician.stats.total} promessas rastreadas.`
-                  : "Nenhuma promessa registrada ainda."}
-              </p>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <h1 className="text-3xl md:text-4xl font-display font-bold">{politician.name}</h1>
+                  {politician.promises.length > 0 && <Badge variant="pro">Verificado</Badge>}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6 mb-6">
+                  {politician.position && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Briefcase className="w-4 h-4" />
+                      <span>{politician.position}</span>
+                    </div>
+                  )}
+                  {politician.state && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <MapPin className="w-4 h-4" />
+                      <span>{politician.state}</span>
+                    </div>
+                  )}
+                  {politician.party && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Users className="w-4 h-4" />
+                      <span>Partido: {politician.party}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-gray-400 mb-8 leading-relaxed max-w-2xl">
+                  {politician.promises.length > 0 
+                    ? `Político monitorado com ${politician.stats.total} promessas rastreadas.`
+                    : "Nenhuma promessa registrada ainda."}
+                </p>
 
-              <div className="flex flex-wrap gap-4">
-                <Button variant="primary" className="gap-2">
-                  <Share2 className="w-4 h-4" /> Compartilhar Perfil
-                </Button>
-                <Button variant="secondary" className="gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Reportar Erro
-                </Button>
+                <div className="flex flex-wrap gap-4">
+                  <Button variant="primary" className="gap-2">
+                    <Share2 className="w-4 h-4" /> Compartilhar Perfil
+                  </Button>
+                  <Button variant="secondary" className="gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Reportar Erro
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            <div className="w-full md:w-auto p-6 bg-black/40 border border-white/5 rounded-2xl text-center">
-              <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Índice de Confiança</div>
-              <div className="text-5xl font-display font-bold text-neon-cyan mb-2">{politician.stats.percentage}%</div>
-              <div className="h-2 w-32 bg-white/5 rounded-full overflow-hidden mx-auto">
-                 <div className="h-full bg-neon-cyan" style={{ width: `${politician.stats.percentage}%` }} />
+              <div className="w-full md:w-auto p-6 bg-black/40 border border-white/5 rounded-2xl text-center">
+                <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Índice de Confiança</div>
+                <div className="text-5xl font-display font-bold text-neon-cyan mb-2">{politician.stats.percentage}%</div>
+                <div className="h-2 w-32 bg-white/5 rounded-full overflow-hidden mx-auto">
+                  <div className="h-full bg-neon-cyan" style={{ width: `${politician.stats.percentage}%` }} />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <button 
-            onClick={() => setFilter(filter === "fulfilled" ? "all" : "fulfilled")}
-            className={`p-4 border rounded-2xl transition-all text-left ${
-              filter === "fulfilled" ? "border-green-500/20 bg-green-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
-            }`}
-          >
-            <CheckCircle2 className="w-5 h-5 mb-2 text-green-400" />
-            <div className="text-2xl font-bold">{politician.stats.fulfilled}</div>
-            <div className="text-gray-500 text-xs uppercase font-bold">Cumpridas</div>
-          </button>
-          
-          <button 
-            onClick={() => setFilter(filter === "partial" ? "all" : "partial")}
-            className={`p-4 border rounded-2xl transition-all text-left ${
-              filter === "partial" ? "border-yellow-500/20 bg-yellow-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
-            }`}
-          >
-            <AlertCircle className="w-5 h-5 mb-2 text-yellow-400" />
-            <div className="text-2xl font-bold">{politician.stats.partial}</div>
-            <div className="text-gray-500 text-xs uppercase font-bold">Parciais</div>
-          </button>
-          
-          <button 
-            onClick={() => setFilter(filter === "broken" ? "all" : "broken")}
-            className={`p-4 border rounded-2xl transition-all text-left ${
-              filter === "broken" ? "border-red-500/20 bg-red-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
-            }`}
-          >
-            <XCircle className="w-5 h-5 mb-2 text-red-400" />
-            <div className="text-2xl font-bold">{politician.stats.broken}</div>
-            <div className="text-gray-500 text-xs uppercase font-bold">Quebradas</div>
-          </button>
-          
-          <button 
-            onClick={() => setFilter(filter === "pending" ? "all" : "pending")}
-            className={`p-4 border rounded-2xl transition-all text-left ${
-              filter === "pending" ? "border-gray-500/20 bg-gray-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
-            }`}
-          >
-            <Clock className="w-5 h-5 mb-2 text-gray-400" />
-            <div className="text-2xl font-bold">{politician.stats.pending}</div>
-            <div className="text-gray-500 text-xs uppercase font-bold">Pendentes</div>
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Promessas de Campanha ({politician.promises.length})</h2>
-            <Button variant="primary" size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
-              <AlertCircle className="w-4 h-4" /> Sugerir Atualização
-            </Button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            <button 
+              onClick={() => setFilter(filter === "fulfilled" ? "all" : "fulfilled")}
+              className={`p-4 border rounded-2xl transition-all text-left ${
+                filter === "fulfilled" ? "border-green-500/20 bg-green-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
+              }`}
+            >
+              <CheckCircle2 className="w-5 h-5 mb-2 text-green-400" />
+              <div className="text-2xl font-bold">{politician.stats.fulfilled}</div>
+              <div className="text-gray-500 text-xs uppercase font-bold">Cumpridas</div>
+            </button>
+            
+            <button 
+              onClick={() => setFilter(filter === "partial" ? "all" : "partial")}
+              className={`p-4 border rounded-2xl transition-all text-left ${
+                filter === "partial" ? "border-yellow-500/20 bg-yellow-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
+              }`}
+            >
+              <AlertCircle className="w-5 h-5 mb-2 text-yellow-400" />
+              <div className="text-2xl font-bold">{politician.stats.partial}</div>
+              <div className="text-gray-500 text-xs uppercase font-bold">Parciais</div>
+            </button>
+            
+            <button 
+              onClick={() => setFilter(filter === "broken" ? "all" : "broken")}
+              className={`p-4 border rounded-2xl transition-all text-left ${
+                filter === "broken" ? "border-red-500/20 bg-red-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
+              }`}
+            >
+              <XCircle className="w-5 h-5 mb-2 text-red-400" />
+              <div className="text-2xl font-bold">{politician.stats.broken}</div>
+              <div className="text-gray-500 text-xs uppercase font-bold">Quebradas</div>
+            </button>
+            
+            <button 
+              onClick={() => setFilter(filter === "pending" ? "all" : "pending")}
+              className={`p-4 border rounded-2xl transition-all text-left ${
+                filter === "pending" ? "border-gray-500/20 bg-gray-500/10" : "border-white/5 bg-dark-card hover:bg-white/5"
+              }`}
+            >
+              <Clock className="w-5 h-5 mb-2 text-gray-400" />
+              <div className="text-2xl font-bold">{politician.stats.pending}</div>
+              <div className="text-gray-500 text-xs uppercase font-bold">Pendentes</div>
+            </button>
           </div>
 
-          {politician.promises.length === 0 ? (
-            <div className="text-center py-12 bg-dark-card border border-white/5 rounded-3xl">
-              <p className="text-gray-500 text-lg mb-4">Nenhuma promessa encontrada para este político.</p>
-              <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-                Reportar Primeira Promessa
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Promessas de Campanha ({politician.promises.length})</h2>
+              <Button variant="primary" size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
+                <AlertCircle className="w-4 h-4" /> Sugerir Atualização
               </Button>
             </div>
-          ) : filteredPromises.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhuma promessa com este filtro.</p>
-            </div>
-          ) : (
-            <div className="grid gap-6">
-              {filteredPromises.map(promise => {
-                const config = statusConfig[promise.status?.toLowerCase()] || statusConfig.pending;
-                const StatusIcon = config.icon;
-                
-                return (
-                  <motion.div
-                    key={promise.id}
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-dark-card border border-white/5 rounded-3xl p-6 md:p-8 hover:border-white/10 transition-all"
-                  >
-                    <div className="flex flex-col md:flex-row gap-6">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-3 mb-4">
-                           {promise.category && <Badge variant="category">{promise.category}</Badge>}
-                           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${config.bg} ${config.color}`}>
-                             <StatusIcon className="w-3.5 h-3.5" />
-                             {config.label}
-                           </div>
-                           {promise.fulfillment_score > 0 && (
-                             <span className="text-xs font-bold text-gray-500">
-                               {promise.fulfillment_score}/100
-                             </span>
-                           )}
-                        </div>
-                        <h3 className="text-xl font-bold mb-3">{promise.promise_title}</h3>
-                        {promise.promise_description && (
-                          <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                            {promise.promise_description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> 
-                            {new Date(promise.created_at).toLocaleDateString("pt-BR")}
-                          </span>
-                          {(promise.evidence || promise.source_link) && (
-                            <a 
-                              href={promise.evidence || promise.source_link || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-neon-cyan hover:underline"
-                            >
-                              <ExternalLink className="w-3 h-3" /> Ver Evidência
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const newExpanded = { ...expandedPromises };
-                              newExpanded[promise.id] = !newExpanded[promise.id];
-                              setExpandedPromises(newExpanded);
-                              
-                              if (newExpanded[promise.id] && !explanations[promise.id]) {
-                                setLoadingExplanation({ ...loadingExplanation, [promise.id]: true });
-                                try {
-                                  const { data } = await supabase
-                                    .from("promise_explanations")
-                                    .select("*")
-                                    .eq("promise_id", promise.id)
-                                    .order("gerado_em", { ascending: false })
-                                    .limit(1)
-                                    .single();
-                                  setExplanations({ ...explanations, [promise.id]: data });
-                                } catch (err) {
-                                  console.error("Error loading explanation:", err);
-                                } finally {
-                                  setLoadingExplanation({ ...loadingExplanation, [promise.id]: false });
-                                }
-                              }
-                              
-                              if (newExpanded[promise.id] && !contestations[promise.id]) {
-                                try {
-                                  const { data } = await supabase
-                                    .from("promise_contestations")
-                                    .select("*")
-                                    .eq("promise_id", promise.id)
-                                    .eq("status", "aceita")
-                                    .order("criado_em", { ascending: false });
-                                  setContestations({ ...contestations, [promise.id]: data || [] });
-                                } catch (err) {
-                                  console.error("Error loading contestations:", err);
-                                }
-                              }
-                            }}
-                            className="flex items-center gap-1 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-2 py-1 rounded"
-                          >
-                            {expandedPromises[promise.id] ? (
-                              <>Ver menos <ChevronUp className="w-3 h-3" /></>
-                            ) : (
-                              <>Ver detalhes <Info className="w-3 h-3" /></>
+
+            {politician.promises.length === 0 ? (
+              <div className="text-center py-12 bg-dark-card border border-white/5 rounded-3xl">
+                <p className="text-gray-500 text-lg mb-4">Nenhuma promessa encontrada para este político.</p>
+                <Button variant="primary" onClick={() => setIsModalOpen(true)}>
+                  Reportar Primeira Promessa
+                </Button>
+              </div>
+            ) : filteredPromises.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Nenhuma promessa com este filtro.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {filteredPromises.map(promise => {
+                  const config = statusConfig[promise.status?.toLowerCase()] || statusConfig.pending;
+                  const StatusIcon = config.icon;
+                  
+                  return (
+                    <motion.div
+                      key={promise.id}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-dark-card border border-white/5 rounded-3xl p-6 md:p-8 hover:border-white/10 transition-all"
+                    >
+                      <div className="flex flex-col md:flex-row gap-6">
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-3 mb-4">
+                            {promise.category && <Badge variant="category">{promise.category}</Badge>}
+                            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${config.bg} ${config.color}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {config.label}
+                            </div>
+                            {promise.fulfillment_score > 0 && (
+                              <span className="text-xs font-bold text-gray-500">
+                                {promise.fulfillment_score}/100
+                              </span>
                             )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setContestationModal({
-                              isOpen: true,
-                              promiseId: promise.id,
-                              promiseTitle: promise.promise_title,
-                              politicianName: politician.name
-                            })}
-                            className="flex items-center gap-1 text-yellow-400 hover:text-white transition-colors bg-yellow-500/10 px-2 py-1 rounded"
-                          >
-                            <AlertTriangle className="w-3 h-3" /> Contestar
-                          </button>
-                        </div>
-                        
-                        <AnimatePresence>
-                          {expandedPromises[promise.id] && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="mt-4 overflow-hidden space-y-4"
-                            >
-                              {loadingExplanation[promise.id] ? (
-                                <div className="flex items-center gap-2 text-gray-500">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Carregando avaliação detalhada...
-                                </div>
-                              ) : explanations[promise.id] ? (
-                                <PromiseEvaluation evaluation={explanations[promise.id]} />
-                              ) : (
-                                <div className="text-gray-500 text-sm">
-                                  Nenhuma avaliação detalhada disponível.
-                                </div>
-                              )}
-
-                              <div className="border-t border-white/5 pt-4">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newExpanded = { ...expandedTimelines };
-                                    newExpanded[promise.id] = !newExpanded[promise.id];
-                                    setExpandedTimelines(newExpanded);
-                                  }}
-                                  className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-3 py-2 rounded-xl text-sm font-medium w-full justify-center"
-                                >
-                                  <History className="w-4 h-4" />
-                                  {expandedTimelines[promise.id] ? "Ocultar Histórico" : "Ver Histórico de Alterações"}
-                                </button>
-
-                                <AnimatePresence>
-                                  {expandedTimelines[promise.id] && (
-                                    <motion.div
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: "auto" }}
-                                      exit={{ opacity: 0, height: 0 }}
-                                      className="mt-4"
-                                    >
-                                      <PromiseTimeline promiseId={promise.id} />
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            </motion.div>
+                          </div>
+                          <h3 className="text-xl font-bold mb-3">{promise.promise_title}</h3>
+                          {promise.promise_description && (
+                            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                              {promise.promise_description}
+                            </p>
                           )}
-                        </AnimatePresence>
+                          <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" /> 
+                              {new Date(promise.created_at).toLocaleDateString("pt-BR")}
+                            </span>
+                            {(promise.evidence || promise.source_link) && (
+                              <a 
+                                href={promise.evidence || promise.source_link || "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-neon-cyan hover:underline"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Ver Evidência
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const newExpanded = { ...expandedPromises };
+                                newExpanded[promise.id] = !newExpanded[promise.id];
+                                setExpandedPromises(newExpanded);
+                                
+                                if (newExpanded[promise.id] && !explanations[promise.id]) {
+                                  setLoadingExplanation({ ...loadingExplanation, [promise.id]: true });
+                                  try {
+                                    const { data } = await supabase
+                                      .from("promise_explanations")
+                                      .select("*")
+                                      .eq("promise_id", promise.id)
+                                      .order("gerado_em", { ascending: false })
+                                      .limit(1)
+                                      .single();
+                                    setExplanations({ ...explanations, [promise.id]: data });
+                                  } catch (err) {
+                                    console.error("Error loading explanation:", err);
+                                  } finally {
+                                    setLoadingExplanation({ ...loadingExplanation, [promise.id]: false });
+                                  }
+                                }
+                                
+                                if (newExpanded[promise.id] && !contestations[promise.id]) {
+                                  try {
+                                    const { data } = await supabase
+                                      .from("promise_contestations")
+                                      .select("*")
+                                      .eq("promise_id", promise.id)
+                                      .eq("status", "aceita")
+                                      .order("criado_em", { ascending: false });
+                                    setContestations({ ...contestations, [promise.id]: data || [] });
+                                  } catch (err) {
+                                    console.error("Error loading contestations:", err);
+                                  }
+                                }
+                              }}
+                              className="flex items-center gap-1 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-2 py-1 rounded"
+                            >
+                              {expandedPromises[promise.id] ? (
+                                <>Ver menos <ChevronUp className="w-3 h-3" /></>
+                              ) : (
+                                <>Ver detalhes <Info className="w-3 h-3" /></>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setContestationModal({
+                                isOpen: true,
+                                promiseId: promise.id,
+                                promiseTitle: promise.promise_title,
+                                politicianName: politician.name
+                              })}
+                              className="flex items-center gap-1 text-yellow-400 hover:text-white transition-colors bg-yellow-500/10 px-2 py-1 rounded"
+                            >
+                              <AlertTriangle className="w-3 h-3" /> Contestar
+                            </button>
+                          </div>
+                          
+                          <AnimatePresence>
+                            {expandedPromises[promise.id] && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-4 overflow-hidden space-y-4"
+                              >
+                                {loadingExplanation[promise.id] ? (
+                                  <div className="flex items-center gap-2 text-gray-500">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Carregando avaliação detalhada...
+                                  </div>
+                                ) : explanations[promise.id] ? (
+                                  <PromiseEvaluation evaluation={explanations[promise.id]} />
+                                ) : (
+                                  <div className="text-gray-500 text-sm">
+                                    Nenhuma avaliação detalhada disponível.
+                                  </div>
+                                )}
+
+                                <div className="border-t border-white/5 pt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newExpanded = { ...expandedTimelines };
+                                      newExpanded[promise.id] = !newExpanded[promise.id];
+                                      setExpandedTimelines(newExpanded);
+                                    }}
+                                    className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-3 py-2 rounded-xl text-sm font-medium w-full justify-center"
+                                  >
+                                    <History className="w-4 h-4" />
+                                    {expandedTimelines[promise.id] ? "Ocultar Histórico" : "Ver Histórico de Alterações"}
+                                  </button>
+
+                                  <AnimatePresence>
+                                    {expandedTimelines[promise.id] && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-4"
+                                      >
+                                        <PromiseTimeline promiseId={promise.id} />
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <ReportPromiseModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            politicianName={politician.name}
+          />
+
+          <ContestationModal
+            isOpen={contestationModal.isOpen}
+            onClose={() => setContestationModal({ ...contestationModal, isOpen: false })}
+            promiseId={contestationModal.promiseId}
+            promiseTitle={contestationModal.promiseTitle}
+            politicianName={contestationModal.politicianName}
+          />
         </div>
-
-        <ReportPromiseModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          politicianName={politician.name}
-        />
-
-        <ContestationModal
-          isOpen={contestationModal.isOpen}
-          onClose={() => setContestationModal({ ...contestationModal, isOpen: false })}
-          promiseId={contestationModal.promiseId}
-          promiseTitle={contestationModal.promiseTitle}
-          politicianName={politician.name}
-        />
       </div>
-    </div>
+    </>
   );
 }
