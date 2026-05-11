@@ -6,6 +6,7 @@ import { runIngestion } from "../services/ingestionService.js";
 import { logAuditAction } from "../middleware/auditLog.js";
 import rateLimit from "express-rate-limit";
 import { execSync } from "child_process";
+import { sanitizeInput } from "../middleware/security.js";
 
 // Rate limiter para endpoints admin: 5 req/min por IP
 
@@ -20,6 +21,13 @@ const adminRateLimit = rateLimit({
 });
 
 const router = Router();
+
+router.use((req: any, _res: any, next: any) => {
+  if (req.body && Object.keys(req.body).length > 0) {
+    req.body = sanitizeInput(req.body);
+  }
+  next();
+});
 
 // Aplicar rate limiter em TODAS as rotas admin
 router.use(adminRateLimit);

@@ -19,6 +19,17 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
+// Security headers (antes das rotas)
+app.use((req: any, res: any, next: any) => {
+  const { secureHeaders } = require("./src/middleware/security.js");
+  secureHeaders(req, res, next);
+});
+
+app.use((req: any, res: any, next: any) => {
+  const { csrfValidation } = require("./src/middleware/security.js");
+  csrfValidation(req, res, next);
+});
+
 app.use("/api", (req: any, res: any, next: any) => {
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -335,5 +346,10 @@ setInterval(() => {
 // Error handlers
 process.on("uncaughtException", (error) => console.error("UNCAUGHT:", error.message));
 process.on("unhandledRejection", (reason) => console.error("UNHANDLED:", reason));
+
+app.use((err: any, req: any, res: any, next: any) => {
+  const { errorHandler } = require("./src/middleware/security.js");
+  errorHandler(err, req, res, next);
+});
 
 console.log(`✅ PROMESSÔMETRO API started in ${process.env.NODE_ENV || "development"}`);

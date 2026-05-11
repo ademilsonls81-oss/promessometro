@@ -333,6 +333,72 @@ O sistema garante:
 
 ---
 
+## Módulo: Segurança ✅
+
+**2FA Administrativo:**
+
+- [x] `checkAdmin` middleware enforces `mfa_enabled = true` for admin/super_admin roles
+- [x] Session timeout of 2h enforced via `last_session_at` check
+- [x] `require_2fa: true` flag in 403 response when 2FA not enabled
+- [x] Role levels: public(0), moderador(1), admin(2), super_admin(3)
+
+**Controle de Permissões:**
+
+- [x] Roles defined: public, moderador, admin, super_admin
+- [x] Admin routes require admin/super_admin role + 2FA
+- [x] RLS policies in Supabase (existing)
+- [x] No destructive operations exposed without auth
+- [x] Sanitized input on all admin routes
+
+**Proteção SQL Injection:**
+
+- [x] All queries use Supabase SDK methods (.eq(), .ilike(), .filter())
+- [x] No raw SQL string interpolation found in codebase
+- [x] No template literals with user input in queries
+
+**Proteção XSS:**
+
+- [x] `sanitizeInput()` using DOMPurify strips all HTML/tags from user input
+- [x] Applied to all admin route bodies
+- [x] CSP headers configured in secureHeaders middleware
+- [x] X-XSS-Protection: 1; mode=block on all responses
+
+**Proteção CSRF:**
+
+- [x] `csrfValidation()` checks Origin/Referer headers in production
+- [x] Double Submit Cookie Pattern (cookie token vs header token)
+- [x] ALLOWED_ORIGINS configurable via env var
+
+**Criptografia e Segurança de Dados:**
+
+- [x] HTTPS enforced via Vercel
+- [x] Audit logs immutable via DB triggers (no DELETE/UPDATE)
+- [x] Audit logs retention enforced at app level (no deletion)
+- [x] api_key hash recommended at user creation (bcrypt)
+
+**Auditoria:**
+
+- [x] `audit_logs` table logging all admin actions
+- [x] `logAuditAction()` captures: user_id, action, IP, user_agent, details
+- [x] DB trigger preventing DELETE/UPDATE on audit_logs
+- [x] DB trigger preventing DELETE on system_errors
+
+**Proteção de APIs:**
+
+- [x] All `/api/admin/*` routes require JWT + role + 2FA
+- [x] Rate limiting active (express-rate-limit)
+- [x] Zod schemas for input validation
+- [x] Generic error responses — no stack traces in production
+- [x] X-Content-Type-Options: nosniff on all responses
+
+**Gestão de Chaves:**
+
+- [x] All secrets in .env and Vercel Environment Variables
+- [x] .gitignore excludes .env
+- [x] CRON_SECRET for cron route protection
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)
