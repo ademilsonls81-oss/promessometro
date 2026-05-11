@@ -85,27 +85,31 @@ O sistema garante:
 
 ---
 
-## URLs dos Serviços
+## Módulo: Correção Pública (CRÍTICO) ✅
 
-| Serviço | URL |
-|---------|-----|
-| Frontend (Vercel) | promessometro-brasil.vercel.app |
-| Backend (Render) | promessometro-api.onrender.com |
-| Health | promessometro-api.onrender.com/api/health |
-| Stats | promessometro-api.onrender.com/api/stats |
+**Frontend implementado:**
 
----
+*   [x] **Contestação** — Interface para contestar avaliação (`ContestationModal.tsx`)
+*   [x] **Envio de evidências** — Formulário conectado a `promise_evidences`
+*   [x] **Sistema de revisão** — Fluxo IA reavalia após contestação (via `promise_explanations`)
+*   [x] **Histórico público** — Timeline com `PromiseTimeline.tsx` usando:
+    *   `promise_audit_log` — alterações de status/score
+    *   `promise_explanations` — avaliações da IA
+    *   `promise_contestations` — contestações
+*   [x] **Registro de revisões IA** — Exibe todas as avaliações geradas
+*   [x] **Transparência** — Mostra claramente o que mudou (status, score, data, ator)
 
-## Fundação Institucional ✅
+**Tabelas no schema:**
 
-*   [x] Termos de Uso em português
-*   [x] Política de Privacidade em português
-*   [x] Página "Quem Somos"
-*   [x] Página "Como Funciona"
-*   [x] Página "Metodologia"
-*   [x] Página "Correções"
-*   [x] Página "Fontes"
-*   [ ] Domínio customizado (promessometro.com.br)
+*   `promise_audit_log` — histórico de alterações
+*   `promise_contestations` — contestações com evidências
+*   RLS policies para todas as tabelas
+
+**Fluxo:**
+1. Usuário contesta avaliação via modal
+2. Contestação fica pendente para análise
+3. IA reavalia se aceita/rejeita
+4. Histórico completo fica visível na timeline
 
 ---
 

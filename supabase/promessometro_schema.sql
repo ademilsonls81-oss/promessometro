@@ -192,6 +192,43 @@ CREATE INDEX IF NOT EXISTS idx_bias_log_promise ON bias_violation_log(promise_id
 CREATE INDEX IF NOT EXISTS idx_bias_log_gravidade ON bias_violation_log(gravidade);
 CREATE INDEX IF NOT EXISTS idx_bias_log_created ON bias_violation_log(created_at DESC);
 
+-- Tabela de audit log de promessas (histórico de alterações)
+CREATE TABLE IF NOT EXISTS promise_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  promise_id UUID REFERENCES promises(id) ON DELETE SET NULL,
+  campo_alterado VARCHAR(100) NOT NULL,
+  valor_anterior TEXT,
+  valor_novo TEXT,
+  motivo TEXT,
+  alterado_por VARCHAR(100) DEFAULT 'sistema',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT audit_promise_id_fkey FOREIGN KEY (promise_id) REFERENCES promises(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_promise ON promise_audit_log(promise_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON promise_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_campo ON promise_audit_log(campo_alterado);
+
+-- Tabela de contestações de promessas
+CREATE TABLE IF NOT EXISTS promise_contestations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  promise_id UUID REFERENCES promises(id) ON DELETE CASCADE,
+  nome_contestante VARCHAR(255) NOT NULL,
+  email_contestante VARCHAR(255),
+  motivo TEXT NOT NULL,
+  evidencia_url TEXT,
+  status VARCHAR(50) DEFAULT 'pendente',
+  resposta_editorial TEXT,
+  criado_em TIMESTAMPTZ DEFAULT NOW(),
+  atualizado_em TIMESTAMPTZ,
+  respondido_em TIMESTAMPTZ,
+  CONSTRAINT contest_promise_id_fkey FOREIGN KEY (promise_id) REFERENCES promises(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_contest_status ON promise_contestations(status);
+CREATE INDEX IF NOT EXISTS idx_contest_promise ON promise_contestations(promise_id);
+CREATE INDEX IF NOT EXISTS idx_contest_created ON promise_contestations(criado_em DESC);
+
 -- =============================================
 -- Row Level Security (RLS)
 -- =============================================
@@ -225,6 +262,15 @@ CREATE POLICY "reports_view" ON promise_reports FOR SELECT USING (true);
 -- Bias violation log: inserção pelo sistema, leitura para auth
 CREATE POLICY "bias_log_insert" ON bias_violation_log FOR INSERT WITH CHECK (true);
 CREATE POLICY "bias_log_view" ON bias_violation_log FOR SELECT USING (true);
+
+-- Audit log: inserção pelo sistema, leitura para auth
+CREATE POLICY "audit_insert" ON promise_audit_log FOR INSERT WITH CHECK (true);
+CREATE POLICY "audit_view" ON promise_audit_log FOR SELECT USING (true);
+
+-- Contestations: inserção pública, leitura para auth
+CREATE POLICY "contest_insert" ON promise_contestations FOR INSERT WITH CHECK (true);
+CREATE POLICY "contest_view" ON promise_contestations FOR SELECT USING (true);
+CREATE POLICY "contest_update" ON promise_contestations FOR UPDATE USING (true);
 
 -- =============================================
 -- Functions e Triggers

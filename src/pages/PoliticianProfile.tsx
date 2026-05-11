@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronLeft, 
-  MapPin, 
-  Briefcase, 
-  Users, 
-  ExternalLink, 
-  CheckCircle2, 
-  AlertCircle, 
-  XCircle, 
+import {
+  ChevronLeft,
+  MapPin,
+  Briefcase,
+  Users,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
   Clock,
   Share2,
   AlertTriangle,
   Loader2,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  History
 } from "lucide-react";
 import { Badge, Button } from "../components/ui";
 import ReportPromiseModal from "../components/ReportPromiseModal";
 import PromiseEvaluation from "../components/PromiseEvaluation";
+import PromiseTimeline from "../components/PromiseTimeline";
 import ContestationModal from "../components/ContestationModal";
 import { supabase } from "../lib/supabaseClient";
 
@@ -73,6 +75,7 @@ export default function PoliticianProfile() {
   const [filter, setFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedPromises, setExpandedPromises] = useState<Record<string, boolean>>({});
+  const [expandedTimelines, setExpandedTimelines] = useState<Record<string, boolean>>({});
   const [explanations, setExplanations] = useState<Record<string, any>>({});
   const [loadingExplanation, setLoadingExplanation] = useState<Record<string, boolean>>({});
   const [contestationModal, setContestationModal] = useState<{ isOpen: boolean; promiseId: string; promiseTitle: string }>({
@@ -458,7 +461,7 @@ promises: promises.map((p: any) => ({
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
-                              className="mt-4 overflow-hidden"
+                              className="mt-4 overflow-hidden space-y-4"
                             >
                               {loadingExplanation[promise.id] ? (
                                 <div className="flex items-center gap-2 text-gray-500">
@@ -472,6 +475,34 @@ promises: promises.map((p: any) => ({
                                   Nenhuma avaliação detalhada disponível.
                                 </div>
                               )}
+
+                              <div className="border-t border-white/5 pt-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newExpanded = { ...expandedTimelines };
+                                    newExpanded[promise.id] = !newExpanded[promise.id];
+                                    setExpandedTimelines(newExpanded);
+                                  }}
+                                  className="flex items-center gap-2 text-blue-400 hover:text-white transition-colors bg-blue-500/10 px-3 py-2 rounded-xl text-sm font-medium w-full justify-center"
+                                >
+                                  <History className="w-4 h-4" />
+                                  {expandedTimelines[promise.id] ? "Ocultar Histórico" : "Ver Histórico de Alterações"}
+                                </button>
+
+                                <AnimatePresence>
+                                  {expandedTimelines[promise.id] && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: "auto" }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="mt-4"
+                                    >
+                                      <PromiseTimeline promiseId={promise.id} />
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
                             </motion.div>
                           )}
                         </AnimatePresence>
