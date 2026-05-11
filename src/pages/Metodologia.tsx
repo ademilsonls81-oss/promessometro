@@ -27,7 +27,7 @@ export default function Metodologia() {
                 Como a IA Avalia uma Promessa
               </h2>
               <p className="text-gray-400 leading-relaxed mb-4">
-                Utilizamos um modelo de linguagem (llama-3.3-70b-versatile) para analisar evidências搜集adas de fontes públicas. A IA não toma decisões políticas — apresenta dados de forma estruturada.
+                Utilizamos um modelo de linguagem (llama-3.3-70b-versatile) para analisar evidências coletadas de fontes públicas. A IA não toma decisões políticas — apresenta dados de forma estruturada.
               </p>
               <div className="p-4 bg-dark-card border border-white/5 rounded-xl space-y-2">
                 <p className="text-sm text-gray-300 font-medium">O processo funciona assim:</p>

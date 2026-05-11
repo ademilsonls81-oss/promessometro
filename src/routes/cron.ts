@@ -29,15 +29,33 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
     console.log("[Cron] Daily reavaliation started");
     const { data: promises } = await supabase
       .from("promises")
-      .select("id, status, updated_at")
-      .in("status", ["em_andamento", "parcialmente_cumprida"])
+      .select("id, promise_title, promise_description, politician_name, category, status, fulfillment_score")
+      .in("status", ["em_andamento", "parcialmente_cumprida", "nao_classificada"])
       .gt("updated_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .limit(50);
 
-    const reavaliated = promises?.length || 0;
-    console.log(`[Cron] Reavaliation complete: ${reavaliated} promises reviewed`);
+    let evaluated = 0;
+    let failed = 0;
 
-    res.json({ status: "ok", promises_reviewed: reavaliated, timestamp: new Date().toISOString() });
+    if (promises && promises.length > 0) {
+      const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
+
+      for (const promise of promises) {
+        try {
+          const result = await evaluatePromise(promise as any, true);
+          const saved = await saveEvaluation(promise.id, result, result.needsHumanReview);
+          if (saved.success) evaluated++;
+          else failed++;
+        } catch (e: any) {
+          console.error(`[Cron] Failed to evaluate promise ${promise.id}:`, e.message);
+          failed++;
+        }
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    console.log(`[Cron] Reavaliation complete: ${evaluated} evaluated, ${failed} failed`);
+    res.json({ status: "ok", promises_evaluated: evaluated, promises_failed: failed, timestamp: new Date().toISOString() });
   } catch (err: any) {
     await logSystemError("cron_reavaliation", "cron", err.message, err.stack, "high");
     res.status(500).json({ error: err.message });
