@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase.js";
+import { checkAndSanitizeResult } from "./contentGuardService.js";
 
 const CRITERIA = {
   cumprida: {
@@ -52,6 +53,7 @@ interface Evidence {
   source_name: string;
   validation_status: string;
   created_at: string;
+  published_date: string | null;
 }
 
 interface PromiseData {
@@ -64,12 +66,23 @@ interface PromiseData {
   fulfillment_score: number | null;
 }
 
+interface EvidenceUsed {
+  descricao: string;
+  fonte: string;
+  url: string | null;
+  data: string | null;
+}
+
 interface ClassificationResult {
   status: string;
   fulfillment_score: number;
-  justificativa: string;
   criterio_aplicado: string;
+  justificativa: string;
+  evidencias_usadas: EvidenceUsed[];
+  o_que_falta: string;
+  o_que_foi_feito: string;
   confianca: number;
+  motivo_confianca: string;
   tipo_promessa: string;
 }
 
@@ -87,7 +100,7 @@ async function getEvidencesForPromise(promiseId: string): Promise<Evidence[]> {
 
 function buildPrompt(promise: PromiseData, evidences: Evidence[]): string {
   const evidenceText = evidences.length > 0
-    ? evidences.map(e => `- ${e.source_name}: ${e.evidence_description} (${e.evidence_link || "sem link"})`).join("\n")
+    ? evidences.map(e => `- ${e.source_name}: ${e.evidence_description} (link: ${e.evidence_link || "sem link disponível"}, data: ${e.published_date || "não informada"})`).join("\n")
     : "Nenhuma evidência encontrada na base de dados.";
 
   return `
@@ -102,6 +115,23 @@ PROMESSA A EVALUAR:
 EVIDÊNCIAS ENCONTRADAS:
 ${evidenceText}
 
+================================================================================
+REGRAS DE PROTEÇÃO — INVIOLÁVEIS — DEVEM SER SEGUIDAS EM TODAS AS AVALIAÇÕES:
+================================================================================
+- Use linguagem neutra e técnica em todas as avaliações
+- NEVER use termos ofensivos, pejorativos ou carregados ideologicamente
+- NEVER afirme que um político cometeu crime sem decisão judicial transitada em julgado
+- Substitua "fraudou" por "não há evidência de cumprimento"
+- Substitua "mentiu" por "a promessa não foi cumprida no prazo"
+- Substitua "corrupto" por "responde a investigação em andamento" (apenas se houver fonte oficial)
+- NEVER use ironia, sarcasmo ou tom militante
+- NEVER tome partido — apresente apenas fatos verificáveis com fonte
+- Se não houver fonte, não afirme nada
+- Evita termos como: "mentira", "engano", "trambique", "roubo", "ladrão", "corrupto", "fraudador"
+- Use "não cumprida" ao invés de "descumprida" quando não houver ação oposta declarada
+- Sea não houverlink oficial, use null — NUNCA invente URLs
+================================================================================
+
 CRITÉRIOS EXATOS DE CLASSIFICAÇÃO:
 
 | Status | Score | Critério |
@@ -113,41 +143,33 @@ CRITÉRIOS EXATOS DE CLASSIFICAÇÃO:
 | descumprida | 0 | Ação oposta à promessa foi tomada, ou prazo expirou sem cumprimento com declaração contrária |
 | nao_classificada | null | Promessa vaga demais para verificar (ex: "vou melhorar a educação") |
 
-REGRA DE OURO: Se não houver evidência verificável, classifique como "nao_classificada" com score 0.
-NUNCA invente fontes ou notícias. Se a evidência for insuficiente, indique explicitamente.
+REGRA DE OURO: 
+- Se não houver evidência verificável, classifique como "nao_classificada" com score 0.
+- Se a URL da evidência não for verificável, use null (NUNCA invente URL).
+- confianca: Alta (0.7-1.0) se há 3+ fontes independentes. Média (0.4-0.69) se há 1-2 fontes. Baixa (0-0.39) se só há declaração do político ou dados insuficientes.
 
-Retorne SOMENTE JSON válido com esta estrutura:
+Retorne SOMENTE JSON válido com esta estrutura exata:
 {
   "status": "cumprida|parcialmente_cumprida|em_andamento|nao_iniciada|descumprida|nao_classificada",
   "fulfillment_score": 0-100,
-  "justificativa": "Breve explicação em português",
   "criterio_aplicado": "Nome do critério usado",
-  "confianca": 0-100,
-  "tipo_promessa": "factual|contraditoria|processual|vaga|sem_evidencia"
+  "justificativa": "Texto explicando em linguagem cidadã por que recebeu essa nota",
+  "evidencias_usadas": [
+    {
+      "descricao": "O que essa evidência prova",
+      "fonte": "Nome do veículo ou órgão",
+      "url": "URL real ou null",
+      "data": "YYYY-MM-DD ou null"
+    }
+  ],
+  "o_que_falta": "Texto explicando o que ainda precisa acontecer para cumprir totalmente",
+  "o_que_foi_feito": "Texto explicando o que já foi concluído até agora",
+  "confianca": 0.0-1.0,
+  "motivo_confianca": "Alta — X fontes independentes confirmam. Baixa — apenas declaração do próprio político ou dados insuficientes"
 }
 
 responda apenas em JSON, sem markdown ou texto adicional.
 `;
-}
-
-function determineTipo(promise: PromiseData, evidences: Evidence[]): string {
-  const text = (promise.promise_title + " " + (promise.promise_description || "")).toLowerCase();
-  
-  if (evidences.length === 0) return "sem_evidencia";
-  
-  if (text.includes("não") || text.includes("vou")) return "vaga";
-  if (text.includes("contrário") || text.includes("oposto")) return "contraditoria";
-  if (text.includes("lei") || text.includes("decreto") || text.includes("projeto")) return "processual";
-  
-  return "factual";
-}
-
-function determineStatus(score: number): string {
-  if (score >= 80) return "cumprida";
-  if (score >= 40) return "parcialmente_cumprida";
-  if (score >= 20) return "em_andamento";
-  if (score === 0) return "descumprida";
-  return "nao_iniciada";
 }
 
 export async function classifyPromise(promiseId: string): Promise<ClassificationResult | null> {
@@ -166,21 +188,13 @@ export async function classifyPromise(promiseId: string): Promise<Classification
     const evidences = await getEvidencesForPromise(promiseId);
 
     if (evidences.length === 0) {
-      const tipo = determineTipo(promise, []);
-      return {
-        status: "nao_classificada",
-        fulfillment_score: 0,
-        justificativa: "Sem evidência verificável para classificar esta promessa.",
-        criterio_aplicado: "sem_evidencia",
-        confianca: 100,
-        tipo_promessa: tipo,
-      };
+      return createEmptyResult(promise);
     }
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       console.warn("[Score] GROQ_API_KEY not configured, using fallback");
-      return fallbackClassification(promise, evidences);
+      return createFallbackResult(promise, evidences);
     }
 
     const prompt = buildPrompt(promise, evidences);
@@ -195,21 +209,21 @@ export async function classifyPromise(promiseId: string): Promise<Classification
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
-        max_tokens: 512,
+        max_tokens: 1024,
         response_format: { type: "json_object" },
       }),
     });
 
     if (!response.ok) {
       console.error("[Score] Groq error:", response.status);
-      return fallbackClassification(promise, evidences);
+      return createFallbackResult(promise, evidences);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      return fallbackClassification(promise, evidences);
+      return createFallbackResult(promise, evidences);
     }
 
     let result: Partial<ClassificationResult>;
@@ -220,19 +234,23 @@ export async function classifyPromise(promiseId: string): Promise<Classification
       if (match) {
         result = JSON.parse(match[0]);
       } else {
-        return fallbackClassification(promise, evidences);
+        return createFallbackResult(promise, evidences);
       }
     }
 
-    const tipo = determineTipo(promise, evidences);
+    const confianca = result.confianca ?? calculateConfianca(evidences);
 
     return {
       status: result.status || "nao_classificada",
       fulfillment_score: result.fulfillment_score ?? 0,
-      justificativa: result.justificativa || "Classificação via IA",
       criterio_aplicado: result.criterio_aplicado || "default",
-      confianca: result.confianca ?? 50,
-      tipo_promessa: tipo,
+      justificativa: result.justificativa || "Classificação via IA",
+      evidencias_usadas: result.evidencias_usadas || mapEvidences(evidences),
+      o_que_falta: result.o_que_falta || " sem dados suficientes para determinar",
+      o_que_foi_feito: result.o_que_foi_feito || " belum dados suficientes",
+      confianca,
+      motivo_confianca: result.motivo_confianca || getConfiancaReason(confianca, evidences.length),
+      tipo_promessa: determineTipo(promise, evidences),
     };
   } catch (err) {
     console.error("[Score] classifyPromise error:", err);
@@ -240,18 +258,22 @@ export async function classifyPromise(promiseId: string): Promise<Classification
   }
 }
 
-function fallbackClassification(promise: PromiseData, evidences: Evidence[]): ClassificationResult {
-  if (evidences.length === 0) {
-    return {
-      status: "nao_classificada",
-      fulfillment_score: 0,
-      justificativa: "Sem evidência verificável para classificar.",
-      criterio_aplicado: "sem_evidencia",
-      confianca: 100,
-      tipo_promessa: "sem_evidencia",
-    };
-  }
+function createEmptyResult(promise: PromiseData): ClassificationResult {
+  return {
+    status: "nao_classificada",
+    fulfillment_score: 0,
+    criterio_aplicado: "sem_evidencia",
+    justificativa: "Sem evidência verificável para classificar esta promessa.",
+    evidencias_usadas: [],
+    o_que_falta: "É necessário encontrar notícias ou documentos que comprovem ações relacionadas a esta promessa.",
+    o_que_foi_feito: "Nenhuma evidência encontrada até o momento.",
+    confianca: 1.0,
+    motivo_confianca: "Alta — sistema verificou que não há dados disponíveis.classifique como sem evidência.",
+    tipo_promessa: "sem_evidencia",
+  };
+}
 
+function createFallbackResult(promise: PromiseData, evidences: Evidence[]): ClassificationResult {
   const hasPositiveNews = evidences.some(e => 
     (e.evidence_description || "").toLowerCase().includes("entregue") ||
     (e.evidence_description || "").toLowerCase().includes("inaugurad") ||
@@ -269,9 +291,13 @@ function fallbackClassification(promise: PromiseData, evidences: Evidence[]): Cl
     return {
       status: "descumprida",
       fulfillment_score: 0,
-      justificativa: "Evidência indica ação contrária à promessa.",
       criterio_aplicado: "descumprida",
-      confianca: 80,
+      justificativa: "Evidência indica ação contrária à promessa.",
+      evidencias_usadas: mapEvidences(evidences),
+      o_que_falta: "A ação tomada foi oposta ao prometido.",
+      o_que_foi_feito: " foram identificadas ações em sentido contrário.",
+      confianca: 0.8,
+      motivo_confianca: "Média — 1-2 fontes indicam descumprimento.",
       tipo_promessa: "contraditoria",
     };
   }
@@ -280,9 +306,13 @@ function fallbackClassification(promise: PromiseData, evidences: Evidence[]): Cl
     return {
       status: "cumprida",
       fulfillment_score: 85,
-      justificativa: "Evidência indica cumprimento da promessa.",
       criterio_aplicado: "cumprida",
-      confianca: 75,
+      justificativa: "Evidência indica cumprimento da promessa.",
+      evidencias_usadas: mapEvidences(evidences),
+      o_que_falta: " already entregue.",
+      o_que_foi_feito: "Promise fulfilled.",
+      confianca: 0.75,
+      motivo_confianca: "Média — 1-2 fontes confirmam cumprimento.",
       tipo_promessa: "factual",
     };
   }
@@ -290,11 +320,47 @@ function fallbackClassification(promise: PromiseData, evidences: Evidence[]): Cl
   return {
     status: "em_andamento",
     fulfillment_score: 30,
-    justificativa: "Evidência encontrada mas status de conclusão impreciso.",
     criterio_aplicado: "em_andamento",
-    confianca: 50,
+    justificativa: "Evidência encontrada mas status de conclusão impreciso.",
+    evidencias_usadas: mapEvidences(evidences),
+    o_que_falta: "Mais dados necessários para determinar conclusão.",
+    o_que_foi_feito: "Exists evidence of action but not completed.",
+    confianca: 0.5,
+    motivo_confianca: "Baixa — apenas 1 fonte disponível.",
     tipo_promessa: "factual",
   };
+}
+
+function mapEvidences(evidences: Evidence[]): EvidenceUsed[] {
+  return evidences.slice(0, 5).map(e => ({
+    descricao: e.evidence_description || "Evidência",
+    fonte: e.source_name || "Unknown",
+    url: e.evidence_link || null,
+    data: e.published_date || e.created_at?.split("T")[0] || null,
+  }));
+}
+
+function calculateConfianca(evidences: Evidence[]): number {
+  if (evidences.length >= 3) return 0.85;
+  if (evidences.length >= 1) return 0.55;
+  return 0.25;
+}
+
+function getConfiancaReason(confianca: number, evidenceCount: number): string {
+  if (confianca >= 0.7) return `Alta — ${evidenceCount} fontes independentes confirmam.`;
+  if (confianca >= 0.4) return `Média — ${evidenceCount} fontes disponíveis.`;
+  return "Baixa — poucos dados disponíveis ou apenas declaração do próprio político.";
+}
+
+function determineTipo(promise: PromiseData, evidences: Evidence[]): string {
+  const text = (promise.promise_title + " " + (promise.promise_description || "")).toLowerCase();
+  
+  if (evidences.length === 0) return "sem_evidencia";
+  if (text.includes("não") || text.includes("vou")) return "vaga";
+  if (text.includes("contrário") || text.includes("oposto")) return "contraditoria";
+  if (text.includes("lei") || text.includes("decreto") || text.includes("projeto")) return "processual";
+  
+  return "factual";
 }
 
 export async function applyScore(
@@ -302,19 +368,26 @@ export async function applyScore(
   result: ClassificationResult
 ): Promise<boolean> {
   try {
+    const sanitizedResult = await checkAndSanitizeResult(result, promiseId);
+
+    const { data: oldPromise } = await supabase
+      .from("promises")
+      .select("status, fulfillment_score")
+      .eq("id", promiseId)
+      .single();
+
     const { error } = await supabase
       .from("promises")
       .update({
-        status: result.status,
-        fulfillment_score: result.fulfillment_score,
+        status: sanitizedResult.status,
+        fulfillment_score: sanitizedResult.fulfillment_score,
         classificacao_ia: {
-          justificativa: result.justificativa,
-          criterio: result.criterio_aplicado,
-          confianca: result.confianca,
-          tipo_promessa: result.tipo_promessa,
+          justificativa: sanitizedResult.justificativa,
+          criterio: sanitizedResult.criterio_aplicado,
+          confianca: sanitizedResult.confianca,
+          tipo_promessa: sanitizedResult.tipo_promessa,
           classified_at: new Date().toISOString(),
         },
-        tipo_promessa: result.tipo_promessa,
       })
       .eq("id", promiseId);
 
@@ -323,22 +396,87 @@ export async function applyScore(
       return false;
     }
 
-    await supabase.from("promise_evidences").insert({
-      promise_id: promiseId,
-      evidence_description: result.justificativa,
-      evidence_link: null,
-      source_name: "IA Classification",
-      source_type: "ia_classificacao",
-      tipo: "classificacao",
-      evidence_type: "analysis",
-      validation_status: "approved",
-      confidence_score: result.confianca,
-    });
+    if (oldPromise && (oldPromise.status !== sanitizedResult.status || oldPromise.fulfillment_score !== sanitizedResult.fulfillment_score)) {
+      await logAudit(promiseId, "status", oldPromise.status, sanitizedResult.status, "classificação automática via IA");
+      await logAudit(promiseId, "fulfillment_score", String(oldPromise.fulfillment_score), String(sanitizedResult.fulfillment_score), "classificação automática via IA");
+    }
+
+    const { error: expError } = await supabase
+      .from("promise_explanations")
+      .insert({
+        promise_id: promiseId,
+        status: sanitizedResult.status,
+        fulfillment_score: sanitizedResult.fulfillment_score,
+        criterio_aplicado: sanitizedResult.criterio_aplicado,
+        justificativa: sanitizedResult.justificativa,
+        evidencias_usadas: sanitizedResult.evidencias_usadas,
+        o_que_falta: sanitizedResult.o_que_falta,
+        o_que_foi_feito: sanitizedResult.o_que_foi_feito,
+        confianca: sanitizedResult.confianca,
+        motivo_confianca: sanitizedResult.motivo_confianca,
+        modelo_ia: "llama-3.3-70b-versatile",
+      });
+
+    if (expError) {
+      console.error("[Score] save explanation error:", expError);
+    }
 
     return true;
   } catch (err) {
     console.error("[Score] applyScore error:", err);
     return false;
+  }
+}
+
+async function logAudit(
+  promiseId: string,
+  campo: string,
+  anterior: string,
+  novo: string,
+  motivo: string
+): Promise<void> {
+  try {
+    await supabase.from("promise_audit_log").insert({
+      promise_id: promiseId,
+      campo_alterado: campo,
+      valor_anterior: anterior,
+      valor_novo: novo,
+      motivo,
+      alterado_por: "sistema"
+    });
+    console.log(`[Audit] Logged change for promise ${promiseId}: ${campo}`);
+  } catch (err) {
+    console.error("[Audit] Failed to log:", err);
+  }
+}
+
+export async function getExplanation(promiseId: string): Promise<ClassificationResult | null> {
+  try {
+    const { data, error } = await supabase
+      .from("promise_explanations")
+      .select("*")
+      .eq("promise_id", promiseId)
+      .order("gerado_em", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+
+    return {
+      status: data.status,
+      fulfillment_score: data.fulfillment_score,
+      criterio_aplicado: data.criterio_aplicado,
+      justificativa: data.justificativa,
+      evidencias_usadas: data.evidencias_usadas || [],
+      o_que_falta: data.o_que_falta,
+      o_que_foi_feito: data.o_que_foi_feito,
+      confianca: data.confianca,
+      motivo_confianca: data.motivo_confianca,
+      tipo_promessa: "",
+    };
+  } catch (err) {
+    console.error("[Score] getExplanation error:", err);
+    return null;
   }
 }
 
@@ -387,6 +525,7 @@ export function getCriteria() {
 export default {
   classifyPromise,
   applyScore,
+  getExplanation,
   batchClassify,
   getCriteria,
 };

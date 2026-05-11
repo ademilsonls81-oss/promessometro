@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.S_URL || '';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.S_URL || process.env.VITE_S_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
 
 export let supabase: any = null;

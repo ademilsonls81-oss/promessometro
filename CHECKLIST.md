@@ -203,6 +203,136 @@ O sistema garante:
 
 ---
 
+## Anti-Abuse Control Module ✅
+
+**Middleware (`src/middleware/antiAbuse.ts`):**
+
+- [x] Rate limiting by tier: public (300/min), sensitive (10/min), api (60/min)
+- [x] `antiScrapingHeaders()` middleware with X-Robots-Tag, X-Content-Type-Options, X-Frame-Options, Referrer-Policy
+- [x] `logSuspiciousActivity()` for rate limit violations, bot detection, scraping attempts
+- [x] `getTrafficStats()` for active connections, blocked IPs, request counts
+- [x] `getSuspiciousActivityLogs()` for admin review
+- [x] Auto-cleanup of old IP records every 5 minutes
+- [x] Friendly 429 response with Retry-After header
+
+**reCAPTCHA v3 (`src/services/recaptchaService.ts`):**
+
+- [x] Invisible reCAPTCHA v3 integration (no visible CAPTCHA for users)
+- [x] Client-side token generation via `executeRecaptchaV3()`
+- [x] Server-side verification endpoint `/api/recaptcha-verify`
+- [x] Score threshold of 0.5 for blocking
+- [x] Graceful fallback when keys not configured
+- [x] `shouldSkipRecaptcha()` helper for conditional checks
+
+**Client-side protection (`src/services/abuseProtection.ts`):**
+
+- [x] Session-based rate limiting with sessionStorage
+- [x] Per-action cooldowns (24h for contestations)
+- [x] Honeypot field detection
+- [x] Client-side fingerprinting
+- [x] Form-specific cooldown management
+
+**Admin dashboard (`src/pages/admin/TrafficMonitor.tsx`):**
+
+- [x] Real-time traffic stats (active connections, blocked IPs, requests, suspicious activities)
+- [x] Filterable suspicious activity logs (rate_limit, scraping, bot)
+- [x] Auto-refresh every 30 seconds
+- [x] Protection configuration display
+- [x] API endpoints: `/api/admin/traffic-stats`, `/api/admin/suspicious-logs`
+
+**Global API headers (`server.ts`):**
+
+- [x] X-Robots-Tag: noindex, nofollow
+- [x] X-Content-Type-Options: nosniff
+- [x] X-Frame-Options: DENY
+- [x] Referrer-Policy: strict-origin-when-cross-origin
+- [x] Cache-Control: no-store, no-cache
+- [x] Pragma: no-cache
+- [x] Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+**ContestationModal integration:**
+
+- [x] reCAPTCHA v3 token execution on submit
+- [x] Token stored in `recaptcha_token` field
+- [x] Honeypot + cooldown + fingerprint layered protection
+- [x] Friendly error messages (no silent blocks)
+
+**robots.txt:**
+
+- [x] Allow: Googlebot, Bingbot, Slurp, DuckDuckBot, Applebot, Yandex
+- [x] Disallow: Baiduspider, Bytespider (known scrapers)
+- [x] Proper sitemap reference
+- [x] Crawl-delay for polite crawling
+
+---
+
+## Módulo: Infraestrutura ✅
+
+**CDN e Cache (Vercel + Cloudflare):**
+
+- [x] Vercel `crons` config for 4 scheduled jobs (daily-reavaliation, update-stats, backup-export, process-evidences)
+- [x] Vercel `headers` config for politician/promessa pages (s-maxage=1800, stale-while-revalidate=3600)
+- [x] Sitemap Cache-Control header (s-maxage=3600)
+- [x] Global API headers (Cache-Control: no-store) already configured
+- [x] In-memory cache with TTL per endpoint in public.ts
+
+**Logs:**
+
+- [x] `logSystemError()` added to auditLog.ts for system_errors table
+- [x] `logAuditAction()` already logging to audit_logs table
+- [x] Structured severity levels: low, medium, high, critical
+- [x] Cron routes logging errors to system_errors
+
+**Backup Automático:**
+
+- [x] `/api/cron/backup-export` runs weekly (Sunday 02:00 UTC)
+- [x] Exports tables: promises, politicians, promise_contestations, promise_evidences, promise_explanations
+- [x] Saves to Supabase Storage bucket `backups` as JSON
+- [x] Auto-cleanup of backups older than 30 days
+- [x] Backup filename: `backup_YYYY-MM-DD.json`
+
+**Monitoramento:**
+
+- [x] Enhanced `/api/health` returns database status, latency_ms
+- [x] Health check with slow response detection (>3s)
+- [x] Returns HTTP 503 if database is unreachable
+- [x] Admin routes for traffic-stats and suspicious-logs
+- [x] node-cron jobs running in production mode
+
+**Async Jobs:**
+
+- [x] `/api/cron/daily-reavaliation` — reavaliates promises (daily at 09:00 UTC)
+- [x] `/api/cron/update-stats` — updates system metrics (every 6h)
+- [x] `/api/cron/process-evidences` — validates evidence URLs (every 2h)
+- [x] `/api/cron/politician-ranking` — snapshots ranking to Supabase Storage (manual trigger)
+- [x] All cron routes protected with `CRON_SECRET` header
+- [x] Daily ingestion via server.ts `runIngestion()`
+
+**Storage de Evidências:**
+
+- [x] `/api/evidences/evidence` — upload endpoint for files
+- [x] `uploadEvidence()` service with 10MB limit
+- [x] Accepted types: PDF, JPG, PNG, MP4
+- [x] Saves to Supabase Storage bucket `evidences`
+- [x] Returns public URL linked to `promise_evidences` table
+
+**Snapshots:**
+
+- [x] `snapshotService.ts` with `savePromiseSnapshot()` for JSONB audit trail
+- [x] `getPromiseHistory()` returns full promise audit trail
+- [x] `generateDiff()` creates before/after diff between snapshots
+- [x] Promise audit log captures: status, score, changed_by, change_reason
+- [x] Weekly ranking snapshot saved to Supabase Storage
+
+**Banco Escalável:**
+
+- [x] Supabase Point-in-Time Recovery (automatic)
+- [x] Connection pooling via Supabase (PgBouncer enabled by default)
+- [x] All indexes created on main tables
+- [x] `politician_stats` view available
+
+---
+
 ## Próximos Passos (Futuro)
 
 - [ ] Configurar domínio customizado (promessometro.com.br)

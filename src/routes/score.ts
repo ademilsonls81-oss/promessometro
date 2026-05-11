@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
-import { classifyPromise, applyScore, batchClassify, getCriteria } from "../services/scoreService.js";
+import { classifyPromise, applyScore, batchClassify, getCriteria, getExplanation } from "../services/scoreService.js";
 
 const router = Router();
 
@@ -88,6 +88,22 @@ router.get("/stats", checkAdmin, async (_req: Request, res: Response) => {
     res.json(stats);
   } catch (err: any) {
     console.error("[Score API] Stats error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/explanation/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const explanation = await getExplanation(id);
+
+    if (!explanation) {
+      return res.status(404).json({ error: "Explicação não encontrada" });
+    }
+
+    res.json(explanation);
+  } catch (err: any) {
+    console.error("[Score API] Explanation error:", err);
     res.status(500).json({ error: err.message });
   }
 });

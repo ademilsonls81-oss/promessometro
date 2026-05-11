@@ -53,63 +53,97 @@ router.get("/ranking", async (req: Request, res: Response) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
 
-    const { data: promises, error } = await supabase
-      .from("promises")
-      .select("politician_name, status, fulfillment_score");
+    const { data: rankingData, error } = await supabase
+      .from("politicians_ranking")
+      .select("*")
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      const { data: promises, error: fallbackError } = await supabase
+        .from("promises")
+        .select("politician_name, status, fulfillment_score");
+
+      if (fallbackError) {
+        return res.status(500).json({ error: fallbackError.message });
+      }
+
+      const statsMap: Record<string, { fulfilled: number; partial: number; broken: number; pending: number; total: number; totalScore: number }> = {};
+
+      (promises || []).forEach((p: any) => {
+        const name = p.politician_name;
+        if (!statsMap[name]) {
+          statsMap[name] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, totalScore: 0 };
+        }
+        statsMap[name].total++;
+        statsMap[name].totalScore += p.fulfillment_score || 50;
+
+        switch (p.status) {
+          case "fulfilled":
+            statsMap[name].fulfilled++;
+            break;
+          case "partial":
+          case "partial_fulfilled":
+            statsMap[name].partial++;
+            break;
+          case "broken":
+          case "not_fulfilled":
+            statsMap[name].broken++;
+            break;
+          default:
+            statsMap[name].pending++;
+        }
+      });
+
+      const ranking = Object.entries(statsMap).map(([name, stats]) => {
+        const percentage = stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50;
+        return {
+          name,
+          role: null,
+          state: null,
+          party: null,
+          stats,
+          percentage,
+          promise_count: stats.total
+        };
+      });
+
+      ranking.sort((a, b) => b.percentage - a.percentage);
+
+      return res.json({ 
+        ranking, 
+        total: ranking.length,
+        stats: {
+          total_promises: promises?.length || 0,
+          total_politicians: ranking.length
+        }
+      });
     }
 
-    const statsMap: Record<string, { fulfilled: number; partial: number; broken: number; pending: number; total: number; totalScore: number }> = {};
-
-    (promises || []).forEach((p: any) => {
-      const name = p.politician_name;
-      if (!statsMap[name]) {
-        statsMap[name] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, totalScore: 0 };
-      }
-      statsMap[name].total++;
-      statsMap[name].totalScore += p.fulfillment_score || 50;
-
-      switch (p.status) {
-        case "fulfilled":
-          statsMap[name].fulfilled++;
-          break;
-        case "partial":
-        case "partial_fulfilled":
-          statsMap[name].partial++;
-          break;
-        case "broken":
-        case "not_fulfilled":
-          statsMap[name].broken++;
-          break;
-        default:
-          statsMap[name].pending++;
-      }
-    });
-
-    const ranking = Object.entries(statsMap).map(([name, stats]) => {
-      const percentage = stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50;
-      return {
-        name,
-        role: null,
-        state: null,
-        party: null,
-        stats,
-        percentage,
-        promise_count: stats.total
-      };
-    });
-
-    ranking.sort((a, b) => b.percentage - a.percentage);
-
-    const paginated = ranking.slice(Number(offset), Number(offset) + Number(limit));
+    const ranking = (rankingData || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      photo_url: p.photo_url,
+      party: p.party,
+      role: p.role,
+      state: p.state,
+      stats: {
+        fulfilled: p.fulfilled || 0,
+        partial: p.partial || 0,
+        broken: p.broken || 0,
+        pending: (p.total_promises || 0) - (p.fulfilled || 0) - (p.partial || 0) - (p.broken || 0),
+        total: p.total_promises || 0,
+        percentage: p.percentage || 50
+      },
+      percentage: p.percentage || 50,
+      promise_count: p.total_promises || 0
+    }));
 
     return res.json({ 
-      ranking: paginated, 
+      ranking, 
       total: ranking.length,
       stats: {
-        total_promises: promises?.length || 0,
+        total_promises: ranking.reduce((sum: number, p: any) => sum + (p.stats?.total || 0), 0),
         total_politicians: ranking.length
       }
     });

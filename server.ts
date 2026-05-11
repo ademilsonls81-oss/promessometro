@@ -12,12 +12,23 @@ const __dirname = path.dirname(__filename);
 // CRIA APP EXPRESS IMEDIATAMENTE
 // ==========================================
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Middlewares básicos
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+app.use("/api", (req: any, res: any, next: any) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
 
 // ==========================================
 // INICIA SERVER PRIMEIRO
@@ -43,15 +54,50 @@ wss.on("connection", (ws) => {
 // ==========================================
 // HEALTH CHECK
 // ==========================================
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+  const startDb = Date.now();
+  let dbStatus = "ok";
+  let dbLatency = 0;
+  try {
+    const { error } = await supabase.from("promises").select("id").limit(1);
+    dbLatency = Date.now() - startDb;
+    if (error) dbStatus = "error";
+    if (dbLatency > 3000) dbStatus = "slow";
+  } catch {
+    dbStatus = "error";
+  }
+
+  const healthy = dbStatus === "ok";
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? "ok" : "degraded",
+    database: dbStatus,
+    latency_ms: dbLatency,
+    timestamp: new Date().toISOString(),
+    version: "1.0.0"
+  });
 });
 
 // ==========================================
 // DEFINE ROUTES (sem executar lógica pesada)
 // ==========================================
+app.use("/api/sitemap", (req, res, next) => {
+  import("./src/routes/sitemap.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/og", (req, res, next) => {
+  import("./src/routes/og.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/recaptcha-verify", (req, res, next) => {
+  import("./src/routes/recaptcha.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api/admin", (req, res, next) => {
   import("./src/routes/admin.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/cron", (req, res, next) => {
+  import("./src/routes/cron.js").then(m => m.default(req, res, next)).catch(next);
 });
 
 app.use("/api/skills", (req, res, next) => {
@@ -70,30 +116,81 @@ app.use("/api/politicians", (req, res, next) => {
   import("./src/routes/politicians.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/contestations", (req, res, next) => {
+  import("./src/routes/contestations.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 // =============================================
 // ENDPOINTS DE PIPELINE DE EVIDÊNCIAS (antes do middleware evidence)
 // =============================================
 
-// GET /api/evidence/pipeline/run
+// Pipeline status tracking
+let pipelineStatus = {
+  running: false,
+  startTime: null as string | null,
+  lastRun: null as string | null,
+  lastResult: null as any,
+  jobId: null as string | null
+};
+
+// GET /api/evidence/pipeline/run - Retorna 202 e processa em background
 app.get("/api/evidence/pipeline/run", async (req, res) => {
-  try {
-    const { runEvidencePipeline } = await import("./src/services/evidencePipeline.js");
-    const result = await runEvidencePipeline();
-    res.json({
-      status: "ok",
-      feeds_processados: 6,
-      artigos_encontrados: result.articles_fetched,
-      evidencias_salvas: result.evidences_found
+  if (pipelineStatus.running) {
+    return res.status(409).json({
+      status: "already_running",
+      message: "Pipeline já está em execução",
+      job_id: pipelineStatus.jobId,
+      start_time: pipelineStatus.startTime
     });
-  } catch (err: any) {
-    res.status(500).json({ status: "error", message: err.message });
   }
+
+  const jobId = `job_${Date.now()}`;
+  pipelineStatus = {
+    running: true,
+    startTime: new Date().toISOString(),
+    lastRun: null,
+    lastResult: null,
+    jobId
+  };
+
+  setImmediate(async () => {
+    try {
+      console.log(`[Pipeline] Started job ${jobId}`);
+      const { runEvidencePipeline } = await import("./src/services/evidencePipeline.js");
+      const result = await runEvidencePipeline();
+      
+      pipelineStatus.lastRun = new Date().toISOString();
+      pipelineStatus.lastResult = {
+        status: "ok",
+        feeds_processados: 6,
+        artigos_encontrados: result.articles_fetched,
+        evidencias_salvas: result.evidences_found
+      };
+      console.log(`[Pipeline] Completed job ${jobId}`);
+    } catch (err: any) {
+      console.error(`[Pipeline] Error in job ${jobId}:`, err.message);
+      pipelineStatus.lastResult = {
+        status: "error",
+        message: err.message
+      };
+    } finally {
+      pipelineStatus.running = false;
+    }
+  });
+
+  res.status(202).json({
+    status: "accepted",
+    message: "Pipeline iniciado em background",
+    job_id: jobId,
+    check_status: "/api/evidence/pipeline/status"
+  });
 });
 
 // GET /api/evidence/pipeline/status
 app.get("/api/evidence/pipeline/status", async (req, res) => {
   try {
     const { supabase } = await import("./src/lib/supabase.js");
+    const { getBudgetStats } = await import("./src/services/budgetController.js");
     
     const { data: lastArticle } = await supabase
       .from("rss_articles")
@@ -111,11 +208,28 @@ app.get("/api/evidence/pipeline/status", async (req, res) => {
       .select("*", { count: "exact", head: true })
       .eq("source_type", "rss");
     
+    const budgetStats = getBudgetStats();
+    
     res.json({
       status: "ok",
-      last_run: lastArticle?.fetched_at || null,
-      total_artigos: articlesCount || 0,
-      total_evidencias: evidenciasCount || 0
+      pipeline: {
+        running: pipelineStatus.running,
+        job_id: pipelineStatus.jobId,
+        start_time: pipelineStatus.startTime,
+        last_run: pipelineStatus.lastRun,
+        last_result: pipelineStatus.lastResult
+      },
+      ai_budget: {
+        requests_used: budgetStats.requestsUsed,
+        max_requests: parseInt(process.env.AI_MAX_REQUESTS_PER_RUN || '50'),
+        budget_exceeded: budgetStats.budgetExceeded,
+        last_reset: budgetStats.lastReset
+      },
+      data: {
+        last_article: lastArticle?.fetched_at || null,
+        total_artigos: articlesCount || 0,
+        total_evidencias: evidenciasCount || 0
+      }
     });
   } catch (err: any) {
     res.status(500).json({ status: "error", message: err.message });
@@ -125,6 +239,10 @@ app.get("/api/evidence/pipeline/status", async (req, res) => {
 // Middleware de evidence (depois dos endpoints específicos)
 app.use("/api/evidence", (req, res, next) => {
   import("./src/routes/evidence.js").then(m => m.default(req, res, next)).catch(next);
+});
+
+app.use("/api/evidences", (req, res, next) => {
+  import("./src/routes/evidences.js").then(m => m.default(req, res, next)).catch(next);
 });
 
 app.use("/api/scrape", (req, res, next) => {

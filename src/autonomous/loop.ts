@@ -40,6 +40,7 @@ import {
   recordDeploy,
   getCircuitBreakerStatus
 } from "./protections.js";
+import { checkBudget, recordAiCall, getBudgetStats, resetBudget } from "../services/budgetController.js";
 import type { SystemError } from "./diagnostician.js";
 
 // ==========================================
@@ -184,6 +185,7 @@ async function executeLoopPhases(): Promise<{
   errorsChecked: number;
   diagnosisTriggered: boolean;
   fixAttempted: boolean;
+  error?: string;
 }> {
   // ==========================================
   // PHASE 1: Monitor (Check Error Threshold)
@@ -212,8 +214,21 @@ async function executeLoopPhases(): Promise<{
   // ==========================================
   console.log("\n[Loop] === Phase 2: Diagnostician (AI Diagnosis) ===");
 
+  if (!checkBudget(2000)) {
+    console.log("[Loop] ⚠️ AI budget exceeded — skipping AI diagnosis");
+    recordAiCall(0);
+    return {
+      success: false,
+      errorsChecked: errorCount,
+      diagnosisTriggered: false,
+      fixAttempted: false,
+      error: "AI budget exceeded"
+    };
+  }
+
   const errorsToAnalyze = errors.slice(0, MAX_ERRORS_TO_ANALYZE);
   const diagnosis = await runDiagnosis(errorsToAnalyze as SystemError[]);
+  recordAiCall(1500);
 
   console.log(`[Loop] ✅ Diagnosis complete`);
   console.log(`[Loop]    Cause: ${diagnosis.cause.substring(0, 120)}...`);
@@ -236,7 +251,20 @@ async function executeLoopPhases(): Promise<{
   // ==========================================
   console.log("\n[Loop] === Phase 3: Risk Analyzer (Risk Classification) ===");
 
+  if (!checkBudget(1500)) {
+    console.log("[Loop] ⚠️ AI budget exceeded — skipping risk analysis");
+    recordAiCall(0);
+    return {
+      success: false,
+      errorsChecked: errorCount,
+      diagnosisTriggered: true,
+      fixAttempted: false,
+      error: "AI budget exceeded during risk analysis"
+    };
+  }
+
   const riskResult = await fullRiskPipeline(diagnosis, diagnosis.auto_fix_id);
+  recordAiCall(1000);
 
   console.log(`[Loop] ✅ Risk analysis complete`);
   console.log(`[Loop]    Risk level: ${riskResult.risk_level}`);

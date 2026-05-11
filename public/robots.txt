@@ -1,11 +1,33 @@
-# Promessômetro - Robots.txt
 User-agent: *
 Allow: /
+Allow: /politico/
+Allow: /promessa/
+Allow: /ranking
+Allow: /promessas
 
-# Sitemap
-Sitemap: https://promessometro-qqhs3n1lj-ademilsonls81-7493s-projects.vercel.app/sitemap.xml
-
-# Disallow admin and private routes
-Disallow: /dashboard
-Disallow: /admin
 Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /api/sitemap.xml
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+Crawl-delay: 1
+
+Sitemap: https://promessometro-brasil.vercel.app/api/sitemap.xml

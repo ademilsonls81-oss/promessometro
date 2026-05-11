@@ -4,5 +4,43 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/((?!api|_next).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-reavaliation",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/update-stats",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/backup-export",
+      "schedule": "0 2 * * 0"
+    },
+    {
+      "path": "/api/cron/process-evidences",
+      "schedule": "0 */2 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/politico/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, s-maxage=1800, stale-while-revalidate=3600" }
+      ]
+    },
+    {
+      "source": "/promessa/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, s-maxage=1800, stale-while-revalidate=3600" }
+      ]
+    },
+    {
+      "source": "/api/sitemap.xml",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, s-maxage=3600, stale-while-revalidate=7200" }
+      ]
+    }
   ]
 }

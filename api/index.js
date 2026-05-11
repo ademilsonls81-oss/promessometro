@@ -1,22 +1,20 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://liqutcjzzrqstivvfele.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
+const supabaseUrl = process.env.S_URL || process.env.SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co';
+const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   const path = req.url;
   const method = req.method;
 
   res.setHeader('Content-Type', 'application/json');
 
-  // Health check
   if (path === '/api/health') {
     return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
-  // GET /api/politicians/ranking
   if (path === '/api/politicians/ranking' && method === 'GET') {
     const { data: promises, error } = await supabase
       .from('promises')
@@ -54,7 +52,6 @@ module.exports = async (req, res) => {
     });
   }
 
-  // GET /api/politicians/:name
   const politicianMatch = path.match(/^\/api\/politicians\/(.+)$/);
   if (politicianMatch && method === 'GET') {
     const name = decodeURIComponent(politicianMatch[1]);
@@ -88,7 +85,6 @@ module.exports = async (req, res) => {
     });
   }
 
-  // GET /api/promises
   if (path === '/api/promises' && method === 'GET') {
     const { data: promises, error } = await supabase
       .from('promises')
@@ -100,7 +96,6 @@ module.exports = async (req, res) => {
     return res.status(200).json({ promises: promises || [], total: promises?.length || 0 });
   }
 
-  // POST /api/promises/submit
   if (path === '/api/promises/submit' && method === 'POST') {
     try {
       let body = '';
@@ -133,4 +128,4 @@ module.exports = async (req, res) => {
   }
 
   res.status(404).json({ error: 'Endpoint não encontrado', path });
-};
+}

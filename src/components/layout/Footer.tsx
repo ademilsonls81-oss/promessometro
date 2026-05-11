@@ -1,72 +1,32 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ListChecks, Github, Twitter } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function Footer() {
   return (
     <footer className="border-t border-border/50 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Logo + descrição */}
-          <div className="md:col-span-1">
-            <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <ListChecks className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-bold text-lg tracking-tight">
-                Promess<span className="text-accent">ômetro</span>
-              </span>
-            </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              O maior portal de transparência política do Brasil.
-            </p>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-lg">Promessômetro</span>
+          </Link>
+          
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+            <Link to="/metodologia" className="hover:text-foreground transition-colors">Metodologia</Link>
+            <Link to="/fontes" className="hover:text-foreground transition-colors">Fontes</Link>
+            <Link to="/como-funciona" className="hover:text-foreground transition-colors">Como Funciona</Link>
+            <Link to="/quem-somos" className="hover:text-foreground transition-colors">Quem Somos</Link>
+            <Link to="/correcoes" className="hover:text-foreground transition-colors">Correções</Link>
+            <Link to="/privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
+            <Link to="/termos" className="hover:text-foreground transition-colors">Termos</Link>
           </div>
-
-          {/* Produto */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4 text-white">Plataforma</h4>
-            <ul className="space-y-3">
-              <li><Link to="/promessas" className="text-sm text-muted-foreground hover:text-white transition-colors">Promessas</Link></li>
-              <li><Link to="/ranking" className="text-sm text-muted-foreground hover:text-white transition-colors">Ranking</Link></li>
-              <li><Link to="/#pricing" className="text-sm text-muted-foreground hover:text-white transition-colors">Planos</Link></li>
-            </ul>
-          </div>
-
-          {/* Recursos */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4 text-white">Recursos</h4>
-            <ul className="space-y-3">
-              <li><Link to="/quem-somos" className="text-sm text-muted-foreground hover:text-white transition-colors">Quem Somos</Link></li>
-              <li><Link to="/como-funciona" className="text-sm text-muted-foreground hover:text-white transition-colors">Como Funciona</Link></li>
-              <li><Link to="/metodologia" className="text-sm text-muted-foreground hover:text-white transition-colors">Metodologia</Link></li>
-              <li><Link to="/fontes" className="text-sm text-muted-foreground hover:text-white transition-colors">Fontes</Link></li>
-            </ul>
-          </div>
-
-          {/* Institucional */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4 text-white">Institucional</h4>
-            <ul className="space-y-3">
-              <li><Link to="/correcoes" className="text-sm text-muted-foreground hover:text-white transition-colors">Correções</Link></li>
-              <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-white transition-colors">Privacidade</Link></li>
-              <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-white transition-colors">Termos</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="mt-12 pt-6 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+          
           <p className="text-sm text-muted-foreground">
-            © 2026 Promessômetro. Todos os direitos reservados.
+            © 2026 — A transparência que o Brasil precisa
           </p>
-          <div className="flex items-center gap-4">
-            <a href="https://github.com/ademilsonls81-oss/promessometro" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="GitHub">
-              <Github className="w-5 h-5" />
-            </a>
-            <a href="https://x.com/promessometro" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors opacity-50 cursor-not-allowed" title="Twitter em breve">
-              <Twitter className="w-5 h-5" />
-            </a>
-          </div>
         </div>
       </div>
     </footer>

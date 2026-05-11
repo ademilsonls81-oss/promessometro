@@ -31,3 +31,31 @@ export async function logAuditAction(userId: string, action: string, req: Reques
     console.error("❌ Fatal error in audit logger:", err);
   }
 }
+
+export async function logSystemError(
+  errorType: string,
+  source: string,
+  message: string,
+  stackTrace?: string,
+  severity: "low" | "medium" | "high" | "critical" = "medium"
+) {
+  try {
+    const { error } = await supabase.from("system_errors").insert({
+      error_type: errorType,
+      source,
+      message,
+      stack_trace: stackTrace || null,
+      severity,
+      endpoint: null,
+      http_status: null
+    });
+
+    if (error) {
+      console.error(`[LogSystemError] Failed: ${error.message}`);
+    } else {
+      console.warn(`[SystemError] ${severity.toUpperCase()}: ${errorType} - ${message}`);
+    }
+  } catch (err) {
+    console.error("[LogSystemError] Fatal error:", err);
+  }
+}

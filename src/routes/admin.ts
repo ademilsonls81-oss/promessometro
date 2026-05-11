@@ -939,4 +939,27 @@ router.post("/backups/restore", checkAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/traffic-stats
+router.get("/traffic-stats", checkAdmin, async (_req, res) => {
+  try {
+    const { getTrafficStats, getSuspiciousActivityLogs } = await import("../middleware/antiAbuse.js");
+    const stats = getTrafficStats();
+    const logs = getSuspiciousActivityLogs();
+    res.json({ ...stats, suspiciousActivities: logs.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/suspicious-logs
+router.get("/suspicious-logs", checkAdmin, async (_req, res) => {
+  try {
+    const { getSuspiciousActivityLogs } = await import("../middleware/antiAbuse.js");
+    const logs = getSuspiciousActivityLogs();
+    res.json({ logs });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, AlertTriangle, Send, CheckCircle, Loader2, Shield, User, Clock } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { checkCooldown, recordAction, checkHoneypot, formatCooldown } from "../services/abuseProtection";
+import { executeRecaptchaV3 } from "../services/recaptchaService";
 
 interface ContestationModalProps {
   isOpen: boolean;
@@ -58,6 +59,12 @@ export default function ContestationModal({
       return;
     }
 
+    const recaptchaToken = await executeRecaptchaV3("contest_promise");
+    if (!recaptchaToken) {
+      setError("Verificação de segurança falhou. Recarregue a página e tente novamente.");
+      return;
+    }
+
     const cooldown = checkCooldown("contest", promiseId, 24 * 60 * 60 * 1000);
     if (!cooldown.allowed) {
       setError(`Você já contestou esta promessa recentemente. Aguarde ${formatCooldown(cooldown.remainingTime)}.`);
@@ -81,7 +88,7 @@ export default function ContestationModal({
 
     try {
       const fingerprint = `anon_${promiseId}_${Date.now()}`;
-      
+
       const { error: insertError } = await supabase
         .from("promise_contestations")
         .insert({
@@ -91,7 +98,8 @@ export default function ContestationModal({
           motivo: motivo.trim(),
           evidencia_url: evidenciaUrl.trim() || null,
           status: "pendente",
-          fingerprint: fingerprint
+          fingerprint: fingerprint,
+          recaptcha_token: recaptchaToken
         });
 
       if (insertError) throw insertError;

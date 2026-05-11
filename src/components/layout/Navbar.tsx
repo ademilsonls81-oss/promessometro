@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui";
-import { Sparkles, Menu, X, Trophy, FileText, Map, Send, LayoutDashboard } from 'lucide-react';
+import { Sparkles, Menu, X, Trophy, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
   { href: '/promessas', label: 'Promessas', icon: FileText },
   { href: '/ranking', label: 'Ranking', icon: Trophy },
-  { href: '/mapa', label: 'Mapa', icon: Map },
-  { href: '/reportar', label: 'Reportar', icon: Send },
 ];
 
 export default function Navbar() {
