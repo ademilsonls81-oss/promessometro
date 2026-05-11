@@ -20,7 +20,7 @@ export default function Footer() {
             <Link to="/auditoria" className="hover:text-foreground transition-colors">Auditoria</Link>
             <Link to="/fontes" className="hover:text-foreground transition-colors">Fontes</Link>
             <a href="/api/v1/docs" className="hover:text-foreground transition-colors flex items-center gap-1">API <Code className="w-3 h-3" /></a>
-            <a href="https://github.com/brunocosta/promessometro" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1">GitHub <Github className="w-3 h-3" /></a>
+            <a href="https://github.com/ademilsonls81-oss/promessometro" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors flex items-center gap-1">GitHub <Github className="w-3 h-3" /></a>
           </div>
           
           <p className="text-sm text-muted-foreground">

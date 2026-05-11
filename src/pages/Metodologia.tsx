@@ -177,7 +177,7 @@ export default function Metodologia() {
                 Todo o nosso código é aberto. Você pode auditar, contribuir ou adaptar:
               </p>
               <a
-                href="https://github.com/brunocosta/promessometro"
+                href="https://github.com/ademilsonls81-oss/promessometro"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-colors"

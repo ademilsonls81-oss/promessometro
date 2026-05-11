@@ -162,7 +162,7 @@ export default function Transparencia() {
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <a
-                      href="https://github.com/brunocosta/promessometro"
+                      href="https://github.com/ademilsonls81-oss/promessometro"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm transition-colors"
