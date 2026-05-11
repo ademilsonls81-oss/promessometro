@@ -7,7 +7,10 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
-    define: {},
+    define: {
+      'process.env': {},
+      'process': JSON.stringify({ env: {} }),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),

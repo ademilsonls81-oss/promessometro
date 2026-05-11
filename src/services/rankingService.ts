@@ -1,6 +1,4 @@
-import { supabase } from "../lib/supabase.js";
 import { generateSlug } from "../components/SEO.js";
-
 export interface RankingFilter {
   state?: string;
   party?: string;
@@ -47,7 +45,7 @@ function mapStatus(s: string): "fulfilled" | "partial" | "broken" | "pending" {
   return "pending";
 }
 
-export async function getRanking(filters: RankingFilter = {}): Promise<RankingResult> {
+export async function getRanking(supabase: any, filters: RankingFilter = {}): Promise<RankingResult> {
   const limit = Math.min(filters.limit || 20, 100);
   const { data: promises, error } = await supabase
     .from("promises")
@@ -144,7 +142,7 @@ export async function getRanking(filters: RankingFilter = {}): Promise<RankingRe
   };
 }
 
-export async function getPoliticianBySlug(slug: string): Promise<PoliticianRankingEntry | null> {
+export async function getPoliticianBySlug(supabase: any, slug: string): Promise<PoliticianRankingEntry | null> {
   const decoded = slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   const { data: promises } = await supabase
     .from("promises")
@@ -201,10 +199,10 @@ export async function getPoliticianBySlug(slug: string): Promise<PoliticianRanki
   };
 }
 
-export async function comparePoliticians(name1: string, name2: string): Promise<{ politician1: PoliticianRankingEntry; politician2: PoliticianRankingEntry; comparison: any }> {
+export async function comparePoliticians(supabase: any, name1: string, name2: string): Promise<{ politician1: PoliticianRankingEntry; politician2: PoliticianRankingEntry; comparison: any }> {
   const [p1, p2] = await Promise.all([
-    getPoliticianBySlug(name1),
-    getPoliticianBySlug(name2)
+    getPoliticianBySlug(supabase, name1),
+    getPoliticianBySlug(supabase, name2)
   ]);
 
   if (!p1 || !p2) throw new Error("Político não encontrado");
@@ -220,7 +218,7 @@ export async function comparePoliticians(name1: string, name2: string): Promise<
   return { politician1: p1, politician2: p2, comparison };
 }
 
-export async function getRankingStats(): Promise<any> {
+export async function getRankingStats(supabase: any): Promise<any> {
   const { data: promises } = await supabase
     .from("promises")
     .select("status, fulfillment_score, state, party");

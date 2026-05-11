@@ -1,4 +1,3 @@
-import { supabase } from "../lib/supabase.js";
 
 export interface ElectionData {
   year: number;
@@ -28,7 +27,7 @@ function mapStatus(s: string): string {
   return "pending";
 }
 
-export async function getElectionData(year: number, limit: number = 20): Promise<ElectionData> {
+export async function getElectionData(supabase: any, year: number, limit: number = 20): Promise<ElectionData> {
   const { data: promises } = await supabase
     .from("promises")
     .select("politician_name, party, state, status, fulfillment_score, ano_eleitoral, category")
@@ -94,7 +93,7 @@ export async function getElectionData(year: number, limit: number = 20): Promise
   };
 }
 
-export async function getAvailableElectionYears(): Promise<number[]> {
+export async function getAvailableElectionYears(supabase: any): Promise<number[]> {
   const { data } = await supabase
     .from("promises")
     .select("ano_eleitoral")
@@ -105,7 +104,7 @@ export async function getAvailableElectionYears(): Promise<number[]> {
   return years;
 }
 
-export async function getElectionComparison(years: number[]): Promise<Record<number, { total: number; fulfilled: number; rate: number }>> {
+export async function getElectionComparison(supabase: any, years: number[]): Promise<Record<number, { total: number; fulfilled: number; rate: number }>> {
   const result: Record<number, { total: number; fulfilled: number; rate: number }> = {};
 
   for (const year of years) {
@@ -122,7 +121,7 @@ export async function getElectionComparison(years: number[]): Promise<Record<num
   return result;
 }
 
-export async function getPromiseByElection(year: number, options: { status?: string; party?: string; limit?: number; cursor?: string } = {}): Promise<any> {
+export async function getPromiseByElection(supabase: any, year: number, options: { status?: string; party?: string; limit?: number; cursor?: string } = {}): Promise<any> {
   let query = supabase
     .from("promises")
     .select("id, politician_name, promise_title, status, fulfillment_score, party, state, category, created_at")
@@ -141,7 +140,7 @@ export async function getPromiseByElection(year: number, options: { status?: str
   return { promises: data || [], total: data?.length || 0 };
 }
 
-export async function getPoliticianHistory(name: string): Promise<any[]> {
+export async function getPoliticianHistory(supabase: any, name: string): Promise<any[]> {
   const { data } = await supabase
     .from("promises")
     .select("ano_eleitoral, status, fulfillment_score, promise_title, created_at")

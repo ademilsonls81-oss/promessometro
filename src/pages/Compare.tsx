@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, Users, TrendingUp, TrendingDown, Loader2, ArrowRight, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import { comparePoliticians } from "../services/rankingService.js";
 import SEO from "../components/SEO.js";
+import { supabase } from "../lib/supabaseClient.js";
 import { ShareButtons } from "../components/ShareButtons.js";
 
 export default function ComparePage() {
@@ -27,7 +28,7 @@ export default function ComparePage() {
   async function fetchCompare(name1: string, name2: string) {
     setLoading(true);
     try {
-      const result = await comparePoliticians(name1, name2);
+      const result = await comparePoliticians(supabase, name1, name2);
       setData(result);
       setError(null);
     } catch (err: any) {

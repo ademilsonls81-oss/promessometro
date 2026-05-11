@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { MapPin, ChevronLeft, Trophy, Loader2 } from "lucide-react";
 import { getRanking } from "../services/rankingService.js";
 import SEO from "../components/SEO.js";
+import { supabase } from "../lib/supabaseClient.js";
 
 const UF_NAMES: Record<string, string> = {
   AC: "Acre", AL: "Alagoas", AP: "Amapá", AM: "Amazonas", BA: "Bahia",
@@ -36,7 +37,7 @@ export default function StatePage() {
   async function fetchState(uf: string) {
     setLoading(true);
     try {
-      const result = await getRanking({ state: uf, limit: 50, sortBy: "percentage", sortOrder: "desc" });
+      const result = await getRanking(supabase, { state: uf, limit: 50, sortBy: "percentage", sortOrder: "desc" });
       setData(result);
       setError(null);
     } catch (err: any) {

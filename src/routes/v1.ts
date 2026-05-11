@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { supabase } from "../lib/supabase.js";
 import { getRanking, getRankingStats, comparePoliticians } from "../services/rankingService.js";
 import { getElectionData, getAvailableElectionYears, getElectionComparison, getPromiseByElection, getPoliticianHistory } from "../services/electionService.js";
 import { search, suggest } from "../services/searchService.js";
@@ -8,7 +9,7 @@ const router = Router();
 router.get("/politicians", async (req: Request, res: Response) => {
   try {
     const { state, party, position, year, minScore, maxScore, cursor, limit } = req.query;
-    const result = await getRanking({
+    const result = await getRanking(supabase, {
       state: state as string,
       party: party as string,
       position: position as string,
@@ -28,7 +29,7 @@ router.get("/politicians/compare", async (req: Request, res: Response) => {
   try {
     const { name1, name2 } = req.query;
     if (!name1 || !name2) return res.status(400).json({ error: "name1 and name2 are required" });
-    const result = await comparePoliticians(name1 as string, name2 as string);
+    const result = await comparePoliticians(supabase, name1 as string, name2 as string);
     res.json(result);
   } catch (err: any) {
     res.status(404).json({ error: err.message });
@@ -130,7 +131,7 @@ router.get("/elections/compare", async (req: Request, res: Response) => {
 
 router.get("/stats", async (_req: Request, res: Response) => {
   try {
-    const result = await getRankingStats();
+    const result = await getRankingStats(supabase);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

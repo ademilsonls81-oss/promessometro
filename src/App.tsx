@@ -20,6 +20,8 @@ import StatePage from "./pages/StatePage";
 import Reportar from "./pages/Reportar";
 import Mapa from "./pages/Mapa";
 import Dashboard from "./pages/Dashboard";
+import Transparencia from "./pages/Transparencia";
+import Auditoria from "./pages/Auditoria";
 import SEO from "./components/SEO";
 
 function HomePage() {
@@ -200,6 +202,8 @@ function AppRoutes() {
       <Route path="/reportar" element={<ErrorBoundary context="Reportar"><Reportar /></ErrorBoundary>} />
       <Route path="/mapa" element={<ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>} />
       <Route path="/dashboard" element={<ErrorBoundary context="Dashboard"><Dashboard /></ErrorBoundary>} />
+      <Route path="/transparencia" element={<ErrorBoundary context="Transparencia"><Transparencia /></ErrorBoundary>} />
+      <Route path="/auditoria" element={<ErrorBoundary context="Auditoria"><Auditoria /></ErrorBoundary>} />
       <Route path="/404" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
       <Route path="*" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
     </Routes>
