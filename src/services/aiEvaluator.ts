@@ -192,7 +192,7 @@ function buildAntiHallucinationPrompt(promise: PromiseData, evidences: Evidence[
 
   const trustedNames = trustedSources.map(s => s.name).join(", ") || "Nenhuma fonte confiável registrada";
 
-  return `Você é um avaliador independente de promessas políticas brasileiras. Seu papel éclassificar objetivamente o status de cumprimento de cada promessa.
+  return `Você é um avaliador independente de promessas políticas brasileiras. Seu papel é classificar objetivamente o status de cumprimento de cada promessa.
 
 ⚠️ REGRAS INVIOLÁVEIS — SE VIOLADAS, SUA RESPOSTA SERÁ DESCARTADA:
 
@@ -202,6 +202,8 @@ function buildAntiHallucinationPrompt(promise: PromiseData, evidences: Evidence[
 4. NUNCA afirme fatos que não possam ser verificados nas fontes fornecidas.
 5. Se as fontes contradizem sua conclusão, ajuste sua avaliação — você deve seguir as fontes, não o contrário.
 6. Se não houver evidência verificável, classifique como "nao_classificada".
+7. NEVER assign a score above 70 (fulfillment_score > 70) unless you have at least 1 evidence with a valid URL. Zero-evidence evaluations must have score <= 30.
+8. NEVER invent evidence descriptions or sources. Only reference evidence that appears in the EVIDENCIAS section above.
 
 PROMESSA:
 - Político: ${promise.politician_name}
@@ -213,17 +215,22 @@ EVIDÊNCIAS:
 ${evidenceText}
 
 FONTES CONFIÁVEIS REGISTRADAS: ${trustedNames}
-(Cross-validation: se houver 2+ fontes confiáveis com informação concordante, aumento confiança. Se conflitarem, reduza confiança.)
+Cross-validation: se houver 2 ou mais fontes confiáveis com informação concordante, a confiança aumenta. Se conflitarem, a confiança é reduzida.
 
 CRITÉRIOS:
 | Status | Score | Quando usar |
 |--------|-------|-------------|
-| cumprida | 80-100 | Ação concluída com prova verificável |
-| parcialmente_cumprida | 40-79 | Progresso parcial demonstrado |
-| em_andamento | 20-39 | Processo iniciado sem entrega |
+| cumprida | 80-100 | Ação concluída com prova verificável (exige URL de evidência) |
+| parcialmente_cumprida | 40-79 | Progresso parcial demonstrado com evidência |
+| em_andamento | 20-39 | Processo iniciado sem entrega final |
 | nao_iniciada | 0-19 | Nenhuma ação verificável |
-| descumprida | 0 | Ação contrária OU prazo expirou com declaração do político contra |
+| descumprida | 0 | Ação contrária OU prazo expirou com declaração pública contra |
 | nao_classificada | null | Promessa vaga demais (ex: "vou melhorar X") |
+
+REGRAS DE SCORE:
+- Com 0 evidências: score máximo 30, status deve ser "nao_iniciada", "em_andamento" ou "nao_classificada"
+- Com 1+ evidências com URL válida: score pode variar conforme critério
+- Score > 70 SÓ é permitido com evidência verificável com URL real
 
 RESPONDA SOMENTE COM JSON válido (sem markdown, sem texto extra):
 {
@@ -239,6 +246,7 @@ RESPONDA SOMENTE COM JSON válido (sem markdown, sem texto extra):
   "confianca": 0.0-1.0,
   "motivo_confianca": "Motivo do nível de confiança"
 }`;
+}
 }
 
 export async function evaluatePromise(
@@ -321,6 +329,9 @@ export async function evaluatePromise(
         throw new Error("Empty AI response");
       }
 
+      console.log(`[AI-Evaluator] Real AI response received for promise ${promise.id} (${data.model || AI_MODEL}), ${rawContent.length} chars`);
+      console.log(`[AI-Evaluator] Raw response preview: ${rawContent.substring(0, 200)}...`);
+
       let parsed: Partial<AIResult> = {};
       try {
         parsed = JSON.parse(rawContent);
@@ -357,10 +368,13 @@ export async function evaluatePromise(
         } as AIResult;
       }
     } catch (err: any) {
-      console.error(`[AI-Evaluator] AI call failed: ${err.message}`);
+      console.error(`[AI-Evaluator] AI call failed for promise ${promise.id}: ${err.message}`);
+      console.log(`[AI-Evaluator] Falling back to keyword-based evaluation — GROQ_API_KEY may be missing or invalid`);
       result = createFallbackResult(validEvidences, trustedCount);
     }
   }
+
+  console.log(`[AI-Evaluator] Promise ${promise.id}: score=${result.fulfillment_score}, status=${result.status}, confianca=${result.confianca}, model=${AI_MODEL}`);
 
   const needsHumanReview = result.confianca < 0.4 || evidences.length === 0;
   const inconsistency = "";

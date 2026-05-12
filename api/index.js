@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.S_URL || process.env.SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co';
-const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
-
+const supabaseUrl = process.env.VITE_S_URL || 'https://liqutcjzzrqstivvfele.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req, res) {
@@ -29,15 +28,14 @@ export default async function handler(req, res) {
         statsMap[name] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0 };
       }
       statsMap[name].total++;
-      if (p.status === 'fulfilled') statsMap[name].fulfilled++;
-      else if (p.status === 'partial' || p.status === 'partial_fulfilled') statsMap[name].partial++;
-      else if (p.status === 'broken' || p.status === 'not_fulfilled') statsMap[name].broken++;
+      if (p.status === 'cumprida') statsMap[name].fulfilled++;
+      else if (p.status === 'parcialmente_cumprida') statsMap[name].partial++;
+      else if (p.status === 'descumprida') statsMap[name].broken++;
       else statsMap[name].pending++;
     });
 
     const ranking = Object.entries(statsMap).map(([name, stats]) => ({
       name,
-      role: null, state: null, party: null,
       stats,
       percentage: stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50,
       promise_count: stats.total
@@ -45,44 +43,7 @@ export default async function handler(req, res) {
 
     ranking.sort((a, b) => b.percentage - a.percentage);
 
-    return res.status(200).json({
-      ranking: ranking.slice(0, 50),
-      total: ranking.length,
-      stats: { total_promises: promises?.length || 0, total_politicians: ranking.length }
-    });
-  }
-
-  const politicianMatch = path.match(/^\/api\/politicians\/(.+)$/);
-  if (politicianMatch && method === 'GET') {
-    const name = decodeURIComponent(politicianMatch[1]);
-    const { data: promises, error } = await supabase
-      .from('promises')
-      .select('*')
-      .ilike('politician_name', `%${name}%`)
-      .order('created_at', { ascending: false });
-
-    if (error) return res.status(500).json({ error: error.message });
-    if (!promises?.length) return res.status(404).json({ error: 'Político não encontrado' });
-
-    const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 50 };
-    promises.forEach(p => {
-      if (p.status === 'fulfilled') stats.fulfilled++;
-      else if (p.status === 'partial' || p.status === 'partial_fulfilled') stats.partial++;
-      else if (p.status === 'broken' || p.status === 'not_fulfilled') stats.broken++;
-      else stats.pending++;
-    });
-    stats.percentage = stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50;
-
-    return res.status(200).json({
-      name, position: null, party: null, state: null, photo_url: null,
-      stats,
-      promises: promises.map(p => ({
-        id: p.id, title: p.promise_title, description: p.promise_description,
-        category: p.category, status: p.status, evidence: p.evidence,
-        source_link: p.source_link, fulfillment_score: p.fulfillment_score,
-        created_at: p.created_at, updated_at: p.updated_at
-      }))
-    });
+    return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
   }
 
   if (path === '/api/promises' && method === 'GET') {
@@ -99,10 +60,8 @@ export default async function handler(req, res) {
   if (path === '/api/promises/submit' && method === 'POST') {
     try {
       let body = '';
-      await new Promise((resolve) => {
-        req.on('data', chunk => body += chunk);
-        req.on('end', resolve);
-      });
+      req.on('data', chunk => body += chunk);
+      await new Promise(resolve => req.on('end', resolve));
       const data = JSON.parse(body);
       const { politician_name, promise_title, promise_description, category, source_link } = data;
 
@@ -127,5 +86,5 @@ export default async function handler(req, res) {
     }
   }
 
-  res.status(404).json({ error: 'Endpoint não encontrado', path });
+  return res.status(404).json({ error: 'Endpoint não encontrado', path });
 }

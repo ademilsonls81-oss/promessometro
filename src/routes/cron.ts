@@ -30,14 +30,25 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
     const { data: promises } = await supabase
       .from("promises")
       .select("id, promise_title, promise_description, politician_name, category, status, fulfillment_score")
-      .in("status", ["em_andamento", "parcialmente_cumprida", "nao_classificada"])
+      .in("status", ["em_andamento", "parcialmente_cumprida", "nao_classificada", "nao_iniciada"])
       .gt("updated_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .limit(50);
 
     let evaluated = 0;
     let failed = 0;
 
-    if (promises && promises.length > 0) {
+    if (!promises || promises.length === 0) {
+      console.log("[Cron] No promises to reavaliate");
+      res.json({ status: "ok", promises_evaluated: 0, promises_failed: 0, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error("[Cron] GROQ_API_KEY not configured — aborting reavaliation");
+      res.status(500).json({ error: "GROQ_API_KEY not configured" });
+      return;
+    }
       const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
 
       for (const promise of promises) {
@@ -51,15 +62,8 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
           failed++;
         }
         await new Promise(r => setTimeout(r, 500));
-      }
+}
     }
-
-    console.log(`[Cron] Reavaliation complete: ${evaluated} evaluated, ${failed} failed`);
-    res.json({ status: "ok", promises_evaluated: evaluated, promises_failed: failed, timestamp: new Date().toISOString() });
-  } catch (err: any) {
-    await logSystemError("cron_reavaliation", "cron", err.message, err.stack, "high");
-    res.status(500).json({ error: err.message });
-  }
 });
 
 router.get("/cron/update-stats", async (req: Request, res: Response) => {

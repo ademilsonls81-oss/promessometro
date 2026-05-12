@@ -430,8 +430,7 @@ export default function PoliticianProfile() {
                                       .from("promise_explanations")
                                       .select("*")
                                       .eq("promise_id", promise.id)
-                                      .order("gerado_em", { ascending: false })
-                                      .limit(1)
+                                      .eq("is_latest", true)
                                       .single();
                                     setExplanations({ ...explanations, [promise.id]: data });
                                   } catch (err) {

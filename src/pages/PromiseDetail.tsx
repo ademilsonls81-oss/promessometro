@@ -107,10 +107,23 @@ export default function PromiseDetail() {
         .from("promise_explanations")
         .select("*")
         .eq("promise_id", promise.id)
-        .order("gerado_em", { ascending: false })
-        .limit(1)
+        .eq("is_latest", true)
         .single()
-        .then(({ data }) => setExplanation(data))
+        .then(({ data, error }) => {
+          if (data) {
+            setExplanation(data);
+          } else if (error?.code !== "PGRST116") {
+            supabase
+              .from("promise_explanations")
+              .select("*")
+              .eq("promise_id", promise.id)
+              .order("gerado_em", { ascending: false })
+              .limit(1)
+              .single()
+              .then(({ data: fallback }) => setExplanation(fallback))
+              .catch(console.error);
+          }
+        })
         .catch(console.error)
         .finally(() => setLoadingExplanation(false));
     }

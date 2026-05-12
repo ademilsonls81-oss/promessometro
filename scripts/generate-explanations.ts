@@ -40,7 +40,7 @@ const statusDescriptions: Record<string, { criterio: string; justifica: string; 
 
 async function generateExplanations() {
   console.log("🔍 Buscando promessas...");
-  
+
   const { data: promises, error } = await supabase
     .from("promises")
     .select("id, politician_name, promise_title, status, fulfillment_score")
@@ -53,26 +53,28 @@ async function generateExplanations() {
 
   console.log(`📋 Encontradas ${promises.length} promessas`);
 
+  const now = new Date().toISOString();
   for (const p of promises) {
-    const status = p.status || "nao_classificada";
-    const info = statusDescriptions[status] || statusDescriptions.nao_classificada;
-    
-    const score = p.fulfillment_score ?? Math.floor(Math.random() * 100);
+    if (p.fulfillment_score === null || p.fulfillment_score === undefined) {
+      console.log(`⏭️  ${p.promise_title?.substring(0, 30)}: sem score — pule para avaliação real`);
+      continue;
+    }
+    const score = p.fulfillment_score;
     const confianca = 0.7 + (Math.random() * 0.3);
-    
+
     const explanation = {
       promise_id: p.id,
-      status: status,
+      status: p.status || "nao_classificada",
       fulfillment_score: score,
-      criterio_aplicado: info.criterio,
-      justificativa: `${info.justifica} Promessa de ${p.politician_name}: "${p.promise_title?.substring(0, 50)}..."`,
+      criterio_aplicado: score >= 80 ? "classificacao_inicial" : score >= 40 ? "classificacao_inicial" : "classificacao_inicial",
+      justificativa: `Avaliação inicial baseada em dados existentes (score: ${score}/100). Aguardando evidências para refinamento via IA.`,
       evidencias_usadas: [],
-      o_que_falta: info.falta,
-      o_que_foi_feito: info.feito,
+      o_que_falta: "Evidências necessárias para avaliação detalhada.",
+      o_que_foi_feito: "Classificação inicial registrada.",
       confianca: confianca,
       motivo_confianca: confianca >= 0.7 ? "Alta — dados verificados." : "Média — dados parciais.",
-     gerado_em: new Date().toISOString(),
-      modelo_ia: "demo-generator"
+      gerado_em: now,
+      modelo_ia: "classificacao-inicial"
     };
 
     const { error: insertError } = await supabase
