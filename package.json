@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "Ademilson Lemos <ademilsonls81@gmail.com>",
   "type": "module",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev:server": "tsx server.ts",
     "dev": "vite",

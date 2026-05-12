@@ -3,6 +3,8 @@
 Os dados exibidos no Promessômetro são compilados de fontes públicas e estão
 licenciados sob Creative Commons Attribution 4.0 International (CC BY 4.0).
 
+https://creativecommons.org/licenses/by/4.0/
+
 TERMOS ADICIONAIS DE DADOS:
 
 1. OBRIGATORIEDADE DE ATRIBUIÇÃO:
@@ -19,5 +21,3 @@ TERMOS ADICIONAIS DE DADOS:
 4. PRESERVAÇÃO DE DIREITOS:
    A atribuição não pode ser removida, obscurecida ou alterada
    em qualquer redistribuição dos dados.
-
-Para detalhes completos: https://creativecommons.org/licenses/by/4.0/
