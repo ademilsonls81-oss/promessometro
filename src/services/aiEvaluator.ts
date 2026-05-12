@@ -58,6 +58,31 @@ function getAIClient() {
   return apiKey;
 }
 
+async function searchTavily(query: string): Promise<any[]> {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  if (!tavilyKey) return [];
+
+  try {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: tavilyKey,
+        query: query,
+        search_depth: "basic",
+        max_results: 5
+      })
+    });
+
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.results || [];
+  } catch (e) {
+    console.error("[AI-Evaluator] Tavily search failed:", e);
+    return [];
+  }
+}
+
 export async function getTrustedSources(): Promise<TrustedSource[]> {
   try {
     const { data } = await supabase
@@ -276,6 +301,22 @@ export async function evaluatePromise(
 
   const trustedSources = await getTrustedSources();
   const trustedSourceNames = trustedSources.map(s => s.name.toLowerCase());
+
+  if (evidences.length === 0) {
+    const tavilyResults = await searchTavily(`${promise.politician_name} ${promise.promise_title} promessa cumprimento`);
+    if (tavilyResults.length > 0) {
+      evidences = tavilyResults.map((r: any, idx: number) => ({
+        id: `tavily-${idx}`,
+        source_name: r.source?.replace(/^https?:\/\//, "").split("/")[0] || "Web",
+        evidence_description: r.content || "",
+        evidence_link: r.url || null,
+        validation_status: "pendente",
+        created_at: new Date().toISOString(),
+        published_date: r.published_date || null
+      }));
+      console.log(`[AI-Evaluator] Fetched ${evidences.length} results from Tavily for promise ${promise.id}`);
+    }
+  }
 
   if (evidences.length === 0) {
     result = createEmptyResult();
