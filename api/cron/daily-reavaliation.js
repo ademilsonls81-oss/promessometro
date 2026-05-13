@@ -122,18 +122,22 @@ export default async function handler(req, res) {
   console.log('[Cron] Daily reavaliation started');
 
   const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+  console.log('[Cron] cutoff:', cutoff);
 
   const { data: stale, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, last_verified_at')
+    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, last_verified_at')
+    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
     .is('last_verified_at', null)
     .limit(25);
+
+  console.log('[Cron] stale:', stale?.length, 'never:', never?.length, 'e1:', e1?.message, 'e2:', e2?.message);
+  if (stale?.[0]) console.log('[Cron] first stale last_verified_at:', stale[0].last_verified_at);
 
   const seenIds = new Set();
   const promises = [];
@@ -145,31 +149,21 @@ export default async function handler(req, res) {
   }
 
   if (promises.length === 0) {
-    const debugInfo = {
-      stale_count: stale?.length,
-      never_count: never?.length,
-      cutoff,
-      e1: e1?.message,
-      e2: e2?.message,
-      first_stale: stale?.[0],
-      first_never: never?.[0]
-    };
-    console.log('[Cron] No promises — debug:', JSON.stringify(debugInfo));
     return res.status(200).json({
       status: 'ok',
       promises_evaluated: 0,
       promises_failed: 0,
-      debug: debugInfo,
+      debug: { stale_count: stale?.length, never_count: never?.length, cutoff, e1: e1?.message, e2: e2?.message, first_stale_verified_at: stale?.[0]?.last_verified_at },
       timestamp: new Date().toISOString()
     });
   }
 
-  console.log(`[Cron] Found ${promises.length} promises to reavaliate (${stale?.length || 0} stale, ${never?.length || 0} never verified)`);
+  console.log(`[Cron] Found ${promises.length} promises (${stale?.length || 0} stale, ${never?.length || 0} never)`);
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
     console.error('[Cron] GROQ_API_KEY not configured');
-    return res.status(500).json({ error: 'GROQ_API_KEY not configured' });
+    return res.status(500).json({ status: 'error', error: 'GROQ_API_KEY not configured', timestamp: new Date().toISOString() });
   }
 
   let evaluated = 0;
