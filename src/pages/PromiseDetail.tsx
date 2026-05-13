@@ -25,7 +25,8 @@ const statusConfig: Record<string, { label: string; icon: React.ComponentType<an
   cumprida: { label: "Cumprida", icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10" },
   parcialmente_cumprida: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10" },
   em_andamento: { label: "Em Andamento", icon: Clock, color: "text-blue-400", bg: "bg-blue-500/10" },
-  nao_iniciada: { label: "Não Iniciada", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10" },
+  nao_iniciada: { label: "Pendente", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10" },
+  pendente: { label: "Pendente", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10" },
   descumprida: { label: "Descumprida", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
   nao_classificada: { label: "Não Classificada", icon: AlertTriangle, color: "text-gray-500", bg: "bg-gray-500/10" }
 };
@@ -42,6 +43,9 @@ interface PromiseData {
   fulfillment_score: number;
   source_link?: string;
   created_at: string;
+  last_verified_at?: string;
+  ai_evaluation?: string;
+  needs_human_review?: boolean;
 }
 
 export default function PromiseDetail() {
@@ -88,7 +92,10 @@ export default function PromiseDetail() {
           status: found.status,
           fulfillment_score: found.fulfillment_score || 0,
           source_link: found.source_link || found.link_fonte,
-          created_at: found.created_at
+          created_at: found.created_at,
+          last_verified_at: found.last_verified_at,
+          ai_evaluation: found.ai_evaluation,
+          needs_human_review: found.needs_human_review
         });
       } else {
         setError("Promessa não encontrada");
@@ -167,7 +174,20 @@ export default function PromiseDetail() {
 
   const config = statusConfig[promise.status] || statusConfig.nao_classificada;
   const StatusIcon = config.icon;
-  const politicianSlug = generateSlug(promise.politician_name);
+  function formatTimeSince(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins}m atrás`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h atrás`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}d atrás`;
+  return date.toLocaleDateString('pt-BR');
+}
+
+const politicianSlug = generateSlug(promise.politician_name);
   const promiseSlug = generateSlug(promise.title);
   const seoData = generatePromiseSEO({ ...promise, slug: `${promiseSlug}-${politicianSlug}` });
 
@@ -202,6 +222,14 @@ export default function PromiseDetail() {
               </div>
               {promise.fulfillment_score > 0 && (
                 <span className="text-sm font-bold text-white">{promise.fulfillment_score}/100</span>
+              )}
+              {promise.last_verified_at && (
+                <span
+                  className="flex items-center gap-1 px-2 py-1 bg-neon-purple/10 text-neon-purple text-xs rounded-full cursor-help"
+                  title={`Avaliado automaticamente por IA em ${new Date(promise.last_verified_at).toLocaleString('pt-BR')}. Justificativa: ${promise.ai_evaluation || 'Não disponível'}`}
+                >
+                  🤖 AI · {formatTimeSince(promise.last_verified_at)}
+                </span>
               )}
             </div>
 

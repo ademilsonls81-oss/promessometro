@@ -171,13 +171,26 @@ export function generatePromiseSEO(promise: {
   // Slug MUST match generateSlug(title) used in PromiseDetail.tsx for lookups
   const slug = baseSlug;
 
-  const statusLabels: Record<string, string> = {
+const statusLabels: Record<string, string> = {
     cumprida: "Cumprida",
     parcialmente_cumprida: "Parcialmente Cumprida",
     em_andamento: "Em Andamento",
-    nao_iniciada: "Não Iniciada",
+    nao_iniciada: "Pendente",
+    pendente: "Pendente",
     descumprida: "Descumprida",
     nao_classificada: "Não Classificada"
+  };
+
+  const statusText = statusLabels[promise.status] || promise.status;
+
+  const statusMap: Record<string, string> = {
+    cumprida: "Completed",
+    parcialmente_cumprida: "PartiallyCompleted",
+    em_andamento: "InProgress",
+    nao_iniciada: "NotStarted",
+    pendente: "NotStarted",
+    descumprida: "Failed",
+    nao_classificada: "NotClassified"
   };
 
   const statusText = statusLabels[promise.status] || promise.status;

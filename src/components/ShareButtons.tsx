@@ -13,7 +13,8 @@ const statusLabels: Record<string, string> = {
   cumprida: "Cumprida",
   parcialmente_cumprida: "Parcialmente Cumprida",
   em_andamento: "Em Andamento",
-  nao_iniciada: "Não Iniciada",
+  nao_iniciada: "Pendente",
+  pendente: "Pendente",
   descumprida: "Descumprida",
   nao_classificada: "Não Classificada"
 };
