@@ -193,18 +193,8 @@ const statusLabels: Record<string, string> = {
     nao_classificada: "NotClassified"
   };
 
-  const statusText = statusLabels[promise.status] || promise.status;
   const title = `${promise.title} — ${promise.politician_name} | Promessômetro`;
   const description = `${promise.politician_name}: ${statusText} (${promise.fulfillment_score}/100). ${promise.description || "Acompanhe a avaliação completa desta promessa."}`;
-
-  const statusMap: Record<string, string> = {
-    cumprida: "Completed",
-    parcialmente_cumprida: "PartiallyCompleted",
-    em_andamento: "InProgress",
-    nao_iniciada: "NotStarted",
-    descumprida: "Failed",
-    nao_classificada: "NotClassified"
-  };
 
   const schemaOrg = {
     "@context": "https://schema.org",
