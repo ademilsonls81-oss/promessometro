@@ -24,10 +24,10 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   cumprida: { label: "Cumprida", color: "text-green-400", bg: "bg-green-500/10", icon: <CheckCircle className="w-4 h-4" /> },
   parcialmente_cumprida: { label: "Parcial", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: <Clock className="w-4 h-4" /> },
   em_andamento: { label: "Em Andamento", color: "text-orange-400", bg: "bg-orange-500/10", icon: <TrendingUp className="w-4 h-4" /> },
-  nao_iniciada: { label: "Não Iniciada", color: "text-blue-400", bg: "bg-blue-500/10", icon: <Clock className="w-4 h-4" /> },
+  nao_iniciada: { label: "Pendente", color: "text-blue-400", bg: "bg-blue-500/10", icon: <Clock className="w-4 h-4" /> },
   descumprida: { label: "Descumprida", color: "text-red-400", bg: "bg-red-500/10", icon: <XCircle className="w-4 h-4" /> },
   nao_classificada: { label: "Não Classificada", color: "text-gray-400", bg: "bg-gray-500/10", icon: <Clock className="w-4 h-4" /> },
-  pendente: { label: "Pendente", color: "text-gray-400", bg: "bg-gray-500/10", icon: <Clock className="w-4 h-4" /> },
+  pendente: { label: "Pendente", color: "text-blue-400", bg: "bg-blue-500/10", icon: <Clock className="w-4 h-4" /> },
 };
 
 const statusFilters = [

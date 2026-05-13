@@ -16,7 +16,8 @@ router.get("/og", async (req: Request, res: Response) => {
       cumprida: "CUMPRIDA",
       parcialmente_cumprida: "PARCIAL",
       em_andamento: "EM ANDAMENTO",
-      nao_iniciada: "NAO INICIADA",
+      nao_iniciada: "PENDENTE",
+      pendente: "PENDENTE",
       descumprida: "DESCUMPRIDA",
       nao_classificada: "NAO CLASSIFICADA"
     };
