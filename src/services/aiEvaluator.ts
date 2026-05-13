@@ -287,7 +287,7 @@ export async function evaluatePromise(
       .from("promise_evidences")
       .select("*")
       .eq("promise_id", promise.id)
-      .in("validation_status", ["approved", "pendente"])
+      .in("validation_status", ["pending", "validated"])
       .order("created_at", { ascending: false })
       .limit(10);
     evidences = data || [];

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { secureHeaders, csrfValidation, errorHandler } from "./src/middleware/security.js";
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -27,12 +28,10 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Security headers (antes das rotas)
 app.use((req: any, res: any, next: any) => {
-  const { secureHeaders } = require("./src/middleware/security.js");
   secureHeaders(req, res, next);
 });
 
 app.use((req: any, res: any, next: any) => {
-  const { csrfValidation } = require("./src/middleware/security.js");
   csrfValidation(req, res, next);
 });
 
@@ -351,8 +350,8 @@ process.on("uncaughtException", (error) => console.error("UNCAUGHT:", error.mess
 process.on("unhandledRejection", (reason) => console.error("UNHANDLED:", reason));
 
 app.use((err: any, req: any, res: any, next: any) => {
-  const { errorHandler } = require("./src/middleware/security.js");
   errorHandler(err, req, res, next);
 });
 
 console.log(`✅ PROMESSÔMETRO API started in ${process.env.NODE_ENV || "development"}`);
+

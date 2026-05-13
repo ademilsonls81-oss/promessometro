@@ -14,6 +14,7 @@ function getClientIP(req: Request): string {
 }
 
 function requireCronSecret(req: Request, res: Response): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
   const secret = req.headers["x-cron-secret"] || req.query.secret;
   const expected = process.env.CRON_SECRET;
   if (!expected || secret !== expected) {
@@ -23,8 +24,17 @@ function requireCronSecret(req: Request, res: Response): boolean {
   return true;
 }
 
-router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
+router.get("/daily-reavaliation", async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
+  await runDailyReavaliation(res);
+});
+
+router.post("/daily-reavaliation", async (req: Request, res: Response) => {
+  if (!requireCronSecret(req, res)) return;
+  await runDailyReavaliation(res);
+});
+
+async function runDailyReavaliation(res: Response) {
   try {
     console.log("[Cron] Daily reavaliation started");
     const { data: promises } = await supabase
@@ -49,7 +59,7 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
       res.status(500).json({ error: "GROQ_API_KEY not configured" });
       return;
     }
-      const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
+    const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
 
     for (const promise of promises) {
       try {
@@ -74,9 +84,9 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
     await logSystemError("cron_reavaliation", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
-});
+}
 
-router.get("/cron/update-stats", async (req: Request, res: Response) => {
+router.get("/update-stats", async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Stats update started");
@@ -111,7 +121,7 @@ router.get("/cron/update-stats", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/cron/backup-export", async (req: Request, res: Response) => {
+router.get("/backup-export", async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Backup export started");
@@ -173,7 +183,7 @@ async function getOldBackups(): Promise<string[]> {
   }
 }
 
-router.get("/cron/process-evidences", async (req: Request, res: Response) => {
+router.get("/process-evidences", async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Evidence processing started");
@@ -207,7 +217,7 @@ router.get("/cron/process-evidences", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/cron/politician-ranking", async (req: Request, res: Response) => {
+router.get("/politician-ranking", async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Politician ranking snapshot started");
