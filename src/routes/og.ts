@@ -14,7 +14,7 @@ router.get("/og", async (req: Request, res: Response) => {
 
     const statusLabels: Record<string, string> = {
       cumprida: "CUMPRIDA",
-      parcialmente_cumprida: "PARCIAL",
+      parcialmente_cumprida: "PARCIALMENTE CUMPRIDA",
       em_andamento: "EM ANDAMENTO",
       nao_iniciada: "PENDENTE",
       pendente: "PENDENTE",

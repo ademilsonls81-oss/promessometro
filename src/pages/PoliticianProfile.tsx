@@ -74,7 +74,7 @@ const statusConfig: Record<string, { label: string; icon: React.ComponentType<an
   pending_analysis: { label: "Em Análise", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/20" },
   verified: { label: "Verificada", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
   rejected: { label: "Rejeitada", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
-  nao_classificada: { label: "Não Classificada", icon: AlertTriangle, color: "text-gray-500", bg: "bg-gray-500/10", border: "border-gray-500/20" }
+  nao_classificada: { label: "Pendente", icon: AlertTriangle, color: "text-gray-500", bg: "bg-gray-500/10", border: "border-gray-500/20" }
 };
 
 export default function PoliticianProfile() {
@@ -147,8 +147,9 @@ export default function PoliticianProfile() {
       promises.forEach((p: any) => {
         const s = p.status?.toLowerCase() || '';
         if (s === 'fulfilled' || s === 'realizada' || s === 'cumprida') stats.fulfilled++;
-        else if (s === 'partial' || s === 'partial_fulfilled' || s === 'em_andamento' || s === 'parcial') stats.partial++;
+        else if (s === 'partial' || s === 'partial_fulfilled' || s === 'parcial') stats.partial++;
         else if (s === 'broken' || s === 'not_fulfilled' || s === 'quebrada') stats.broken++;
+        else if (s === 'em_andamento') stats.pending++;
         else stats.pending++;
       });
       

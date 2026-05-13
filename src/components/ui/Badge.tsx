@@ -194,14 +194,17 @@ export function RiskBadge({ score, className, showPercent = false }: { score: nu
 
 /** Badge de status dinâmico — recebe status como string */
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
-  const variant: BadgeVariant =
-    status === "published"
-      ? "status-published"
-      : status === "processing"
-        ? "status-processing"
-        : status === "error"
-          ? "status-error"
-          : "status-neutral";
+  const statusKey = (status || '').toLowerCase();
+  const promiseStatusMap: Record<string, BadgeVariant> = {
+    cumprida: 'status-published',
+    parcialmente_cumprida: 'status-processing',
+    em_andamento: 'status-processing',
+    nao_iniciada: 'status-neutral',
+    pendente: 'status-neutral',
+    descumprida: 'status-error',
+    nao_classificada: 'status-neutral'
+  };
+  const variant: BadgeVariant = promiseStatusMap[statusKey] || 'status-neutral';
   return <Badge variant={variant} className={className} />;
 }
 

@@ -122,7 +122,8 @@ const STATUS_LABELS = {
   cumprida: 'Cumprida',
   parcialmente_cumprida: 'Parcialmente Cumprida',
   em_andamento: 'Em Andamento',
-  nao_iniciada: 'Não Iniciada',
+  nao_iniciada: 'Pendente',
+  pendente: 'Pendente',
   descumprida: 'Descumprida',
   fulfilled: 'Cumprida',
   partial: 'Parcialmente Cumprida',
@@ -130,6 +131,7 @@ const STATUS_LABELS = {
   broken: 'Descumprida',
   not_fulfilled: 'Descumprida',
   pending: 'Pendente',
+  nao_classificada: 'Pendente'
 };
 
 const SITE_NAME = 'Promessômetro';

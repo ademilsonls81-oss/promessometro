@@ -80,9 +80,6 @@ export default function Ranking() {
           };
         }
         
-        statsMap[politicianKey].total = (statsMap[politicianKey].fulfilled || 0) + (statsMap[politicianKey].partial || 0) + (statsMap[politicianKey].broken || 0) + (statsMap[politicianKey].pending || 0);
-        
-        // suporta status novos em português
         const status = p.status?.toLowerCase() || '';
         const hasScore = (p.fulfillment_score || 0) > 0;
         

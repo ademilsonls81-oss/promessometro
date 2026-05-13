@@ -92,7 +92,7 @@ function getStatusChange(from: string, to: string): { fromLabel: string; toLabel
     nao_iniciada: "Pendente",
     pendente: "Pendente",
     descumprida: "Descumprida",
-    nao_classificada: "Não Classificada",
+    nao_classificada: "Pendente",
     pending: "Pendente",
     em_analise: "Em Análise",
     aceita: "Aceita",
