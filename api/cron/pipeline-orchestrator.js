@@ -185,7 +185,7 @@ export default async function handler(req, res) {
       .from('promises')
       .select('id, promise_title, politician_name, category, status, evidence_count')
       .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
-      .limit(30);
+      .limit(5);
 
     if (promises && promises.length > 0) {
       console.log(`[Pipeline:Discover] Processing ${promises.length} promises`);
@@ -208,7 +208,7 @@ export default async function handler(req, res) {
             if (!error) step1Inserted++;
           }
         } catch (e) { console.error(`[Pipeline:Discover] ✗ ${promise.id}: ${e.message}`); }
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 200));
       }
     }
     console.log(`[Pipeline:Discover] Done: discovered=${step1Discovered} inserted=${step1Inserted} dupes=${step1Dupes}`);
@@ -217,106 +217,108 @@ export default async function handler(req, res) {
   if (stage === 'all' || stage === 'count') {
     const { data: promises } = await supabase
       .from('promises')
-      .select('id, promise_title')
-      .limit(100);
+      .select('id')
+      .limit(50);
 
     if (promises) {
-      console.log(`[Pipeline:Count] Updating evidence counts for ${promises.length} promises`);
+      console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
       for (const promise of promises) {
-        const { count } = await supabase
-          .from('promise_evidences')
-          .select('*', { count: 'exact', head: true })
-          .eq('promise_id', promise.id)
-          .eq('validated', true);
-        const { error } = await supabase.from('promises').update({
-          evidence_count: count || 0,
-          last_verified_at: now.toISOString()
-        }).eq('id', promise.id);
-        if (!error) step2Updated++;
+        try {
+          const { count } = await supabase
+            .from('promise_evidences')
+            .select('*', { count: 'exact', head: true })
+            .eq('promise_id', promise.id)
+            .eq('validated', true);
+          await supabase.from('promises').update({
+            evidence_count: count || 0,
+            last_verified_at: now.toISOString()
+          }).eq('id', promise.id);
+          step2Updated++;
+        } catch (_) { }
       }
     }
     console.log(`[Pipeline:Count] Done: updated=${step2Updated}`);
   }
 
   if (stage === 'all' || stage === 'reavaliate') {
-    const { data: staleDaily } = await supabase
-      .from('promises')
-      .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-      .lt('last_verified_at', dailyCutoff)
-      .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
-      .limit(20);
+    const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+    if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
+      console.log('[Pipeline:Reavaliate] SKIPPED - no GROQ_API_KEY');
+    } else {
+      const { data: staleDaily } = await supabase
+        .from('promises')
+        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+        .lt('last_verified_at', dailyCutoff)
+        .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
+        .limit(5);
 
-    const { data: never } = await supabase
-      .from('promises')
-      .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-      .is('last_verified_at', null)
-      .limit(20);
+      const { data: never } = await supabase
+        .from('promises')
+        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+        .is('last_verified_at', null)
+        .limit(5);
 
-    const { data: staleWeekly } = await supabase
-      .from('promises')
-      .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-      .lt('last_verified_at', weeklyCutoff)
-      .in('status', ['cumprida', 'descumprida'])
-      .limit(10);
+      const { data: staleWeekly } = await supabase
+        .from('promises')
+        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+        .lt('last_verified_at', weeklyCutoff)
+        .in('status', ['cumprida', 'descumprida'])
+        .limit(3);
 
-    const seen = new Set();
-    const toReavaliate = [];
-    for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
-      if (!seen.has(p.id)) { seen.add(p.id); toReavaliate.push(p); }
-    }
-
-    if (toReavaliate.length > 0) {
-      console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
-      const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-      if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
-        return res.status(500).json({ status: 'error', error: 'GROQ_API_KEY not configured' });
+      const seen = new Set();
+      const toReavaliate = [];
+      for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
+        if (!seen.has(p.id)) { seen.add(p.id); toReavaliate.push(p); }
       }
 
-      for (const promise of toReavaliate) {
-        try {
-          const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise);
-          const frontendStatus = mapToFrontend(result.status);
+      if (toReavaliate.length > 0) {
+        console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
+        for (const promise of toReavaliate) {
+          try {
+            const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise);
+            const frontendStatus = mapToFrontend(result.status);
 
-          const { error: upErr } = await supabase.from('promises').update({
-            status: frontendStatus, fulfillment_score: result.score,
-            ai_evaluation: result.justification, evidences_used: result.evidences,
-            needs_human_review: result.needsReview, last_verified_at: now.toISOString()
-          }).eq('id', promise.id);
+            const { error: upErr } = await supabase.from('promises').update({
+              status: frontendStatus, fulfillment_score: result.score,
+              ai_evaluation: result.justification, evidences_used: result.evidences,
+              needs_human_review: result.needsReview, last_verified_at: now.toISOString()
+            }).eq('id', promise.id);
 
-          if (upErr) { step3Failed++; continue; }
+            if (upErr) { step3Failed++; continue; }
 
-          await supabase.from('status_history').insert({
-            promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
-            previous_score: promise.fulfillment_score, new_score: result.score,
-            changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
-            evaluation_type: 'ai_auto'
-          }).catch(() => { });
+            await supabase.from('status_history').insert({
+              promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
+              previous_score: promise.fulfillment_score, new_score: result.score,
+              changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
+              evaluation_type: 'ai_auto'
+            }).catch(e => { console.error(`[status_history] ${e.message}`); });
 
-          await supabase.from('promise_explanations').insert({
-            promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
-            criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
-            evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
-            o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
-            modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: now.toISOString()
-          }).catch(() => { });
+            await supabase.from('promise_explanations').insert({
+              promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
+              criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
+              evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
+              o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
+              modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: now.toISOString()
+            }).catch(e => { console.error(`[promise_explanations] ${e.message}`); });
 
-          await supabase.from('audit_logs').insert({
-            action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
-            old_value: { status: promise.status, score: promise.fulfillment_score },
-            new_value: { status: frontendStatus, score: result.score },
-            performed_by: 'pipeline', details: {
-              promise_title: promise.promise_title, politician: promise.politician_name,
-              evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
-            }
-          }).catch(() => { });
+            await supabase.from('audit_logs').insert({
+              action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
+              old_value: { status: promise.status, score: promise.fulfillment_score },
+              new_value: { status: frontendStatus, score: result.score },
+              performed_by: 'pipeline', details: {
+                promise_title: promise.promise_title, politician: promise.politician_name,
+                evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
+              }
+            }).catch(e => { console.error(`[audit_logs] ${e.message}`); });
 
-          step3Evaluated++;
-          console.log(`[Pipeline:Reavaliate] ✓ ${promise.promise_title}: ${promise.status}→${frontendStatus} (${result.score})`);
-        } catch (e) {
-          console.error(`[Pipeline:Reavaliate] ✗ ${promise.id}: ${e.message}`);
-          step3Failed++;
+            step3Evaluated++;
+            console.log(`[Pipeline:Reavaliate] ✓ ${promise.promise_title}: ${promise.status}→${frontendStatus} (${result.score})`);
+          } catch (e) {
+            console.error(`[Pipeline:Reavaliate] ✗ ${promise.id}: ${e.message}`);
+            step3Failed++;
+          }
+          await new Promise(r => setTimeout(r, 500));
         }
-        await new Promise(r => setTimeout(r, 500));
       }
     }
     console.log(`[Pipeline:Reavaliate] Done: evaluated=${step3Evaluated} failed=${step3Failed}`);
