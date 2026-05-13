@@ -6,13 +6,17 @@ const supabase = createClient(
 );
 
 function requireCronSecret(req, res) {
-  const isVercelCron = req.headers['x-vercel-cron'] === '1';
-  if (process.env.NODE_ENV !== 'production' || isVercelCron) return true;
+  if (process.env.NODE_ENV !== 'production') return true;
+  const raw = JSON.stringify(req.headers || '').toLowerCase();
+  const isCron = raw.includes('vercel-cron') || raw.includes('vercel/internal');
+  if (isCron) return true;
   const secret = req.headers['x-cron-secret'] || req.query?.secret;
   if (secret !== process.env.CRON_SECRET) {
     res.status(401).json({ error: 'Unauthorized' });
     return false;
   }
+  return true;
+}
   return true;
 }
 

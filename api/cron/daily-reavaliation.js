@@ -25,8 +25,11 @@ function clampScore(status, score) {
 }
 
 function requireCronSecret(req, res) {
-  const isVercelCron = req.headers['x-vercel-cron'] === '1';
-  if (process.env.NODE_ENV !== 'production' || isVercelCron) return true;
+  const raw = JSON.stringify(req.headers || {});
+  const headers = raw.toLowerCase();
+  const isCron = headers.includes('vercel-cron') || headers.includes('vercel/internal');
+  if (isCron) return true;
+  if (process.env.NODE_ENV !== 'production') return true;
   const secret = req.headers['x-cron-secret'] || req.query?.secret;
   if (secret !== process.env.CRON_SECRET) {
     res.status(401).json({ error: 'Unauthorized' }); return false;
