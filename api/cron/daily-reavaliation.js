@@ -122,18 +122,41 @@ export default async function handler(req, res) {
 
   console.log('[Cron] Daily reavaliation started');
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: promises } = await supabase
+  const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+  const { data: needsRecheck, error: e1 } = await supabase
     .from('promises')
     .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
-    .in('status', ['em_andamento', 'parcialmente_cumprida', 'nao_classificada', 'nao_iniciada'])
-    .gt('updated_at', thirtyDaysAgo)
-    .limit(50);
+    .not('status', 'eq', 'cumprida')
+    .not('status', 'eq', 'parcial')
+    .lt('last_verified_at', cutoff)
+    .limit(25);
 
-  if (!promises || promises.length === 0) {
+  const { data: neverVerified, error: e2 } = await supabase
+    .from('promises')
+    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
+    .not('status', 'eq', 'cumprida')
+    .not('status', 'eq', 'parcial')
+    .is('last_verified_at', null)
+    .limit(25);
+
+  if (e1) console.error('[Cron] Query needsRecheck error:', e1.message);
+  if (e2) console.error('[Cron] Query neverVerified error:', e2.message);
+
+  const seenIds = new Set();
+  const promises = [];
+  for (const p of [...(needsRecheck || []), ...(neverVerified || [])]) {
+    if (!seenIds.has(p.id)) {
+      seenIds.add(p.id);
+      promises.push(p);
+    }
+  }
+
+  if (promises.length === 0) {
     console.log('[Cron] No promises to reavaliate');
     return res.status(200).json({ status: 'ok', promises_evaluated: 0, promises_failed: 0, timestamp: new Date().toISOString() });
   }
+
+  console.log(`[Cron] Found ${promises.length} promises to reavaliate (${needsRecheck?.length || 0} need recheck, ${neverVerified?.length || 0} never verified)`);
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
@@ -156,7 +179,7 @@ export default async function handler(req, res) {
           ai_evaluation: result.justification,
           evidences_used: result.evidences_used,
           needs_human_review: result.needs_human_review,
-          updated_at: new Date().toISOString()
+          last_verified_at: new Date().toISOString()
         })
         .eq('id', promise.id);
 
