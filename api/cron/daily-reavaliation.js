@@ -122,23 +122,18 @@ export default async function handler(req, res) {
   console.log('[Cron] Daily reavaliation started');
 
   const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
-  console.log('[Cron] cutoff:', cutoff);
 
   const { data: stale, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, last_verified_at')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
-  console.log('[Cron] stale query result:', { count: stale?.length, error: e1?.message, sample: stale?.[0]?.last_verified_at });
-
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, last_verified_at')
     .is('last_verified_at', null)
     .limit(25);
-
-  console.log('[Cron] never query result:', { count: never?.length, error: e2?.message });
 
   const seenIds = new Set();
   const promises = [];
@@ -150,8 +145,23 @@ export default async function handler(req, res) {
   }
 
   if (promises.length === 0) {
-    console.log('[Cron] No promises to reavaliate');
-    return res.status(200).json({ status: 'ok', promises_evaluated: 0, promises_failed: 0, timestamp: new Date().toISOString() });
+    const debugInfo = {
+      stale_count: stale?.length,
+      never_count: never?.length,
+      cutoff,
+      e1: e1?.message,
+      e2: e2?.message,
+      first_stale: stale?.[0],
+      first_never: never?.[0]
+    };
+    console.log('[Cron] No promises — debug:', JSON.stringify(debugInfo));
+    return res.status(200).json({
+      status: 'ok',
+      promises_evaluated: 0,
+      promises_failed: 0,
+      debug: debugInfo,
+      timestamp: new Date().toISOString()
+    });
   }
 
   console.log(`[Cron] Found ${promises.length} promises to reavaliate (${stale?.length || 0} stale, ${never?.length || 0} never verified)`);
