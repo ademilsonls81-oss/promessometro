@@ -107,7 +107,8 @@ export default function PromiseDetail() {
         .from("promise_explanations")
         .select("*")
         .eq("promise_id", promise.id)
-        .eq("is_latest", true)
+        .order("gerado_em", { ascending: false })
+        .limit(1)
         .single()
         .then(({ data, error }) => {
           if (data) {

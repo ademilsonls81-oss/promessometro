@@ -56,18 +56,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse" />
             ) : user ? (
               <div className="flex items-center gap-4">
-                <Link
-                  to="/dashboard"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                    isActive("/dashboard")
-                      ? "bg-neon-purple text-white shadow-lg shadow-neon-purple/20"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10"
-                  }`}
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  Dashboard
-                </Link>
-
                 {profile?.role === "admin" && (
                   <div className="hidden lg:flex items-center gap-1 px-3 py-2 bg-dark-card/50 border border-white/5 rounded-xl">
                     <Link

@@ -63,7 +63,7 @@ export default function Pricing() {
 
   const handleStripeCheckout = async () => {
     if (!user) {
-      window.location.href = '/dashboard';
+      window.location.href = '/';
       return;
     }
     setStripeLoading(true);
@@ -174,7 +174,7 @@ export default function Pricing() {
                   <Button variant="outline" className="w-full">{plan.cta}</Button>
                 </a>
               ) : (
-                <a href="/dashboard">
+                <a href="/">
                   <Button variant="outline" className="w-full">{plan.cta}</Button>
                 </a>
               )}

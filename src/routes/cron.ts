@@ -51,19 +51,29 @@ router.get("/cron/daily-reavaliation", async (req: Request, res: Response) => {
     }
       const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
 
-      for (const promise of promises) {
-        try {
-          const result = await evaluatePromise(promise as any, true);
-          const saved = await saveEvaluation(promise.id, result, result.needsHumanReview);
-          if (saved.success) evaluated++;
-          else failed++;
-        } catch (e: any) {
-          console.error(`[Cron] Failed to evaluate promise ${promise.id}:`, e.message);
-          failed++;
-        }
-        await new Promise(r => setTimeout(r, 500));
-}
+    for (const promise of promises) {
+      try {
+        const result = await evaluatePromise(promise as any, true);
+        const saved = await saveEvaluation(promise.id, result, result.needsHumanReview);
+        if (saved.success) evaluated++;
+        else failed++;
+      } catch (e: any) {
+        console.error(`[Cron] Failed to evaluate promise ${promise.id}:`, e.message);
+        failed++;
+      }
+      await new Promise(r => setTimeout(r, 500));
     }
+
+    res.json({
+      status: "ok",
+      promises_evaluated: evaluated,
+      promises_failed: failed,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    await logSystemError("cron_reavaliation", "cron", err.message, err.stack, "medium");
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get("/cron/update-stats", async (req: Request, res: Response) => {

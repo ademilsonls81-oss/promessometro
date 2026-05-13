@@ -27,7 +27,7 @@ export default function Transparencia() {
         supabase.from("promise_contestations").select("*", { count: "exact", head: true }).eq("status", "pendente"),
         supabase.from("promise_explanations").select("*", { count: "exact", head: true }),
         supabase.from("promise_explanations").select("*", { count: "exact", head: true }).lt("confianca", 0.4),
-        supabase.from("promise_explanations").select("*, promises(promise_title, politician_name)").eq("is_latest", true).order("gerado_em", { ascending: false }).limit(5)
+        supabase.from("promise_explanations").select("*, promises(promise_title, politician_name)").order("gerado_em", { ascending: false }).limit(5)
       ]);
 
       setStats({

@@ -117,9 +117,7 @@ app.use("/api/cron", (req, res, next) => {
   import("./src/routes/cron.js").then(m => m.default(req, res, next)).catch(next);
 });
 
-app.use("/api/skills", (req, res, next) => {
-  import("./src/routes/skills.js").then(m => m.default(req, res, next)).catch(next);
-});
+
 
 app.use("/api/ai-review", (req, res, next) => {
   import("./src/routes/aiReview.js").then(m => m.default(req, res, next)).catch(next);
@@ -328,16 +326,7 @@ async function initHeavyServices() {
       console.log('✅ Stripe initialized');
     }
     
-    // Cron jobs (production)
-    if (process.env.NODE_ENV === "production") {
-      const { startCronJob } = await import("./src/services/skillScheduler.js");
-      const { startMonthlyResetJob } = await import("./src/services/monthlyReset.js");
-      const { startMonitor } = await import("./src/autonomous/monitor.js");
-      
-      try { startCronJob(); } catch (e: any) { console.error(`[Cron] ${e.message}`); }
-      try { startMonthlyResetJob(); } catch (e: any) { console.error(`[Reset] ${e.message}`); }
-      try { startMonitor(); } catch (e: any) { console.error(`[Monitor] ${e.message}`); }
-    }
+    
     
     // Ingestion
     const { runIngestion } = await import("./src/services/ingestionService.js");
