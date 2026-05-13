@@ -178,6 +178,9 @@ export default async function handler(req, res) {
         .update({
           status: result.status,
           fulfillment_score: result.fulfillment_score,
+          ai_evaluation: result.justification,
+          evidences_used: result.evidences_used,
+          needs_human_review: result.needs_human_review,
           last_verified_at: new Date().toISOString()
         })
         .eq('id', promise.id);
