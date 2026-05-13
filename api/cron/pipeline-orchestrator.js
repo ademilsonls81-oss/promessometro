@@ -194,9 +194,11 @@ export default async function handler(req, res) {
           const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`);
           for (const ev of evidences) {
             step1Discovered++;
+            const domain = normalizeUrl(ev.url).split('/')[2] || '';
             const { data: existing } = await supabase.from('promise_evidences')
-              .select('id').eq('promise_id', promise.id).ilike('url', `%${normalizeUrl(ev.url).split('/')[2]}%`).limit(1);
-            if (existing && existing.length > 0) { step1Dupes++; continue; }
+              .select('id, url').eq('promise_id', promise.id).limit(10);
+            const isDup = existing?.some(e => normalizeUrl(e.url || '').includes(domain));
+            if (isDup) { step1Dupes++; continue; }
             const sc = Math.round(ev.relevance * 0.4 + ev.credibility * 0.6);
             const { error } = await supabase.from('promise_evidences').insert({
               promise_id: promise.id, politician_name: promise.politician_name, promise_title: promise.promise_title,
@@ -227,8 +229,7 @@ export default async function handler(req, res) {
           const { count } = await supabase
             .from('promise_evidences')
             .select('*', { count: 'exact', head: true })
-            .eq('promise_id', promise.id)
-            .eq('validated', true);
+            .eq('promise_id', promise.id);
           await supabase.from('promises').update({
             evidence_count: count || 0,
             last_verified_at: now.toISOString()
@@ -324,27 +325,32 @@ export default async function handler(req, res) {
     console.log(`[Pipeline:Reavaliate] Done: evaluated=${step3Evaluated} failed=${step3Failed}`);
   }
 
-  await supabase.from('system_stats').upsert({
-    key: 'last_pipeline_run',
-    value: now.toISOString(),
-    details: JSON.stringify({ pipelineId, evaluated: step3Evaluated, discovered: step1Discovered, inserted: step1Inserted })
-  }).catch(() => { });
+  try {
+    await supabase.from('system_stats').upsert({
+      key: 'last_pipeline_run',
+      value: now.toISOString(),
+      details: JSON.stringify({ pipelineId, evaluated: step3Evaluated, discovered: step1Discovered, inserted: step1Inserted })
+    });
+  } catch (_) { }
 
+  let deployTriggered = false;
   const VERCEL_DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK_URL;
   const hasNewData = step1Inserted > 0 || step3Evaluated > 0;
   if (VERCEL_DEPLOY_HOOK && hasNewData) {
     try {
       await fetch(VERCEL_DEPLOY_HOOK, { method: 'POST' });
       console.log('[Pipeline] Deploy hook triggered');
+      deployTriggered = true;
     } catch (e) {
       console.error('[Pipeline] Deploy hook failed:', e.message);
     }
   }
 
-  return res.status(200).json({
+  const response = {
     status: 'ok', pipeline_id: pipelineId, stage,
-    deploy_triggered: !!(VERCEL_DEPLOY_HOOK && hasNewData),
+    deploy_triggered: deployTriggered,
     steps: { discover: { discovered: step1Discovered, inserted: step1Inserted, dupes: step1Dupes }, count: { updated: step2Updated }, reavaliate: { evaluated: step3Evaluated, failed: step3Failed } },
     timestamp: now.toISOString()
-  });
+  };
+  return res.status(200).json(response);
 }
