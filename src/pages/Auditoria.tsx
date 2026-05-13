@@ -23,9 +23,10 @@ const statusLabels: Record<string, string> = {
   cumprida: "Cumprida",
   parcialmente_cumprida: "Parcialmente Cumprida",
   em_andamento: "Em Andamento",
-  nao_iniciada: "Não Iniciada",
+  nao_iniciada: "Pendente",
   descumprida: "Descumprida",
-  nao_classificada: "Não Classificada"
+  nao_classificada: "Não Classificada",
+  pendente: "Pendente"
 };
 
 const statusColors: Record<string, string> = {
@@ -34,7 +35,8 @@ const statusColors: Record<string, string> = {
   em_andamento: "text-blue-400",
   nao_iniciada: "text-gray-400",
   descumprida: "text-red-400",
-  nao_classificada: "text-gray-500"
+  nao_classificada: "text-gray-500",
+  pendente: "text-gray-400"
 };
 
 export default function Auditoria() {

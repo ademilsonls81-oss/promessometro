@@ -36,6 +36,35 @@ function requireCronSecret(req, res) {
   return true;
 }
 
+let consecutiveZeroCount = 0;
+
+async function sendSlackAlert(message, evaluation) {
+  const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
+  if (!SLACK_WEBHOOK_URL) return;
+
+  const payload = {
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${message}*\n\`\`\`${JSON.stringify(evaluation, null, 2)}\`\`\``
+        }
+      }
+    ]
+  };
+
+  try {
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.error('[Cron] Slack alert failed:', e.message);
+  }
+}
+
 async function evaluateWithAI(promise) {
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
@@ -281,10 +310,46 @@ export default async function handler(req, res) {
   }
 
   console.log(`[Cron] Done: ${evaluated} ok, ${failed} failed`);
+  
+  const executionId = `cron_${Date.now()}`;
+  
+  if (evaluated === 0 && failed === 0) {
+    consecutiveZeroCount++;
+    console.log(`[Cron] Zero promises evaluated (${consecutiveZeroCount} consecutive)`);
+    if (consecutiveZeroCount >= 2) {
+      const alertMsg = `[Cron] ALERTA: ${consecutiveZeroCount} execuções consecutivas sem promessas para reavaliar!`;
+      console.warn(alertMsg);
+      await sendSlackAlert(alertMsg, { consecutiveZeroCount, cutoff: dailyCutoff, weeklyCutoff });
+    }
+  } else {
+    consecutiveZeroCount = 0;
+  }
+
+  const execLog = {
+    execution_id: executionId,
+    started_at: new Date(Date.now() - promises.length * 600).toISOString(),
+    finished_at: new Date().toISOString(),
+    promises_evaluated,
+    promises_failed: failed,
+    promises_found: promises.length,
+    slack_alerted: evaluated === 0 && consecutiveZeroCount >= 2
+  };
+
+  await supabase.from('cron_executions').insert({
+    execution_id: executionId,
+    trigger: 'vercel_cron',
+    promises_evaluated,
+    promises_failed: failed,
+    promises_found: promises.length,
+    slack_alert_sent: evaluated === 0 && consecutiveZeroCount >= 2
+  }).catch(() => { });
+
   return res.status(200).json({
     status: 'ok',
+    execution_id: executionId,
     promises_evaluated: evaluated,
     promises_failed: failed,
+    consecutive_zero_count: consecutiveZeroCount,
     timestamp: new Date().toISOString()
   });
 }

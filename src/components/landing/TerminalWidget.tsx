@@ -21,9 +21,10 @@ const statusLabels: Record<string, string> = {
   cumprida: "CUMPRIDA",
   parcialmente_cumprida: "PARCIALMENTE CUMPRIDA",
   em_andamento: "EM ANDAMENTO",
-  nao_iniciada: "NÃO INICIADA",
+  nao_iniciada: "PENDENTE",
   descumprida: "DESCUMPRIDA",
   nao_classificada: "NÃO CLASSIFICADA",
+  pendente: "PENDENTE",
   fulfilled: "CUMPRIDA",
   partial: "PARCIAL",
   broken: "DESCUMPRIDA",
@@ -71,8 +72,8 @@ export default function TerminalWidget() {
       }
 
       const random = promises[Math.floor(Math.random() * Math.min(promises.length, 20))];
-      const statusKey = random.status?.toLowerCase() || "nao_classificada";
-      const label = statusLabels[statusKey] || random.status?.toUpperCase() || "NÃO CLASSIFICADA";
+      const statusKey = (random.status || 'nao_classificada').toLowerCase();
+      const label = statusLabels[statusKey] || statusLabels[random.status?.toLowerCase()] || "NÃO CLASSIFICADA";
 
       const sourceName = sourceNames[Math.floor(Math.random() * sourceNames.length)];
 
