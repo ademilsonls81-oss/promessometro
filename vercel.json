@@ -8,6 +8,14 @@
             "destination": "/api/cron/daily-reavaliation.js"
         },
         {
+            "source": "/api/cron/discover-evidences",
+            "destination": "/api/cron/discover-evidences.js"
+        },
+        {
+            "source": "/api/cron/pipeline-orchestrator",
+            "destination": "/api/cron/pipeline-orchestrator.js"
+        },
+        {
             "source": "/api/cron/update-stats",
             "destination": "/api/cron/update-stats.js"
         },
@@ -42,20 +50,29 @@
     ],
     "crons": [
         {
-            "path": "/api/cron/daily-reavaliation",
-            "schedule": "0 6 * * *"
+            "path": "/api/cron/pipeline-orchestrator",
+            "schedule": "0 6 * * *",
+            "description": "Pipeline completo: discover + count + reavaliate (6AM BRT)"
         },
         {
-            "path": "/api/cron/update-stats",
-            "schedule": "0 7 * * *"
+            "path": "/api/cron/pipeline-orchestrator",
+            "schedule": "0 12 * * *",
+            "description": "Pipeline completo: discover + count + reavaliate (12PM BRT)"
+        },
+        {
+            "path": "/api/cron/pipeline-orchestrator",
+            "schedule": "0 18 * * *",
+            "description": "Pipeline completo: discover + count + reavaliate (6PM BRT)"
+        },
+        {
+            "path": "/api/cron/daily-reavaliation",
+            "schedule": "0 2 * * *",
+            "description": "Reavaliação de scores (2AM BRT - madrugada)"
         },
         {
             "path": "/api/cron/backup-export",
-            "schedule": "0 2 * * 0"
-        },
-        {
-            "path": "/api/cron/process-evidences",
-            "schedule": "0 8 * * *"
+            "schedule": "0 3 * * 0",
+            "description": "Backup semanal (domingo 3AM BRT)"
         }
     ],
     "headers": [

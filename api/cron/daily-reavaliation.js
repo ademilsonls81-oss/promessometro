@@ -305,12 +305,29 @@ export default async function handler(req, res) {
     slack_alert_sent: evaluated === 0 && consecutiveZeroCount >= 2
   }).catch(() => { });
 
+  await supabase.from('system_stats').upsert({
+    key: 'last_cron_run',
+    value: now.toISOString(),
+    details: JSON.stringify({ evaluated, failed, execution_id: executionId })
+  }).catch(() => { });
+
+  const VERCEL_DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (VERCEL_DEPLOY_HOOK && evaluated > 0) {
+    try {
+      await fetch(VERCEL_DEPLOY_HOOK, { method: 'POST' });
+      console.log('[Cron] Deploy hook triggered');
+    } catch (e) {
+      console.error('[Cron] Deploy hook failed:', e.message);
+    }
+  }
+
   return res.status(200).json({
     status: 'ok',
     execution_id: executionId,
     promises_evaluated: evaluated,
     promises_failed: failed,
     consecutive_zero_count: consecutiveZeroCount,
+    deploy_triggered: !!(VERCEL_DEPLOY_HOOK && evaluated > 0),
     timestamp: now.toISOString()
   });
 }
