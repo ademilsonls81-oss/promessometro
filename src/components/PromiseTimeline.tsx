@@ -87,7 +87,7 @@ function formatDate(dateStr: string): string {
 function getStatusChange(from: string, to: string): { fromLabel: string; toLabel: string; icon: React.ReactNode } {
   const statusLabels: Record<string, string> = {
     cumprida: "Cumprida",
-    parcialmente_cumprida: "Parcial",
+    parcialmente_cumprida: "Parcialmente Cumprida",
     em_andamento: "Em Andamento",
     nao_iniciada: "Pendente",
     pendente: "Pendente",

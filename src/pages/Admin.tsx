@@ -282,7 +282,7 @@ export default function Admin() {
           <div className="p-3 bg-yellow-500/10 rounded-xl text-center">
             <Clock className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
             <div className="text-xl font-bold text-yellow-400">{promiseStats?.parcialmente_cumprida || 0}</div>
-            <div className="text-xs text-gray-400">Parcial</div>
+            <div className="text-xs text-gray-400">Parcialmente Cumprida</div>
           </div>
           <div className="p-3 bg-orange-500/10 rounded-xl text-center">
             <Activity className="w-5 h-5 text-orange-400 mx-auto mb-1" />

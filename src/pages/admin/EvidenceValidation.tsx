@@ -33,7 +33,7 @@ interface PromiseInfo {
 
 const typeConfig: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<any> }> = {
   fulfillment: { label: "Cumprida", color: "text-green-400", bg: "bg-green-500/10", icon: CheckCircle },
-  partial: { label: "Parcial", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: AlertCircle },
+  partial: { label: "Parcialmente Cumprida", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: AlertCircle },
   break: { label: "Quebrada", color: "text-red-400", bg: "bg-red-500/10", icon: XCircle },
   neutral: { label: "Neutro", color: "text-gray-400", bg: "bg-gray-500/10", icon: FileText },
   related: { label: "Relacionado", color: "text-blue-400", bg: "bg-blue-500/10", icon: Link2 }
