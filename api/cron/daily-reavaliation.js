@@ -105,8 +105,7 @@ REGRAS:
       fulfillment_score: parsed.fulfillment_score || 50,
       justification: parsed.justificativa || '',
       evidences_used: parsed.evidencias_usadas || [],
-      needs_human_review: false,
-      inconsistency: ''
+      needs_human_review: false
     };
   } catch (err) {
     throw new Error(`AI evaluation failed: ${err.message}`);
@@ -123,28 +122,24 @@ export default async function handler(req, res) {
   console.log('[Cron] Daily reavaliation started');
 
   const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
-  const { data: needsRecheck, error: e1 } = await supabase
+  const { data: stale, error: e1 } = await supabase
     .from('promises')
     .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
-    .not('status', 'eq', 'cumprida')
-    .not('status', 'eq', 'parcial')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
-  const { data: neverVerified, error: e2 } = await supabase
+  const { data: never, error: e2 } = await supabase
     .from('promises')
     .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
-    .not('status', 'eq', 'cumprida')
-    .not('status', 'eq', 'parcial')
     .is('last_verified_at', null)
     .limit(25);
 
-  if (e1) console.error('[Cron] Query needsRecheck error:', e1.message);
-  if (e2) console.error('[Cron] Query neverVerified error:', e2.message);
+  if (e1) console.error('[Cron] stale query error:', e1.message);
+  if (e2) console.error('[Cron] never query error:', e2.message);
 
   const seenIds = new Set();
   const promises = [];
-  for (const p of [...(needsRecheck || []), ...(neverVerified || [])]) {
+  for (const p of [...(stale || []), ...(never || [])]) {
     if (!seenIds.has(p.id)) {
       seenIds.add(p.id);
       promises.push(p);
@@ -156,7 +151,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ status: 'ok', promises_evaluated: 0, promises_failed: 0, timestamp: new Date().toISOString() });
   }
 
-  console.log(`[Cron] Found ${promises.length} promises to reavaliate (${needsRecheck?.length || 0} need recheck, ${neverVerified?.length || 0} never verified)`);
+  console.log(`[Cron] Found ${promises.length} promises to reavaliate (${stale?.length || 0} stale, ${never?.length || 0} never verified)`);
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
@@ -184,20 +179,20 @@ export default async function handler(req, res) {
         .eq('id', promise.id);
 
       if (updateError) {
-        console.error(`[Cron] Failed to update promise ${promise.id}:`, updateError.message);
+        console.error(`[Cron] Failed to update ${promise.id}:`, updateError.message);
         failed++;
       } else {
         evaluated++;
-        console.log(`[Cron] Evaluated: ${promise.promise_title} → ${result.status} (${result.fulfillment_score})`);
+        console.log(`[Cron] ✓ ${promise.promise_title} → ${result.status} (${result.fulfillment_score})`);
       }
     } catch (e) {
-      console.error(`[Cron] Failed to evaluate promise ${promise.id}:`, e.message);
+      console.error(`[Cron] ✗ ${promise.id}:`, e.message);
       failed++;
     }
     await new Promise(r => setTimeout(r, 500));
   }
 
-  console.log(`[Cron] Complete: ${evaluated} evaluated, ${failed} failed`);
+  console.log(`[Cron] Done: ${evaluated} ok, ${failed} failed`);
   return res.status(200).json({
     status: 'ok',
     promises_evaluated: evaluated,
