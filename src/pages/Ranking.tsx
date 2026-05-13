@@ -88,12 +88,13 @@ export default function Ranking() {
         
         if ((status === 'cumprida') && hasScore) {
           statsMap[politicianKey].fulfilled++;
-        } else if ((status === 'parcialmente_cumprida' || status === 'em_andamento') && hasScore) {
+        } else if ((status === 'parcialmente_cumprida') && hasScore) {
           statsMap[politicianKey].partial++;
+        } else if ((status === 'em_andamento') && hasScore) {
+          statsMap[politicianKey].pending++;
         } else if ((status === 'descumprida' || status === 'quebrada') && hasScore) {
           statsMap[politicianKey].broken++;
         } else {
-          // pending, nao_classificada ou qualquer outro status = pendente
           statsMap[politicianKey].pending++;
         }
       });

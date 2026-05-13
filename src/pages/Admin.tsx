@@ -129,7 +129,7 @@ export default function Admin() {
         em_andamento: promises.filter(p => p.status === 'em_andamento').length,
         nao_iniciada: promises.filter(p => p.status === 'nao_iniciada').length,
         descumprida: promises.filter(p => p.status === 'descumprida').length,
-        pendente: promises.filter(p => p.status === 'pendente' || p.status === 'nao_classificada').length
+        pendente: promises.filter(p => p.status === 'pendente' || p.status === 'nao_classificada' || p.status === 'nao_iniciada').length
       };
       setPromiseStats(stats);
 

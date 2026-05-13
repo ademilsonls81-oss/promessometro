@@ -96,7 +96,7 @@ export default function PublicFeed() {
   };
 
   const fulfilledCount = promises.filter(p => p.status === "cumprida").length;
-  const partialCount = promises.filter(p => p.status === "parcialmente_cumprida" || p.status === "em_andamento").length;
+  const partialCount = promises.filter(p => p.status === "parcialmente_cumprida").length;
   const brokenCount = promises.filter(p => p.status === "descumprida").length;
 
   if (loading) {
