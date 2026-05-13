@@ -4,6 +4,27 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfe
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+const STATUS_SCORE_RANGES = {
+  cumprida: [80, 100],
+  parcialmente_cumprida: [40, 79],
+  em_andamento: [20, 39],
+  nao_iniciada: [0, 19],
+  descumprida: [0, 0],
+  nao_classificada: [0, 100],
+  pendente: [0, 19],
+};
+
+function mapStatusToFrontend(aiStatus) {
+  if (aiStatus === 'nao_iniciada' || aiStatus === 'nao_classificada') return 'pendente';
+  return aiStatus;
+}
+
+function validateScoreForStatus(status, score) {
+  const range = STATUS_SCORE_RANGES[status];
+  if (!range) return Math.min(Math.max(Math.round(score), 0), 100);
+  return Math.max(range[0], Math.min(range[1], Math.round(score)));
+}
+
 function requireCronSecret(req, res) {
   if (process.env.NODE_ENV !== 'production') return true;
   const secret = req.headers['x-cron-secret'] || req.query?.secret;
@@ -99,24 +120,25 @@ REGRAS:
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : {};
 
-    const score = parsed.fulfillment_score ?? 50;
+    const rawScore = parsed.fulfillment_score ?? 50;
+    let status = parsed.status || 'nao_classificada';
+    let finalScore = rawScore;
 
-    if (evidences.length === 0 && score > 30) {
-      return {
-        status: 'nao_iniciada',
-        fulfillment_score: Math.min(score, 30),
-        justification: parsed.justificativa || 'Sem evidências disponíveis — atribuído score máximo de 30',
-        evidences_used: [],
-        needs_human_review: true
-      };
+    if (evidences.length === 0 && rawScore > 30) {
+      status = 'nao_iniciada';
+      finalScore = Math.min(rawScore, 30);
     }
 
+    finalScore = validateScoreForStatus(status, finalScore);
+
     return {
-      status: parsed.status || 'nao_classificada',
-      fulfillment_score: score,
+      status,
+      fulfillment_score: finalScore,
       justification: parsed.justificativa || '',
       evidences_used: evidences,
-      needs_human_review: score > 80 || !evidences.length
+      needs_human_review: finalScore > 80 || !evidences.length,
+      raw_ai_status: status,
+      raw_ai_score: rawScore
     };
   } catch (err) {
     throw new Error(`AI evaluation failed: ${err.message}`);
@@ -132,26 +154,38 @@ export default async function handler(req, res) {
 
   console.log('[Cron] Daily reavaliation started');
 
-  const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+  const dailyCutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+  const weeklyCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: stale, error: e1 } = await supabase
+  const { data: staleDaily, error: e1 } = await supabase
     .from('promises')
     .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
-    .lt('last_verified_at', cutoff)
-    .limit(25);
+    .lt('last_verified_at', dailyCutoff)
+    .not('status', 'eq', 'cumprida')
+    .not('status', 'eq', 'descumprida')
+    .not('status', 'eq', 'pendente')
+    .limit(20);
 
   const { data: never, error: e2 } = await supabase
     .from('promises')
     .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
     .is('last_verified_at', null)
-    .limit(25);
+    .limit(20);
 
-  if (e1) console.error('[Cron] stale error:', e1.message);
+  const { data: staleWeekly, error: e3 } = await supabase
+    .from('promises')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
+    .lt('last_verified_at', weeklyCutoff)
+    .in('status', ['cumprida', 'descumprida'])
+    .limit(10);
+
+  if (e1) console.error('[Cron] staleDaily error:', e1.message);
   if (e2) console.error('[Cron] never error:', e2.message);
+  if (e3) console.error('[Cron] staleWeekly error:', e3.message);
 
   const seenIds = new Set();
   const promises = [];
-  for (const p of [...(stale || []), ...(never || [])]) {
+  for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
     if (!seenIds.has(p.id)) {
       seenIds.add(p.id);
       promises.push(p);
@@ -167,7 +201,7 @@ export default async function handler(req, res) {
     });
   }
 
-  console.log(`[Cron] Found ${promises.length} promises to evaluate`);
+  console.log(`[Cron] Found ${promises.length} promises to evaluate (daily:${staleDaily?.length||0} never:${never?.length||0} weekly:${staleWeekly?.length||0})`);
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
@@ -181,11 +215,12 @@ export default async function handler(req, res) {
   for (const promise of promises) {
     try {
       const result = await evaluateWithAI(promise);
+      const frontendStatus = mapStatusToFrontend(result.status);
 
       const { error: updateError } = await supabase
         .from('promises')
         .update({
-          status: result.status,
+          status: frontendStatus,
           fulfillment_score: result.fulfillment_score,
           ai_evaluation: result.justification,
           evidences_used: result.evidences_used,
@@ -200,29 +235,44 @@ export default async function handler(req, res) {
         continue;
       }
 
-      await supabase.from('status_history').insert({
-        promise_id: promise.id,
-        previous_status: promise.status,
-        new_status: result.status,
-        previous_score: promise.fulfillment_score,
-        new_score: result.fulfillment_score,
-        changed_by: 'cron_daily_reavaliation',
-        change_reason: result.justification || 'Reavaliação automática diária',
-        evaluation_type: 'ai_auto'
-      }).catch(() => { /* status_history table may not exist */ });
+      const hasSignificantChange =
+        promise.status !== frontendStatus ||
+        Math.abs((promise.fulfillment_score || 0) - result.fulfillment_score) >= 5;
 
-      await supabase.from('audit_logs').insert({
-        action: 'cron_reavaliation',
-        table_name: 'promises',
-        record_id: promise.id,
-        old_value: { status: promise.status, score: promise.fulfillment_score },
-        new_value: { status: result.status, score: result.fulfillment_score },
-        performed_by: 'cron',
-        details: { promise_title: promise.promise_title, politician: promise.politician_name }
-      }).catch(() => { /* audit_logs table may not exist */ });
+      if (hasSignificantChange) {
+        await supabase.from('status_history').insert({
+          promise_id: promise.id,
+          previous_status: promise.status,
+          new_status: frontendStatus,
+          previous_score: promise.fulfillment_score,
+          new_score: result.fulfillment_score,
+          changed_by: 'cron_daily_reavaliation',
+          change_reason: result.justification || 'Reavaliação automática diária',
+          evaluation_type: 'ai_auto',
+          ai_raw_status: result.raw_ai_status,
+          ai_raw_score: result.raw_ai_score
+        }).catch(() => { });
+
+        await supabase.from('audit_logs').insert({
+          action: 'cron_reavaliation',
+          table_name: 'promises',
+          record_id: promise.id,
+          old_value: { status: promise.status, score: promise.fulfillment_score },
+          new_value: { status: frontendStatus, score: result.fulfillment_score },
+          performed_by: 'cron',
+          details: {
+            promise_title: promise.promise_title,
+            politician: promise.politician_name,
+            ai_status: result.raw_ai_status,
+            ai_score: result.raw_ai_score,
+            evidences_count: result.evidences_used?.length || 0,
+            needs_human_review: result.needs_human_review
+          }
+        }).catch(() => { });
+      }
 
       evaluated++;
-      console.log(`[Cron] ✓ ${promise.promise_title} → ${result.status} (${result.fulfillment_score})`);
+      console.log(`[Cron] ✓ ${promise.promise_title}: ${promise.status}→${frontendStatus} (${result.fulfillment_score}) | raw:${result.raw_ai_status} (${result.raw_ai_score})`);
     } catch (e) {
       console.error(`[Cron] ✗ ${promise.id}: ${e.message}`);
       failed++;
