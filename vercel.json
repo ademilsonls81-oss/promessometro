@@ -43,11 +43,11 @@
     "crons": [
         {
             "path": "/api/cron/daily-reavaliation",
-            "schedule": "0 9 * * *"
+            "schedule": "0 6 * * *"
         },
         {
             "path": "/api/cron/update-stats",
-            "schedule": "0 10 * * *"
+            "schedule": "0 7 * * *"
         },
         {
             "path": "/api/cron/backup-export",
@@ -55,7 +55,7 @@
         },
         {
             "path": "/api/cron/process-evidences",
-            "schedule": "0 11 * * *"
+            "schedule": "0 8 * * *"
         }
     ],
     "headers": [

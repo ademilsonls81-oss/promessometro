@@ -30,7 +30,7 @@ async function evaluateWithAI(promise) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Api-Key': TAVILY_API_KEY },
         body: JSON.stringify({
-          query: `${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.promise_description || ''}`,
+          query: `${promise.politician_name || ''} ${promise.promise_title || ''}`,
           max_results: 5,
           include_answer: true
         }),
@@ -56,7 +56,6 @@ async function evaluateWithAI(promise) {
   const prompt = `Você é um avaliador independente de promessas políticas brasileiras.
 
 PROMESSA: ${promise.promise_title || ''}
-${promise.promise_description ? `DESCRIÇÃO: ${promise.promise_description}` : ''}
 POLÍTICO: ${promise.politician_name || ''}
 
 EVIDÊNCIAS ENCONTRADAS:
@@ -68,13 +67,13 @@ CRITÉRIOS:
 | parcialmente_cumprida | 40-79 | Progresso parcial demonstrado |
 | em_andamento | 20-39 | Processo iniciado sem entrega final |
 | nao_iniciada | 0-19 | Nenhuma ação verificável |
-| descumprida | 0 | Ação contrária |
+| descumprida | 0 | Ação contrária ou prazo expirado |
 
 REGRAS:
-- Com 0 evidências: score máximo 30, status deve ser "nao_iniciada" ou "em_andamento"
-- Score > 70 SÓ é permitido com evidência verificável com URL real
-- Responda SOMENTE com JSON válido (sem markdown):
-{"status":"status","fulfillment_score":0-100,"justificativa":"explicação","evidencias_usadas":[]}`;
+- Sem evidência com URL real: score máximo 30, status "nao_iniciada"
+- Score > 70 exige evidência verificável com URL real
+- Responda SOMENTE com JSON (sem markdown):
+{"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara"}`;
 
   try {
     const groqRes = await fetch(`${AI_BASE_URL}/chat/completions`, {
@@ -85,13 +84,13 @@ REGRAS:
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-        max_tokens: 1024
+        max_tokens: 512
       })
     });
 
     if (!groqRes.ok) {
       const errText = await groqRes.text();
-      throw new Error(`Groq error ${groqRes.status}: ${errText}`);
+      throw new Error(`Groq ${groqRes.status}: ${errText}`);
     }
 
     const data = await groqRes.json();
@@ -100,12 +99,24 @@ REGRAS:
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : {};
 
+    const score = parsed.fulfillment_score ?? 50;
+
+    if (evidences.length === 0 && score > 30) {
+      return {
+        status: 'nao_iniciada',
+        fulfillment_score: Math.min(score, 30),
+        justification: parsed.justificativa || 'Sem evidências disponíveis — atribuído score máximo de 30',
+        evidences_used: [],
+        needs_human_review: true
+      };
+    }
+
     return {
       status: parsed.status || 'nao_classificada',
-      fulfillment_score: parsed.fulfillment_score || 50,
+      fulfillment_score: score,
       justification: parsed.justificativa || '',
-      evidences_used: parsed.evidencias_usadas || [],
-      needs_human_review: false
+      evidences_used: evidences,
+      needs_human_review: score > 80 || !evidences.length
     };
   } catch (err) {
     throw new Error(`AI evaluation failed: ${err.message}`);
@@ -122,22 +133,21 @@ export default async function handler(req, res) {
   console.log('[Cron] Daily reavaliation started');
 
   const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
-  console.log('[Cron] cutoff:', cutoff);
 
   const { data: stale, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
     .is('last_verified_at', null)
     .limit(25);
 
-  console.log('[Cron] stale:', stale?.length, 'never:', never?.length, 'e1:', e1?.message, 'e2:', e2?.message);
-  if (stale?.[0]) console.log('[Cron] first stale last_verified_at:', stale[0].last_verified_at);
+  if (e1) console.error('[Cron] stale error:', e1.message);
+  if (e2) console.error('[Cron] never error:', e2.message);
 
   const seenIds = new Set();
   const promises = [];
@@ -153,17 +163,16 @@ export default async function handler(req, res) {
       status: 'ok',
       promises_evaluated: 0,
       promises_failed: 0,
-      debug: { stale_count: stale?.length, never_count: never?.length, cutoff, e1: e1?.message, e2: e2?.message, first_stale_verified_at: stale?.[0]?.last_verified_at },
       timestamp: new Date().toISOString()
     });
   }
 
-  console.log(`[Cron] Found ${promises.length} promises (${stale?.length || 0} stale, ${never?.length || 0} never)`);
+  console.log(`[Cron] Found ${promises.length} promises to evaluate`);
 
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY') {
     console.error('[Cron] GROQ_API_KEY not configured');
-    return res.status(500).json({ status: 'error', error: 'GROQ_API_KEY not configured', timestamp: new Date().toISOString() });
+    return res.status(500).json({ status: 'error', error: 'GROQ_API_KEY not configured' });
   }
 
   let evaluated = 0;
@@ -186,14 +195,36 @@ export default async function handler(req, res) {
         .eq('id', promise.id);
 
       if (updateError) {
-        console.error(`[Cron] Failed to update ${promise.id}:`, updateError.message);
+        console.error(`[Cron] ✗ ${promise.id}: ${updateError.message}`);
         failed++;
-      } else {
-        evaluated++;
-        console.log(`[Cron] ✓ ${promise.promise_title} → ${result.status} (${result.fulfillment_score})`);
+        continue;
       }
+
+      await supabase.from('status_history').insert({
+        promise_id: promise.id,
+        previous_status: promise.status,
+        new_status: result.status,
+        previous_score: promise.fulfillment_score,
+        new_score: result.fulfillment_score,
+        changed_by: 'cron_daily_reavaliation',
+        change_reason: result.justification || 'Reavaliação automática diária',
+        evaluation_type: 'ai_auto'
+      }).catch(() => { /* status_history table may not exist */ });
+
+      await supabase.from('audit_logs').insert({
+        action: 'cron_reavaliation',
+        table_name: 'promises',
+        record_id: promise.id,
+        old_value: { status: promise.status, score: promise.fulfillment_score },
+        new_value: { status: result.status, score: result.fulfillment_score },
+        performed_by: 'cron',
+        details: { promise_title: promise.promise_title, politician: promise.politician_name }
+      }).catch(() => { /* audit_logs table may not exist */ });
+
+      evaluated++;
+      console.log(`[Cron] ✓ ${promise.promise_title} → ${result.status} (${result.fulfillment_score})`);
     } catch (e) {
-      console.error(`[Cron] ✗ ${promise.id}:`, e.message);
+      console.error(`[Cron] ✗ ${promise.id}: ${e.message}`);
       failed++;
     }
     await new Promise(r => setTimeout(r, 500));
