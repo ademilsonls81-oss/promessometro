@@ -122,20 +122,23 @@ export default async function handler(req, res) {
   console.log('[Cron] Daily reavaliation started');
 
   const cutoff = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+  console.log('[Cron] cutoff:', cutoff);
+
   const { data: stale, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
+    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
+  console.log('[Cron] stale query result:', { count: stale?.length, error: e1?.message, sample: stale?.[0]?.last_verified_at });
+
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score')
+    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
     .is('last_verified_at', null)
     .limit(25);
 
-  if (e1) console.error('[Cron] stale query error:', e1.message);
-  if (e2) console.error('[Cron] never query error:', e2.message);
+  console.log('[Cron] never query result:', { count: never?.length, error: e2?.message });
 
   const seenIds = new Set();
   const promises = [];
