@@ -126,13 +126,13 @@ export default async function handler(req, res) {
 
   const { data: stale, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at')
     .lt('last_verified_at', cutoff)
     .limit(25);
 
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, promise_description, politician_name, category, status, fulfillment_score, last_verified_at')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at')
     .is('last_verified_at', null)
     .limit(25);
 
