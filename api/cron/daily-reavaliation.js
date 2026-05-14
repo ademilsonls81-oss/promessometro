@@ -58,10 +58,31 @@ async function evaluateWithAI(promise) {
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
+  const CREDIBLE_SOURCES = ['g1.globo.com', 'folha.uol.com.br', 'uol.com.br', 'estadao.com.br', 
+    'metropoles.com', 'cnnbrasil.com.br', 'senado.leg.br', 'camara.leg.br', 
+    'planalto.gov.br', 'portaldatransparencia.gov.br', '.gov.br'];
+
+  function isCredible(url) {
+    if (!url) return false;
+    const u = url.toLowerCase();
+    return CREDIBLE_SOURCES.some(s => u.includes(s));
+  }
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
 
   let evidences = [];
+
+  if (promise.source_link) {
+    evidences.push({
+      descricao: `Fonte original da promessa`,
+      fonte: new URL(promise.source_link).hostname,
+      url: promise.source_link,
+      data: null,
+      is_original_source: true
+    });
+  }
+
   if (TAVILY_API_KEY && TAVILY_API_KEY !== 'YOUR_TAVILY_API_KEY') {
     try {
       const res = await fetch('https://api.tavily.com/search', {
@@ -76,12 +97,14 @@ async function evaluateWithAI(promise) {
       });
       if (res.ok) {
         const d = await res.json();
-        evidences = (d.results || []).map(r => ({
+        const newEvs = (d.results || []).map(r => ({
           descricao: r.content || '',
           fonte: r.source || '',
           url: r.url || '',
-          data: r.published_date || null
+          data: r.published_date || null,
+          is_original_source: false
         }));
+        evidences = [...evidences, ...newEvs];
       }
     } catch (_) { }
   }
@@ -108,8 +131,10 @@ CRITÉRIOS:
 | descumprida | 0 | Ação contrária ou prazo expirado |
 
 REGRAS:
-- Sem evidência com URL real: score máximo 30, status "nao_iniciada"
-- Score > 70 exige evidência verificável com URL real
+-Fontes governamentais (.gov.br, planalto, senado, camara) OU veículos de confiança (G1, Folha, Estadão, UOL) = evidência forte
+- Se há fonte_confiável=true na evidência, considere como cumprimento即使quando não há documento oficial
+- Se promessa tem source_link (fonte original), use como evidência primária
+- Score > 70 exige pelo menos 1 fonte confiável ou source_link da promessa
 - Responda SOMENTE com JSON (sem markdown):
 {"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara"}`;
 
@@ -170,22 +195,21 @@ export default async function handler(req, res) {
 
   const { data: staleDaily, error: e1 } = await supabase
     .from('promises')
-    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name, source_link')
     .lt('last_verified_at', dailyCutoff)
     .not('status', 'eq', 'cumprida')
     .not('status', 'eq', 'descumprida')
-    .not('status', 'eq', 'pendente')
     .limit(20);
 
   const { data: never, error: e2 } = await supabase
     .from('promises')
-    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name, source_link')
     .is('last_verified_at', null)
     .limit(20);
 
   const { data: staleWeekly, error: e3 } = await supabase
     .from('promises')
-    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name')
+    .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name, source_link')
     .lt('last_verified_at', weeklyCutoff)
     .in('status', ['cumprida', 'descumprida'])
     .limit(10);
@@ -198,6 +222,18 @@ export default async function handler(req, res) {
   const promises = [];
   for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
     if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); }
+  }
+
+  if (promises.length === 0) {
+    console.log('[Cron] No stale promises, fetching recent unfulfilled promises...');
+    const { data: recent } = await supabase
+      .from('promises')
+      .select('id, promise_title, category, status, fulfillment_score, last_verified_at, politician_name, source_link')
+      .not('status', 'eq', 'cumprida')
+      .not('status', 'eq', 'descumprida')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (recent) promises.push(...recent);
   }
 
   if (promises.length === 0) {
