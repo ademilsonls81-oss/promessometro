@@ -57,14 +57,25 @@ export default async function handler(req, res) {
 
   if (path.startsWith('/api/politician/') && method === 'GET') {
     const slug = path.replace('/api/politician/', '');
+    const nameQuery = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    
     const { data: promises, error } = await supabase
       .from('promises')
       .select('*')
-      .ilike('politician_name', slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+      .ilike('politician_name', `%${nameQuery}%`);
 
     if (error) return res.status(500).json({ error: error.message });
     
     const name = promises?.[0]?.politician_name || slug;
+    
+    const { data: politicians } = await supabase
+      .from('politicians')
+      .select('name, party, state, position')
+      .ilike('name', `%${name}%`)
+      .limit(1);
+    
+    const politicianData = politicians?.[0] || {};
+    
     const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises?.length || 0 };
     (promises || []).forEach(p => {
       if (p.status === 'cumprida') stats.fulfilled++;
@@ -78,6 +89,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ 
       name, 
       slug, 
+      party: politicianData.party || null,
+      state: politicianData.state || null,
+      position: politicianData.position || null,
       stats, 
       percentage,
       promise_count: stats.total,

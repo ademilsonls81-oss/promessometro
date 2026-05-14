@@ -108,61 +108,37 @@ export default function PoliticianProfile() {
       
       const decoded = decodeURIComponent(nameOrId);
       
-      const { data: promises, error: promisesError } = await supabase
-        .from('promises')
-        .select('*')
-        .ilike('politician_name', `%${decoded}%`)
-        .order('created_at', { ascending: false });
-
-      if (promisesError || !promises || promises.length === 0) {
+      const response = await fetch(`/api/politician/${decoded}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        setError(errData.error || "Político não encontrado");
+        return;
+      }
+      
+      const data = await response.json();
+      
+      const promises = data.promises || [];
+      if (promises.length === 0) {
         setError("Político não encontrado");
         return;
       }
 
-      let { data: politicians } = await supabase
-        .from('politicians')
-        .select('name, party, state')
-        .ilike('name', `%${decoded}%`);
-
-      if (!politicians || politicians.length === 0) {
-        const { data: politicians2 } = await supabase
-          .from('politicians')
-          .select('nome, partido, estado')
-          .ilike('nome', `%${decoded}%`);
-        if (politicians2 && politicians2.length > 0) {
-          politicians = politicians2.map(p => ({
-            name: p.nome,
-            party: p.partido,
-            state: p.estado
-          }));
-        }
-      }
-
-      const politicianData = politicians?.[0] || {};
-      const fullName = politicianData.name || promises[0].politician_name || decoded;
+      const fullName = data.name || decoded;
       const slug = generateSlug(fullName);
       
-      const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 50 };
-      
-      promises.forEach((p: any) => {
-        const s = p.status?.toLowerCase() || '';
-        if (s === 'fulfilled' || s === 'realizada' || s === 'cumprida') stats.fulfilled++;
-        else if (s === 'partial' || s === 'partial_fulfilled' || s === 'parcial') stats.partial++;
-        else if (s === 'broken' || s === 'not_fulfilled' || s === 'quebrada') stats.broken++;
-        else if (s === 'em_andamento') stats.pending++;
-        else stats.pending++;
-      });
-      
-      const totalWithPending = stats.fulfilled + stats.partial + stats.broken + stats.pending;
-      stats.percentage = totalWithPending > 0 ? Math.round((stats.fulfilled / totalWithPending) * 100) : 0;
+      const stats = data.stats || { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 0 };
+      stats.total = promises.length;
 
       setPolitician({
         name: fullName,
-        position: null,
-        party: politicianData.party || promises[0]?.party || null,
-        state: politicianData.state || promises[0]?.state || null,
+        position: data.position || null,
+        party: data.party || null,
+        state: data.state || null,
         photo_url: null,
-        stats,
+        stats: {
+          ...stats,
+          percentage: data.percentage || Math.round((stats.fulfilled / stats.total) * 100)
+        },
         promises: promises.map((p: any) => ({
           id: p.id,
           promise_title: p.promise_title || p.title || '',
