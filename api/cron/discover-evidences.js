@@ -17,8 +17,6 @@ function requireCronSecret(req, res) {
   }
   return true;
 }
-  return true;
-}
 
 const TAVILY_SOURCES = [
   'g1.globo.com',

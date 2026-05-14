@@ -66,7 +66,8 @@ async function searchEv(query, maxResults = 8) {
             data: r.published_date || null,
             credible: cred,
             relevance: Math.round((r.score || 0.5) * 100),
-            credibility: cred ? 90 : 50
+            credibility: cred ? 90 : 50,
+            titulo: r.title || ''
           };
         });
       }
@@ -92,7 +93,7 @@ async function searchEv(query, maxResults = 8) {
       if (m) {
         const p = JSON.parse(m[0]);
         return (p.links || []).map(u => ({
-          descricao: `Notícia: ${query}`, fonte: new URL(u).hostname, url: u, data: null, credible: isCredible(u), relevance: 70, credibility: 80
+          descricao: `Notícia: ${query}`, fonte: new URL(u).hostname, url: u, data: null, credible: isCredible(u), relevance: 70, credibility: 80, titulo: `Notícia: ${query}`
         }));
       }
     }
@@ -205,7 +206,8 @@ export default async function handler(req, res) {
               descricao: ev.descricao, fonte: ev.fonte, url: ev.url, data_publicacao: ev.data,
               tipo: ev.credible ? 'oficial' : 'jornal', confiabilidade: sc,
               relevance_score: ev.relevance, credibility_score: ev.credibility,
-              discovered_at: now.toISOString(), validated: ev.credible, needs_review: !ev.credible
+              discovered_at: now.toISOString(), validated: ev.credible, needs_review: !ev.credible,
+              titulo: ev.titulo || null
             });
             if (!error) step1Inserted++;
           }
@@ -219,7 +221,7 @@ export default async function handler(req, res) {
   if (stage === 'all' || stage === 'count') {
     const { data: promises } = await supabase
       .from('promises')
-      .select('id')
+      .select('id, status, last_verified_at')
       .limit(50);
 
     if (promises) {
@@ -230,10 +232,14 @@ export default async function handler(req, res) {
             .from('promise_evidences')
             .select('*', { count: 'exact', head: true })
             .eq('promise_id', promise.id);
-          await supabase.from('promises').update({
-            evidence_count: count || 0,
-            last_verified_at: now.toISOString()
-          }).eq('id', promise.id);
+
+          const needsReavaliation = ['cumprida', 'descumprida', 'pendente'].includes(promise.status);
+          const updateData = { evidence_count: count || 0 };
+          if (!needsReavaliation) {
+            updateData.last_verified_at = now.toISOString();
+          }
+
+          await supabase.from('promises').update(updateData).eq('id', promise.id);
           step2Updated++;
         } catch (_) { }
       }
@@ -294,6 +300,7 @@ export default async function handler(req, res) {
               evaluation_type: 'ai_auto'
             }).catch(e => { console.error(`[status_history] ${e.message}`); });
 
+            await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).catch(e => { });
             await supabase.from('promise_explanations').insert({
               promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
               criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
@@ -324,6 +331,18 @@ export default async function handler(req, res) {
     }
     console.log(`[Pipeline:Reavaliate] Done: evaluated=${step3Evaluated} failed=${step3Failed}`);
   }
+
+  try {
+    await supabase.from('cron_executions').insert({
+      cron_name: 'pipeline-orchestrator',
+      status: 'completed',
+      promises_processed: promises?.length || 0,
+      promises_evaluated: step3Evaluated,
+      evidences_discovered: step1Discovered,
+      evidences_inserted: step1Inserted,
+      details: JSON.stringify({ pipelineId, stage, steps: { discover: step1Discovered, count: step2Updated, reavaliate: step3Evaluated } })
+    });
+  } catch (_) { }
 
   try {
     await supabase.from('system_stats').upsert({

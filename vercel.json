@@ -62,6 +62,10 @@
             "schedule": "0 18 * * *"
         },
         {
+            "path": "/api/cron/discover-evidences",
+            "schedule": "0 1 * * *"
+        },
+        {
             "path": "/api/cron/daily-reavaliation",
             "schedule": "0 2 * * *"
         },

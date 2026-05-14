@@ -246,6 +246,7 @@ export default async function handler(req, res) {
         evaluation_type: 'ai_auto'
       }).catch(() => { });
 
+      await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).catch(() => { });
       await supabase.from('promise_explanations').insert({
         promise_id: promise.id,
         status: frontendStatus,

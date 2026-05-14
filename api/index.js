@@ -4,6 +4,14 @@ const supabaseUrl = process.env.VITE_S_URL || 'https://liqutcjzzrqstivvfele.supa
 const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function toSlug(name) {
+  if (!name) return '';
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 export default async function handler(req, res) {
   const path = req.url;
   const method = req.method;
@@ -36,6 +44,7 @@ export default async function handler(req, res) {
 
     const ranking = Object.entries(statsMap).map(([name, stats]) => ({
       name,
+      slug: toSlug(name),
       stats,
       percentage: stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50,
       promise_count: stats.total
@@ -46,6 +55,36 @@ export default async function handler(req, res) {
     return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
   }
 
+  if (path.startsWith('/api/politician/') && method === 'GET') {
+    const slug = path.replace('/api/politician/', '');
+    const { data: promises, error } = await supabase
+      .from('promises')
+      .select('*')
+      .ilike('politician_name', slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+    if (error) return res.status(500).json({ error: error.message });
+    
+    const name = promises?.[0]?.politician_name || slug;
+    const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises?.length || 0 };
+    (promises || []).forEach(p => {
+      if (p.status === 'cumprida') stats.fulfilled++;
+      else if (p.status === 'parcialmente_cumprida') stats.partial++;
+      else if (p.status === 'descumprida') stats.broken++;
+      else stats.pending++;
+    });
+    
+    const percentage = stats.total > 0 ? Math.round((stats.fulfilled / stats.total) * 100) : 0;
+    
+    return res.status(200).json({ 
+      name, 
+      slug, 
+      stats, 
+      percentage,
+      promise_count: stats.total,
+      promises: promises || []
+    });
+  }
+
   if (path === '/api/promises' && method === 'GET') {
     const { data: promises, error } = await supabase
       .from('promises')
@@ -54,7 +93,11 @@ export default async function handler(req, res) {
       .limit(50);
 
     if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ promises: promises || [], total: promises?.length || 0 });
+    const promisesWithSlug = (promises || []).map(p => ({
+      ...p,
+      slug: toSlug(p.politician_name)
+    }));
+    return res.status(200).json({ promises: promisesWithSlug, total: promises?.length || 0 });
   }
 
   if (path === '/api/promises/submit' && method === 'POST') {

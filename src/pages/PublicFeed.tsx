@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { supabase } from "../lib/supabaseClient";
 import { CheckCircle, XCircle, Clock, Search, Filter, ChevronRight, ExternalLink, PartyPopper, TrendingUp, User, AlertCircle, Link as LinkIcon } from "lucide-react";
+
+function toSlug(name: string): string {
+  if (!name) return '';
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
 
 interface Promise {
   id: string;
@@ -58,19 +65,13 @@ export default function PublicFeed() {
   async function fetchPromises() {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('promises')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        console.error("[PublicFeed] Supabase error:", error);
-        setError(error.message);
-        setPromises([]);
-      } else {
-        setPromises((data as Promise[]) || []);
+      const response = await fetch('/api/promises');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Erro na API');
       }
+      const data = await response.json();
+      setPromises(data.promises || []);
     } catch (err: unknown) {
       console.error("[PublicFeed] fetchPromises error:", err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -280,7 +281,7 @@ export default function PublicFeed() {
                         )}
                     </div>
                     <Link 
-                      to={`/politico/${encodeURIComponent(promise.politician_name)}`}
+                      to={`/politico/${promise.slug || toSlug(promise.politician_name)}`}
                       className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-neon-cyan transition-colors"
                     >
                       Ver perfil <ChevronRight className="w-3 h-3" />

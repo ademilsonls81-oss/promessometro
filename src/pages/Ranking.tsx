@@ -4,7 +4,14 @@ import { motion } from "framer-motion";
 import { Trophy, Search, TrendingUp, TrendingDown, Clock, User, Loader2, Filter } from "lucide-react";
 import { Button } from "../components/ui";
 import { ShareButtons } from "../components/ShareButtons";
-import { supabase } from "../lib/supabaseClient";
+
+function toSlug(name: string): string {
+  if (!name) return '';
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
 
 interface PoliticianStats {
   fulfilled: number;
@@ -49,78 +56,38 @@ export default function Ranking() {
     try {
       setLoading(true);
       
-      // Buscar promessas - apenas campos que existem
-      const { data: promises, error } = await supabase
-        .from('promises')
-        .select('id, politician_name, party, status, fulfillment_score, evidence_count, last_verified_at');
-
-      if (error) throw error;
-
-      // Buscar políticos para get party/state
-      const { data: politicians } = await supabase.from('politicians').select('id, name, party, state');
-
-      const statsMap: Record<string, any> = {};
+      const response = await fetch('/api/politicians/ranking');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Erro na API');
+      }
+      const data = await response.json();
       
-      (promises || []).forEach((p: any) => {
-        const politicianKey = p.politician_name;
-        
-        // Find politician data
-        const polData = politicians?.find((pol: any) => pol.name === p.politician_name);
-        
-        if (!statsMap[politicianKey]) {
-          statsMap[politicianKey] = { 
-            name: polData?.name || p.politician_name,
-            party: polData?.party || p.party || null,
-            state: polData?.state || null,
-            cargo: 'Presidente',
-            fulfilled: 0, 
-            partial: 0, 
-            broken: 0, 
-            pending: 0 
-          };
-        }
-        
-        const status = p.status?.toLowerCase() || '';
-        const hasScore = (p.fulfillment_score || 0) > 0;
-        
-        if ((status === 'cumprida') && hasScore) {
-          statsMap[politicianKey].fulfilled++;
-        } else if ((status === 'parcialmente_cumprida') && hasScore) {
-          statsMap[politicianKey].partial++;
-        } else if ((status === 'em_andamento') && hasScore) {
-          statsMap[politicianKey].pending++;
-        } else if ((status === 'descumprida' || status === 'quebrada') && hasScore) {
-          statsMap[politicianKey].broken++;
-        } else {
-          statsMap[politicianKey].pending++;
-        }
-      });
-
-      const rankingData = Object.values(statsMap).map((data: any) => {
-        const approved = data.fulfilled + data.partial + data.broken;
-        const totalWithPending = approved + data.pending;
-        const percentage = totalWithPending > 0 ? Math.round((data.fulfilled / totalWithPending) * 100) : 0;
+      const rankingData = (data.ranking || []).map((item: any) => {
+        const stats = item.stats || {};
+        const totalWithPending = item.promise_count || 0;
+        const percentage = totalWithPending > 0 ? Math.round((stats.fulfilled / totalWithPending) * 100) : 0;
         return {
-          name: data.name,
-          role: data.cargo,
-          state: data.state,
-          party: data.party,
+          name: item.name,
+          role: 'Presidente',
+          state: null,
+          party: null,
           percentage,
           stats: {
-            fulfilled: data.fulfilled,
-            partial: data.partial,
-            broken: data.broken,
-            pending: data.pending,
+            fulfilled: stats.fulfilled || 0,
+            partial: stats.partial || 0,
+            broken: stats.broken || 0,
+            pending: stats.pending || 0,
             total: totalWithPending
           },
-          promise_count: approved + data.pending
+          promise_count: totalWithPending
         };
       });
 
       rankingData.sort((a, b) => b.percentage - a.percentage);
       setRanking(rankingData);
 
-      const totalPromises = promises?.length || 0;
+      const totalPromises = rankingData.reduce((acc, p) => acc + p.stats.total, 0);
       const totalPoliticians = rankingData.length;
       
       const fulfilled = rankingData.reduce((acc, p) => acc + p.stats.fulfilled, 0);
@@ -316,7 +283,7 @@ export default function Ranking() {
               {visibleRanking.map((politician, idx) => {
                 const badge = statusBadge(politician.percentage);
                 return (
-                  <Link key={politician.name} to={`/politico/${encodeURIComponent(politician.name)}`} className="block">
+                  <Link key={politician.name} to={`/politico/${politician.slug || toSlug(politician.name)}`} className="block">
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
