@@ -52,7 +52,7 @@ export default function Ranking() {
       // Buscar promessas - apenas campos que existem
       const { data: promises, error } = await supabase
         .from('promises')
-        .select('id, politician_name, party, status, fulfillment_score');
+        .select('id, politician_name, party, status, fulfillment_score, evidence_count, last_verified_at');
 
       if (error) throw error;
 

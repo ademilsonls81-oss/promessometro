@@ -98,6 +98,8 @@ export default function PublicFeed() {
   const fulfilledCount = promises.filter(p => p.status === "cumprida").length;
   const partialCount = promises.filter(p => p.status === "parcialmente_cumprida").length;
   const brokenCount = promises.filter(p => p.status === "descumprida").length;
+  const pendingCount = promises.filter(p => p.status === "pendente" || p.status === "nao_iniciada" || p.status === "nao_classificada" || p.status === "em_andamento").length;
+  const totalEvidences = promises.reduce((acc, p) => acc + (p.evidence_count || 0), 0);
 
   if (loading) {
     return (
@@ -124,21 +126,31 @@ export default function PublicFeed() {
         </motion.div>
 
         {!loading && promises.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-dark-card border border-green-500/20 rounded-2xl p-4 text-center">
               <div className="text-2xl font-bold text-green-400">{fulfilledCount}</div>
               <div className="text-xs text-gray-500">Cumpridas</div>
             </div>
             <div className="bg-dark-card border border-yellow-500/20 rounded-2xl p-4 text-center">
               <div className="text-2xl font-bold text-yellow-400">{partialCount}</div>
-              <div className="text-xs text-gray-500">Parciais/Andamento</div>
+              <div className="text-xs text-gray-500">Parcialmente</div>
             </div>
             <div className="bg-dark-card border border-red-500/20 rounded-2xl p-4 text-center">
               <div className="text-2xl font-bold text-red-400">{brokenCount}</div>
               <div className="text-xs text-gray-500">Descumpridas</div>
             </div>
+            <div className="bg-dark-card border border-gray-500/20 rounded-2xl p-4 text-center">
+              <div className="text-2xl font-bold text-gray-400">{pendingCount}</div>
+              <div className="text-xs text-gray-500">Pendentes</div>
+            </div>
           </div>
         )}
+
+        {totalEvidences > 0 ? (
+          <div className="text-center mb-4 text-xs text-blue-400">
+            📰 {totalEvidences} evidências indexadas para {promises.length} promessas
+          </div>
+        ) : null}
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 p-2 bg-dark-card border border-white/5 rounded-2xl">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 px-2 w-full md:w-auto">

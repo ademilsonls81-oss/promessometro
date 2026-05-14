@@ -46,6 +46,8 @@ interface PromiseData {
   last_verified_at?: string;
   ai_evaluation?: string;
   needs_human_review?: boolean;
+  evidence_count?: number;
+  evidences_used?: any[];
 }
 
 export default function PromiseDetail() {
@@ -95,7 +97,9 @@ export default function PromiseDetail() {
           created_at: found.created_at,
           last_verified_at: found.last_verified_at,
           ai_evaluation: found.ai_evaluation,
-          needs_human_review: found.needs_human_review
+          needs_human_review: found.needs_human_review,
+          evidence_count: found.evidence_count,
+          evidences_used: found.evidences_used
         });
       } else {
         setError("Promessa não encontrada");
@@ -226,9 +230,14 @@ const politicianSlug = generateSlug(promise.politician_name);
               {promise.last_verified_at && (
                 <span
                   className="flex items-center gap-1 px-2 py-1 bg-neon-purple/10 text-neon-purple text-xs rounded-full cursor-help"
-                  title={`Avaliado automaticamente por IA em ${new Date(promise.last_verified_at).toLocaleString('pt-BR')}. Justificativa: ${promise.ai_evaluation || 'Não disponível'}`}
+                  title={`Avaliado automaticamente por IA em ${new Date(promise.last_verified_at).toLocaleString('pt-BR')}. ${promise.needs_human_review ? '⚠️ Requer revisão humana.' : 'Avaliação automática.'}`}
                 >
                   🤖 AI · {formatTimeSince(promise.last_verified_at)}
+                </span>
+              )}
+              {(promise.evidence_count > 0) && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full cursor-help" title={`${promise.evidence_count} evidências encontradas e validadas`}>
+                  📰 {promise.evidence_count} evid{promise.evidence_count === 1 ? 'ência' : 'ências'}
                 </span>
               )}
             </div>
