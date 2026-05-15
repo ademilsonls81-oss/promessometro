@@ -278,38 +278,17 @@ export default async function handler(req, res) {
                 discovered_at: startTime.toISOString(), validated: ev.credible, needs_review: !ev.credible,
                 titulo: ev.titulo || null
               });
-              if (!error) step1Inserted++;
+              if (!error) {
+                step1Inserted++;
+              } else {
+                console.error(`[Pipeline:Insert] ERRO ao inserir evidência: ${error.message}`, {
+                  promise_id: promise.id,
+                  url: ev.url
+                });
+              }
             }
           } catch (e) { console.error(`[Pipeline:Discover] ✗ ${promise.id}: ${e.message}`); }
           await new Promise(r => setTimeout(r, 200));
-        }
-      }
-    }
-
-    if (stage === 'all' || stage === 'count') {
-      const { data: promises } = await supabase
-        .from('promises')
-        .select('id, status, last_verified_at')
-        .limit(50);
-
-      if (promises) {
-        console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
-        for (const promise of promises) {
-          try {
-            const { count } = await supabase
-              .from('promise_evidences')
-              .select('*', { count: 'exact', head: true })
-              .eq('promise_id', promise.id);
-
-            const needsReavaliation = ['cumprida', 'descumprida', 'pendente'].includes(promise.status);
-            const updateData = { evidence_count: count || 0 };
-            if (!needsReavaliation) {
-              updateData.last_verified_at = startTime.toISOString();
-            }
-
-            await supabase.from('promises').update(updateData).eq('id', promise.id);
-            step2Updated++;
-          } catch (_) { }
         }
       }
     }
@@ -393,6 +372,30 @@ export default async function handler(req, res) {
             }
             await new Promise(r => setTimeout(r, 500));
           }
+        }
+      }
+    }
+
+    if (stage === 'all' || stage === 'count') {
+      const { data: promises } = await supabase
+        .from('promises')
+        .select('id, status, last_verified_at')
+        .limit(50);
+
+      if (promises) {
+        console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
+        for (const promise of promises) {
+          try {
+            const { count } = await supabase
+              .from('promise_evidences')
+              .select('*', { count: 'exact', head: true })
+              .eq('promise_id', promise.id);
+
+            const updateData = { evidence_count: count || 0 };
+
+            await supabase.from('promises').update(updateData).eq('id', promise.id);
+            step2Updated++;
+          } catch (_) { }
         }
       }
     }
