@@ -62,8 +62,7 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
       });
       if (r.ok) {
         const d = await r.json();
-        console.log(`[Pipeline:Tavily] ${(d.results || []).length} resultados para: ${query}`);
-        return (d.results || []).map(r => {
+        const results = (d.results || []).map(r => {
           const cred = isCredible(r.url);
           return {
             descricao: r.content || r.title || '',
@@ -76,26 +75,38 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
             titulo: r.title || ''
           };
         });
+        if (results.length > 0) {
+          console.log(`[Pipeline:Tavily] ${results.length} resultados para: ${query}`);
+          return results;
+        }
       } else {
         const errText = await r.text();
         console.error(`[Pipeline:Tavily] HTTP ${r.status}: ${errText}`);
-        return [];
       }
     } catch (err) {
       console.error('[Pipeline:Tavily] ERROR:', err.message);
-      return [];
     }
   }
+
+  // Fallback: pede ao Groq para sugerir URLs relevantes
   const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!GROQ) return [];
   try {
+    console.log(`[Pipeline:Groq] Fallback search para: ${query}`);
     const r = await fetch(`${process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1'}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ}` },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: `Liste até 5 URLs de fontes jornalísticas brasileiras oficiais sobre: ${query}. JSON: {"links":["url1"]}` }],
-        temperature: 0.1, max_tokens: 256
+        messages: [{
+          role: 'user',
+          content: `Você é um avaliador de promessas políticas brasileiras.
+Sobre a promessa: "${query}"
+Liste até 5 URLs reais de fontes jornalísticas ou oficiais brasileiras que comprovem ou contestem essa promessa.
+Responda SOMENTE JSON: {"links":["url1","url2"]}`
+        }],
+        temperature: 0.1,
+        max_tokens: 512
       })
     });
     if (r.ok) {
@@ -104,12 +115,26 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
       const m = t.match(/\{[\s\S]*\}/);
       if (m) {
         const p = JSON.parse(m[0]);
-        return (p.links || []).map(u => ({
-          descricao: `Notícia: ${query}`, fonte: new URL(u).hostname, url: u, data: null, credible: isCredible(u), relevance: 70, credibility: 80, titulo: `Notícia: ${query}`
+        const links = p.links || [];
+        console.log(`[Pipeline:Groq] ${links.length} URLs sugeridas`);
+        return links.map(u => ({
+          descricao: `Fonte sugerida pelo modelo de linguagem`,
+          fonte: (() => { try { return new URL(u).hostname; } catch { return u; } })(),
+          url: u,
+          data: null,
+          credible: isCredible(u),
+          relevance: 65,
+          credibility: isCredible(u) ? 80 : 40,
+          titulo: query
         }));
       }
+    } else {
+      const errText = await r.text();
+      console.error(`[Pipeline:Groq] Fallback HTTP ${r.status}: ${errText}`);
     }
-  } catch (_) { }
+  } catch (err) {
+    console.error(`[Pipeline:Groq] Fallback error: ${err.message}`);
+  }
   return [];
 }
 
