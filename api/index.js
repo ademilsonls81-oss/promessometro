@@ -109,11 +109,28 @@ export default async function handler(req, res) {
     
     const { data: promises, error: promError } = await supabase
       .from('promises')
-      .select('*, promise_evidences(*)')
+      .select('*')
       .eq('politician_id', politician.id)
       .order('created_at', { ascending: false });
 
     if (promError) return res.status(500).json({ error: promError.message });
+
+    // Buscar evidências separadamente se houver promessas
+    let promisesWithEvidences = promises || [];
+    if (promises && promises.length > 0) {
+      const promiseIds = promises.map(p => p.id);
+      const { data: evidences } = await supabase
+        .from('promise_evidences')
+        .select('*')
+        .in('promise_id', promiseIds);
+      
+      if (evidences) {
+        promisesWithEvidences = promises.map(p => ({
+          ...p,
+          promise_evidences: evidences.filter(e => e.promise_id === p.id)
+        }));
+      }
+    }
     
     const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises?.length || 0 };
     (promises || []).forEach(p => {
@@ -129,7 +146,7 @@ export default async function handler(req, res) {
       politician,
       stats, 
       percentage,
-      promises: promises || []
+      promises: promisesWithEvidences
     });
   }
 
