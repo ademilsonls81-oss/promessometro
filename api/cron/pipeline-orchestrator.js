@@ -334,13 +334,12 @@ export default async function handler(req, res) {
 
   try {
     await supabase.from('cron_executions').insert({
-      cron_name: 'pipeline-orchestrator',
-      status: 'completed',
-      promises_processed: promises?.length || 0,
+      execution_id: pipelineId,
+      trigger: 'vercel_cron',
       promises_evaluated: step3Evaluated,
-      evidences_discovered: step1Discovered,
-      evidences_inserted: step1Inserted,
-      details: JSON.stringify({ pipelineId, stage, steps: { discover: step1Discovered, count: step2Updated, reavaliate: step3Evaluated } })
+      promises_found: promises?.length || 0,
+      promises_failed: step3Failed,
+      details: JSON.stringify({ stage, steps: { discover: step1Discovered, count: step2Updated, reavaliate: step3Evaluated } })
     });
   } catch (_) { }
 

@@ -361,6 +361,18 @@ export default async function handler(req, res) {
     }
   }
 
+  const startTime = now.toISOString();
+  let errorLog = failed > 0 ? JSON.stringify({ failed }) : null;
+
+  await supabase.from('daily_monitor_log').insert({
+    monitor_name: 'daily_reavaliation',
+    promises_processed: evaluated,
+    new_evidences_found: 0,
+    errors: errorLog,
+    started_at: startTime,
+    completed_at: new Date().toISOString()
+  }).catch(() => { });
+
   return res.status(200).json({
     status: 'ok',
     execution_id: executionId,
