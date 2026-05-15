@@ -184,7 +184,11 @@ REGRAS:
         temperature: 0.1, max_tokens: 512
       })
     });
-    if (!r.ok) throw new Error(`Groq ${r.status}`);
+    if (!r.ok) {
+      const errText = await r.text();
+      console.error(`[searchAI:Groq] HTTP ${r.status}: ${errText}`);
+      throw new Error(`Groq ${r.status}`);
+    }
     const d = await r.json();
     let text = (d.choices?.[0]?.message?.content || '{}').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
     const match = text.match(/\{[\s\S]*\}/);
@@ -346,7 +350,10 @@ export default async function handler(req, res) {
                 needs_human_review: result.needsReview, last_verified_at: startTime.toISOString()
               }).eq('id', promise.id);
 
-              if (upErr) { step3Failed++; continue; }
+              if (upErr) {
+                console.error(`[Pipeline:Reavaliate] ERRO ao atualizar promise ${promise.id}: ${upErr.message}`);
+                step3Failed++; continue;
+              }
 
               try {
                 await supabase.from('status_history').insert({
@@ -385,7 +392,7 @@ export default async function handler(req, res) {
 
               step3Evaluated++;
             } catch (e) {
-              console.error(`[Pipeline:Reavaliate] ✗ ${promise.id}: ${e.message}`);
+              console.error(`[Pipeline:Reavaliate] ✗ FALHA na promessa ${promise.id}: ${e.message}`);
               step3Failed++;
             }
             await new Promise(r => setTimeout(r, 500));
