@@ -52,11 +52,9 @@ export default function Metodologia() {
               <div className="space-y-4">
                 {[
                   { status: "cumprida", label: "Cumprida", color: "text-green-400", border: "border-green-500/30", bg: "bg-green-500/10", desc: "A promessa apresenta evidências verificáveis de implementação (lei aprovada, programa lançado, obra entregue, decreto publicado)." },
-                  { status: "parcialmente_cumprida", label: "Parcialmente Cumprida", color: "text-yellow-400", border: "border-yellow-500/30", bg: "bg-yellow-500/10", desc: "A promessa apresenta evidências parciais de execução. Uma porção foi realizada, mas o compromisso completo ainda não foi atingido." },
-                  { status: "em_andamento", label: "Em Andamento", color: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/10", desc: "A promessa apresenta evidências de que ações foram iniciadas (licitação aberta, projeto de lei em tramitação, contrato assinado) sem entrega ainda." },
-                  { status: "nao_iniciada", label: "Pendente", color: "text-gray-400", border: "border-gray-500/30", bg: "bg-gray-500/10", desc: "Não foram encontradas evidências de ações relacionadas à promessa. Aguardando classificação por IA." },
-                  { status: "descumprida", label: "Descumprida", color: "text-red-400", border: "border-red-500/30", bg: "bg-red-500/10", desc: "A promessa apresenta evidências de ação contrária ao compromisso, ou prazo expirou com declaração pública contrária do político." },
-                  { status: "nao_classificada", label: "Não Classificada", color: "text-gray-500", border: "border-gray-500/30", bg: "bg-gray-500/10", desc: "A promessa é vaga demais para verificação objetiva (ex: 'vou melhorar a educação') ou não há evidências disponíveis." }
+                  { status: "parcial", label: "Parcialmente Cumprida", color: "text-yellow-400", border: "border-yellow-500/30", bg: "bg-yellow-500/10", desc: "A promessa apresenta evidências parciais de execução ou está em andamento com ações iniciadas (licitação, tramitação legislativa). Uma porção foi realizada ou está em progresso." },
+                  { status: "nao_iniciada", label: "Pendente", color: "text-gray-400", border: "border-gray-500/30", bg: "bg-gray-500/10", desc: "Não foram encontradas evidências de ações relacionadas à promessa. Aguardando classificação ou início de ações." },
+                  { status: "descumprida", label: "Descumprida", color: "text-red-400", border: "border-red-500/30", bg: "bg-red-500/10", desc: "A promessa apresenta evidências de ação contrária ao compromisso, ou o prazo expirou sem avanços significativos." }
                 ].map(item => (
                   <div key={item.status} className={`border ${item.border} ${item.bg} rounded-xl p-5`}>
                     <h3 className={`font-bold mb-2 ${item.color}`}>{item.label}</h3>
@@ -80,16 +78,16 @@ export default function Metodologia() {
                   <p className="text-gray-400 text-sm">Evidências concretas de implementação completa</p>
                 </div>
                 <div className="p-4 bg-dark-card border border-yellow-500/20 rounded-xl">
-                  <p className="text-yellow-400 font-bold mb-1">40-79: Parcialmente</p>
-                  <p className="text-gray-400 text-sm">Progresso parcial com evidências verificáveis</p>
-                </div>
-                <div className="p-4 bg-dark-card border border-blue-500/20 rounded-xl">
-                  <p className="text-blue-400 font-bold mb-1">20-39: Em Andamento</p>
-                  <p className="text-gray-400 text-sm">Ações iniciadas sem entrega final</p>
+                  <p className="text-yellow-400 font-bold mb-1">20-79: Parcialmente Cumprida</p>
+                  <p className="text-gray-400 text-sm">Ações iniciadas ou execução parcial verificável</p>
                 </div>
                 <div className="p-4 bg-dark-card border border-red-500/20 rounded-xl">
-                  <p className="text-red-400 font-bold mb-1">0-19: Sem Evidências</p>
-                  <p className="text-gray-400 text-sm">Nenhuma evidência de execução encontrada</p>
+                  <p className="text-red-400 font-bold mb-1">0-19: Pendente</p>
+                  <p className="text-gray-400 text-sm">Nenhuma evidência de execução encontrada ainda</p>
+                </div>
+                <div className="p-4 bg-dark-card border border-red-500/40 rounded-xl">
+                  <p className="text-red-600 font-bold mb-1">0: Descumprida</p>
+                  <p className="text-gray-400 text-sm">Ações contrárias ou prazo expirado com abandono</p>
                 </div>
               </div>
             </section>
@@ -106,7 +104,7 @@ export default function Metodologia() {
                 {[
                   { label: "Fontes Governamentais", desc: "Diário Oficial da União, Presidência, Câmara, Senado, TCU, Agências", examples: "GOV, IBGE, IPEA" },
                   { label: "Veículos de Comunicação", desc: "G1, Folha, UOL, CNN Brasil, Estadão, Valor, Metropoles", examples: "JORNAL" },
-                  { label: "Organizações de Fact-Checking", desc: "Agência Lupa, Aos Fatos, Tru联动", examples: "FACT" },
+                  { label: "Organizações de Fact-Checking", desc: "Agência Lupa, Aos Fatos, Estadão Verifica", examples: "FACT" },
                   { label: "Dados Abertos", desc: "Portal da Transparência, Dados governamentais abertos", examples: "DATA" }
                 ].map((src, i) => (
                   <div key={i} className="flex items-start gap-4 p-4 bg-dark-card border border-white/5 rounded-xl">

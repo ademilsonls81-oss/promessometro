@@ -15,7 +15,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { name: "Promessas", path: "/promessas", icon: ListChecks },
     { name: "Ranking", path: "/ranking", icon: LayoutDashboard },
-    { name: "Mapa", path: "/mapa", icon: Database },
     { name: "Reportar", path: "/reportar", icon: AlertTriangle },
   ];
 

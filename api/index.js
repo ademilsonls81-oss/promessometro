@@ -36,64 +36,89 @@ export default async function handler(req, res) {
     return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
   }
 
-  if (path === '/api/politicians/ranking' && method === 'GET') {
-    const { data: promises, error } = await supabase
-      .from('promises')
-      .select('politician_name, status, fulfillment_score');
+  if (path.startsWith('/api/politicians/ranking') && method === 'GET') {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
-    if (error) return res.status(500).json({ error: error.message });
+    const { data: promises, error: promError } = await supabase
+      .from('promises')
+      .select('politician_id, politician_name, status, fulfillment_score');
+
+    if (promError) return res.status(500).json({ error: promError.message });
 
     const statsMap = {};
     (promises || []).forEach(p => {
-      const name = p.politician_name;
-      if (!statsMap[name]) {
-        statsMap[name] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0 };
+      const id = p.politician_id || p.politician_name;
+      if (!statsMap[id]) {
+        statsMap[id] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, name: p.politician_name };
       }
-      statsMap[name].total++;
-      if (p.status === 'cumprida') statsMap[name].fulfilled++;
-      else if (p.status === 'parcialmente_cumprida') statsMap[name].partial++;
-      else if (p.status === 'descumprida') statsMap[name].broken++;
-      else statsMap[name].pending++;
+      statsMap[id].total++;
+      if (p.status === 'cumprida') statsMap[id].fulfilled++;
+      else if (p.status === 'parcialmente_cumprida' || p.status === 'parcial') statsMap[id].partial++;
+      else if (p.status === 'descumprida') statsMap[id].broken++;
+      else statsMap[id].pending++;
     });
 
-    const ranking = Object.entries(statsMap).map(([name, stats]) => ({
-      name,
-      slug: toSlug(name),
-      stats,
-      percentage: stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 50,
-      promise_count: stats.total
-    }));
+    let query = supabase.from('politicians').select('id, name, role, state, party, slug, photo_url, is_active');
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+    const { data: politicians, error: polError } = await query;
+
+    if (polError) return res.status(500).json({ error: polError.message });
+
+    const ranking = (politicians || []).map(pol => {
+      const stats = statsMap[pol.id] || statsMap[pol.name] || { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0 };
+      return {
+        ...pol,
+        stats,
+        percentage: stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 0,
+        promise_count: stats.total
+      };
+    }).filter(p => p.promise_count > 0);
 
     ranking.sort((a, b) => b.percentage - a.percentage);
 
     return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
   }
 
+  if (path === '/api/stats' && method === 'GET') {
+    const { count: politiciansCount } = await supabase.from('politicians').select('*', { count: 'exact', head: true });
+    const { count: activePoliticiansCount } = await supabase.from('politicians').select('*', { count: 'exact', head: true }).eq('is_active', true);
+    const { count: promisesCount } = await supabase.from('promises').select('*', { count: 'exact', head: true });
+
+    return res.status(200).json({
+      total_politicians: politiciansCount || 0,
+      active_politicians: activePoliticiansCount || 0,
+      total_promises: promisesCount || 0
+    });
+  }
+
   if (path.startsWith('/api/politician/') && method === 'GET') {
     const slug = path.replace('/api/politician/', '');
-    const nameQuery = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     
-    const { data: promises, error } = await supabase
-      .from('promises')
-      .select('*')
-      .ilike('politician_name', `%${nameQuery}%`);
-
-    if (error) return res.status(500).json({ error: error.message });
-    
-    const name = promises?.[0]?.politician_name || slug;
-    
-    const { data: politicians } = await supabase
+    const { data: politician, error: polError } = await supabase
       .from('politicians')
-      .select('name, party, state, position')
-      .ilike('name', `%${name}%`)
-      .limit(1);
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (polError || !politician) {
+      return res.status(404).json({ error: 'Político não encontrado' });
+    }
     
-    const politicianData = politicians?.[0] || {};
+    const { data: promises, error: promError } = await supabase
+      .from('promises')
+      .select('*, promise_evidences(*)')
+      .eq('politician_id', politician.id)
+      .order('created_at', { ascending: false });
+
+    if (promError) return res.status(500).json({ error: promError.message });
     
     const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises?.length || 0 };
     (promises || []).forEach(p => {
       if (p.status === 'cumprida') stats.fulfilled++;
-      else if (p.status === 'parcialmente_cumprida') stats.partial++;
+      else if (p.status === 'parcialmente_cumprida' || p.status === 'parcial') stats.partial++;
       else if (p.status === 'descumprida') stats.broken++;
       else stats.pending++;
     });
@@ -101,14 +126,9 @@ export default async function handler(req, res) {
     const percentage = stats.total > 0 ? Math.round((stats.fulfilled / stats.total) * 100) : 0;
     
     return res.status(200).json({ 
-      name, 
-      slug, 
-      party: politicianData.party || null,
-      state: politicianData.state || null,
-      position: politicianData.position || null,
+      politician,
       stats, 
       percentage,
-      promise_count: stats.total,
       promises: promises || []
     });
   }

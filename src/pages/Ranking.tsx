@@ -23,9 +23,12 @@ interface PoliticianStats {
 
 interface Politician {
   name: string;
+  slug: string | null;
   role: string | null;
   state: string | null;
   party: string | null;
+  photo_url: string | null;
+  is_active: boolean;
   percentage: number;
   stats: PoliticianStats;
   promise_count: number;
@@ -56,7 +59,7 @@ export default function Ranking() {
     try {
       setLoading(true);
       
-      const response = await fetch('/api/politicians/ranking');
+      const response = await fetch('/api/politicians/ranking?includeInactive=true');
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Erro na API');
@@ -65,22 +68,23 @@ export default function Ranking() {
       
       const rankingData = (data.ranking || []).map((item: any) => {
         const stats = item.stats || {};
-        const totalWithPending = item.promise_count || 0;
-        const percentage = totalWithPending > 0 ? Math.round((stats.fulfilled / totalWithPending) * 100) : 0;
         return {
           name: item.name,
-          role: 'Presidente',
-          state: null,
-          party: null,
-          percentage,
+          slug: item.slug,
+          role: item.role,
+          state: item.state,
+          party: item.party,
+          photo_url: item.photo_url,
+          is_active: item.is_active !== false,
+          percentage: item.percentage,
           stats: {
             fulfilled: stats.fulfilled || 0,
             partial: stats.partial || 0,
             broken: stats.broken || 0,
             pending: stats.pending || 0,
-            total: totalWithPending
+            total: item.promise_count || 0
           },
-          promise_count: totalWithPending
+          promise_count: item.promise_count || 0
         };
       });
 
@@ -108,8 +112,15 @@ export default function Ranking() {
     }
   }
 
+  const { activeRanking, inactiveRanking } = useMemo(() => {
+    return {
+      activeRanking: ranking.filter(p => p.is_active),
+      inactiveRanking: ranking.filter(p => !p.is_active)
+    };
+  }, [ranking]);
+
   const filteredRanking = useMemo(() => {
-    return ranking.filter(p => {
+    return activeRanking.filter(p => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.party?.toLowerCase().includes(search.toLowerCase()) ||
         p.state?.toLowerCase().includes(search.toLowerCase());
@@ -295,8 +306,19 @@ export default function Ranking() {
                           {idx + 1}º
                         </div>
 
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/5 overflow-hidden">
-                          <span className="text-xl font-bold text-white/50">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/5 overflow-hidden shrink-0">
+                          {politician.photo_url ? (
+                            <img 
+                              src={politician.photo_url} 
+                              alt={politician.name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).parentElement!.querySelector('.fallback')!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <span className={`text-xl font-bold text-white/50 fallback ${politician.photo_url ? 'hidden' : ''}`}>
                             {politician.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                           </span>
                         </div>
@@ -312,7 +334,19 @@ export default function Ranking() {
                             </span>
                           </div>
                           <p className="text-gray-500 text-sm">
-                            {politician.role || "Político"} • {politician.state || "Nacional"} {politician.party && `· ${politician.party}`}
+                            {(() => {
+                              const roleMap: Record<string, string> = {
+                                presidente: "Presidente",
+                                governador: "Governador",
+                                prefeito: "Prefeito",
+                                senador: "Senador",
+                                deputado_federal: "Dep. Federal",
+                                deputado_estadual: "Dep. Estadual"
+                              };
+                              const roleLabel = roleMap[politician.role?.toLowerCase() || ""] || politician.role || "Político";
+                              const stateLabel = politician.state === "BR" ? "Nacional" : politician.state || "Nacional";
+                              return `${roleLabel} • ${stateLabel}${politician.party ? ` · ${politician.party}` : ""}`;
+                            })()}
                           </p>
                         </div>
 
@@ -350,6 +384,50 @@ export default function Ranking() {
                 >
                   Ver mais ({filteredRanking.length - visibleCount} restantes)
                 </button>
+              </div>
+            )}
+
+            {inactiveRanking.length > 0 && (
+              <div className="mt-24 mb-12">
+                <div className="flex items-center gap-2 mb-8">
+                  <Clock className="w-5 h-5 text-gray-500" />
+                  <h2 className="text-2xl font-bold text-gray-300">Mandatos anteriores</h2>
+                </div>
+                <div className="space-y-4 opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
+                  {inactiveRanking.map((politician, idx) => {
+                    const badge = statusBadge(politician.percentage);
+                    return (
+                      <Link key={politician.name} to={`/politico/${politician.slug || toSlug(politician.name)}`} className="block">
+                        <div className="group bg-dark-card/50 border border-white/5 p-4 md:p-6 rounded-3xl transition-all">
+                          <div className="flex flex-col md:flex-row items-center gap-6">
+                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden shrink-0">
+                              {politician.photo_url ? (
+                                <img src={politician.photo_url} alt={politician.name} className="w-full h-full object-cover opacity-50" />
+                              ) : (
+                                <User className="w-5 h-5 text-gray-600" />
+                                )}
+                            </div>
+                            <div className="flex-1 text-center md:text-left">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg font-bold text-gray-400">{politician.name}</h3>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/5 text-gray-500 border border-white/10 uppercase tracking-wider">
+                                  Mandato encerrado
+                                </span>
+                              </div>
+                              <p className="text-gray-600 text-xs">
+                                Ex-{politician.role || "Político"} · {politician.party}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs font-bold text-gray-500 mb-1">Score Final</div>
+                              <div className="text-xl font-display font-bold text-gray-400">{politician.percentage}%</div>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </>

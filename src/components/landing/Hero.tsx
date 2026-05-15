@@ -5,6 +5,43 @@ import { ArrowRight, Sparkles, Shield, Zap, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import TerminalWidget from './TerminalWidget';
 
+function HeroStats() {
+  const [stats, setStats] = React.useState<{ total_promises: number, active_politicians: number } | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error('Error fetching stats:', err));
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.4 }}
+      className="flex flex-wrap items-center justify-center gap-6 mt-12 text-muted-foreground"
+    >
+      <div className="flex items-center gap-2">
+        <Shield className="w-5 h-5 text-chart-3" />
+        <span className="text-sm">AI Verified</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Zap className="w-5 h-5 text-chart-4" />
+        <span className="text-sm">
+          {stats ? `${stats.active_politicians}` : "---"} Políticos Monitorados
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-primary" />
+        <span className="text-sm">
+          {stats ? `${stats.total_promises}` : "---"} Promessas Rastreadas
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Hero() {
   return (
     <section className="relative overflow-hidden z-0">
@@ -85,37 +122,19 @@ export default function Hero() {
             </Link>
           </motion.div>
 
-          {/* Trust badges */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="flex flex-wrap items-center justify-center gap-6 mt-12 text-muted-foreground"
-          >
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-chart-3" />
-              <span className="text-sm">AI Verified</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-chart-4" />
-              <span className="text-sm">100+ Skills</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <span className="text-sm">Self-Healing Pipeline</span>
-            </div>
-          </motion.div>
+          {/* Trust badges — Dynamic Stats */}
+          <HeroStats />
         </div>
 
-{/* Terminal com dados reais */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.5 }}
-            className="mt-16 lg:mt-24 max-w-3xl mx-auto"
-          >
-            <TerminalWidget />
-          </motion.div>
+        {/* Terminal com dados reais */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.5 }}
+          className="mt-16 lg:mt-24 max-w-3xl mx-auto"
+        >
+          <TerminalWidget />
+        </motion.div>
       </div>
     </section>
   );

@@ -31,6 +31,7 @@ interface PromiseData {
   id: string;
   promise_title: string;
   promise_description: string | null;
+  data_promessa: string | null;
   category: string | null;
   status: string;
   evidence: string | null;
@@ -40,11 +41,14 @@ interface PromiseData {
 }
 
 interface PoliticianData {
+  id: string;
   name: string;
-  position: string | null;
+  role: string | null;
   party: string | null;
   state: string | null;
+  city: string | null;
   photo_url: string | null;
+  bio: string | null;
   stats: {
     fulfilled: number;
     partial: number;
@@ -60,9 +64,10 @@ const statusConfig: Record<string, { label: string; icon: React.ComponentType<an
   cumprida: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
   fulfilled: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
   realizada: { label: "Cumprida", icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
-  parcialmente_cumprida: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-  partial: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-  partial_fulfilled: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  parcialmente_cumprida: { label: "Parciais", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  parcial: { label: "Parciais", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  partial: { label: "Parciais", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  partial_fulfilled: { label: "Parciais", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
   em_andamento: { label: "Em Andamento", icon: AlertCircle, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
   in_progress: { label: "Em Andamento", icon: AlertCircle, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
   descumprida: { label: "Descumprida", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
@@ -102,13 +107,11 @@ export default function PoliticianProfile() {
     }
   }, [id]);
 
-  async function fetchPolitician(nameOrId: string) {
+  async function fetchPolitician(slug: string) {
     try {
       setLoading(true);
       
-      const decoded = decodeURIComponent(nameOrId);
-      
-      const response = await fetch(`/api/politician/${decoded}`);
+      const response = await fetch(`/api/politician/${slug}`);
       if (!response.ok) {
         const errData = await response.json();
         setError(errData.error || "Político não encontrado");
@@ -117,24 +120,21 @@ export default function PoliticianProfile() {
       
       const data = await response.json();
       
+      const pol = data.politician;
       const promises = data.promises || [];
-      if (promises.length === 0) {
-        setError("Político não encontrado");
-        return;
-      }
-
-      const fullName = data.name || decoded;
-      const slug = generateSlug(fullName);
       
       const stats = data.stats || { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises.length, percentage: 0 };
       stats.total = promises.length;
 
       setPolitician({
-        name: fullName,
-        position: data.position || null,
-        party: data.party || null,
-        state: data.state || null,
-        photo_url: null,
+        id: pol.id,
+        name: pol.name,
+        role: pol.role || pol.position || null,
+        party: pol.party || null,
+        state: pol.state || null,
+        city: pol.city || null,
+        photo_url: pol.photo_url || null,
+        bio: pol.bio || null,
         stats: {
           ...stats,
           percentage: data.percentage || Math.round((stats.fulfilled / stats.total) * 100)
@@ -143,6 +143,7 @@ export default function PoliticianProfile() {
           id: p.id,
           promise_title: p.promise_title || p.title || '',
           promise_description: p.promise_description || p.description || null,
+          data_promessa: p.data_promessa || null,
           category: p.category,
           status: p.status,
           evidence: p.evidence || null,
@@ -154,7 +155,7 @@ export default function PoliticianProfile() {
       setError(null);
     } catch (err: any) {
       console.error("[PoliticianProfile] Error fetching:", err);
-      setError("Político não encontrado: " + err.message);
+      setError("Erro ao carregar perfil: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -185,11 +186,18 @@ export default function PoliticianProfile() {
     );
   }
 
-  const filteredPromises = politician.promises.filter(p => 
-    filter === "all" || p.status === filter || (filter === "fulfilled" && p.status === "fulfilled") || (filter === "broken" && (p.status === "broken" || p.status === "not_fulfilled"))
-  );
+  const filteredPromises = politician.promises.filter(p => {
+    if (filter === "all") return true;
+    const status = p.status?.toLowerCase();
+    if (filter === "fulfilled") return status === "cumprida" || status === "fulfilled" || status === "realizada" || status === "verified";
+    if (filter === "partial") return status === "parcial" || status === "parcialmente_cumprida" || status === "partial" || status === "partial_fulfilled" || status === "em_andamento" || status === "in_progress";
+    if (filter === "broken") return status === "descumprida" || status === "broken" || status === "not_fulfilled" || status === "quebrada";
+    if (filter === "pending") return status === "pendente" || status === "nao_iniciada" || status === "nao_classificada" || status === "pending_analysis";
+    return status === filter;
+  });
 
-  const initials = politician.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const words = politician.name.trim().split(/\s+/);
+  const initials = (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : "")).toUpperCase();
 
   const politicianSlug = generateSlug(politician.name);
   const seoTitle = `${politician.name} — ${politician.party || ''} | Promessômetro`;
@@ -220,10 +228,19 @@ export default function PoliticianProfile() {
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-neon-purple to-neon-cyan flex items-center justify-center border border-white/10 overflow-hidden shrink-0 shadow-2xl">
                 {politician.photo_url ? (
-                  <img src={politician.photo_url} alt={politician.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-4xl font-bold text-white/50">{initials}</span>
-                )}
+                  <img 
+                    src={politician.photo_url} 
+                    alt={politician.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).parentElement!.querySelector('.fallback')!.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <span className={`text-4xl font-bold text-white/50 fallback ${politician.photo_url ? 'hidden' : ''}`}>
+                  {initials}
+                </span>
               </div>
               
               <div className="flex-1">
@@ -233,16 +250,16 @@ export default function PoliticianProfile() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6 mb-6">
-                  {politician.position && (
+                  {politician.role && (
                     <div className="flex items-center gap-2 text-gray-400">
                       <Briefcase className="w-4 h-4" />
-                      <span>{politician.position}</span>
+                      <span>{politician.role}</span>
                     </div>
                   )}
-                  {politician.state && (
+                  {(politician.city || politician.state) && (
                     <div className="flex items-center gap-2 text-gray-400">
                       <MapPin className="w-4 h-4" />
-                      <span>{politician.state}</span>
+                      <span>{politician.city}{politician.city && politician.state ? ", " : ""}{politician.state}</span>
                     </div>
                   )}
                   {politician.party && (
@@ -254,9 +271,9 @@ export default function PoliticianProfile() {
                 </div>
                 
                 <p className="text-gray-400 mb-8 leading-relaxed max-w-2xl">
-                  {politician.promises.length > 0 
+                  {politician.bio || (politician.promises.length > 0 
                     ? `Político monitorado com ${politician.stats.total} promessas rastreadas.`
-                    : "Nenhuma promessa registrada ainda."}
+                    : "Nenhuma promessa registrada ainda.")}
                 </p>
 
                 <div className="flex flex-wrap gap-4">
@@ -381,7 +398,7 @@ export default function PoliticianProfile() {
                           <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" /> 
-                              {new Date(promise.created_at).toLocaleDateString("pt-BR")}
+                              {new Date(promise.data_promessa || promise.created_at).toLocaleDateString("pt-BR")}
                             </span>
                             {(promise.evidence || promise.source_link) && (
                               <a 

@@ -14,10 +14,12 @@ function toSlug(name: string): string {
 interface Promise {
   id: string;
   politician_name: string;
+  slug?: string;
   party: string | null;
   state: string | null;
   promise_title: string;
   promise_description: string | null;
+  data_promessa: string | null;
   source_link: string | null;
   source_doc_url: string | null;
   evidence: string | null;
@@ -25,11 +27,13 @@ interface Promise {
   status: string;
   fulfillment_score: number;
   created_at: string;
+  evidence_count?: number;
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   cumprida: { label: "Cumprida", color: "text-green-400", bg: "bg-green-500/10", icon: <CheckCircle className="w-4 h-4" /> },
-  parcialmente_cumprida: { label: "Parcialmente Cumprida", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: <Clock className="w-4 h-4" /> },
+  parcial: { label: "Parciais", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: <Clock className="w-4 h-4" /> },
+  parcialmente_cumprida: { label: "Parciais", color: "text-yellow-400", bg: "bg-yellow-500/10", icon: <Clock className="w-4 h-4" /> },
   em_andamento: { label: "Em Andamento", color: "text-orange-400", bg: "bg-orange-500/10", icon: <TrendingUp className="w-4 h-4" /> },
   nao_iniciada: { label: "Pendente", color: "text-blue-400", bg: "bg-blue-500/10", icon: <Clock className="w-4 h-4" /> },
   descumprida: { label: "Descumprida", color: "text-red-400", bg: "bg-red-500/10", icon: <XCircle className="w-4 h-4" /> },
@@ -40,8 +44,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
 const statusFilters = [
   { key: "all", label: "Todas" },
   { key: "cumprida", label: "Cumpridas" },
-  { key: "parcialmente_cumprida", label: "Parciais" },
-  { key: "em_andamento", label: "Em Andamento" },
+  { key: "parcial", label: "Parciais" },
   { key: "descumprida", label: "Descumpridas" },
 ];
 
@@ -82,7 +85,12 @@ export default function PublicFeed() {
   }
 
   const filteredPromises = promises?.filter((p) => {
-    const matchesStatus = filter === "all" || p.status === filter;
+    const status = p.status?.toLowerCase();
+    let matchesStatus = filter === "all";
+    if (filter === "cumprida") matchesStatus = status === "cumprida" || status === "fulfilled";
+    if (filter === "parcial") matchesStatus = status === "parcial" || status === "parcialmente_cumprida" || status === "em_andamento";
+    if (filter === "descumprida") matchesStatus = status === "descumprida" || status === "broken";
+    
     const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
     const matchesSearch = 
       p.promise_title.toLowerCase().includes(search.toLowerCase()) ||
@@ -227,8 +235,8 @@ export default function PublicFeed() {
                             {promise.category}
                           </span>
                         )}
-                        <span className="text-gray-600 text-xs">
-                          {new Date(promise.created_at).toLocaleDateString('pt-BR')}
+                        <span className="text-gray-600 text-xs text-right">
+                          {new Date(promise.data_promessa || promise.created_at).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
                       <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">
