@@ -62,6 +62,7 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
       });
       if (r.ok) {
         const d = await r.json();
+        console.log(`[Pipeline:Tavily] ${(d.results || []).length} resultados para: ${query}`);
         return (d.results || []).map(r => {
           const cred = isCredible(r.url);
           return {
@@ -75,9 +76,15 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
             titulo: r.title || ''
           };
         });
+      } else {
+        const errText = await r.text();
+        console.error(`[Pipeline:Tavily] HTTP ${r.status}: ${errText}`);
+        return [];
       }
-    } catch (_) { }
-    return [];
+    } catch (err) {
+      console.error('[Pipeline:Tavily] ERROR:', err.message);
+      return [];
+    }
   }
   const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!GROQ) return [];
@@ -222,7 +229,7 @@ export default async function handler(req, res) {
       const { data: promises } = await supabase
         .from('promises')
         .select('id, promise_title, politician_name, category, status, evidence_count')
-        .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
+        .not('status', 'eq', 'cumprida')
         .limit(5);
 
       if (promises && promises.length > 0) {
@@ -291,14 +298,14 @@ export default async function handler(req, res) {
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
           .lt('last_verified_at', dailyCutoff)
-          .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
+          .not('status', 'eq', 'cumprida')
           .limit(5);
 
         const { data: never } = await supabase
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
           .is('last_verified_at', null)
-          .limit(5);
+          .limit(10);
 
         const { data: staleWeekly } = await supabase
           .from('promises')
