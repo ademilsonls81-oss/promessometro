@@ -271,12 +271,21 @@ export default async function handler(req, res) {
               if (isDup) { step1Dupes++; continue; }
               const sc = Math.round(ev.relevance * 0.4 + ev.credibility * 0.6);
               const { error } = await supabase.from('promise_evidences').insert({
-                promise_id: promise.id, politician_name: promise.politician_name, promise_title: promise.promise_title,
-                descricao: ev.descricao, fonte: ev.fonte, url: ev.url, data_publicacao: ev.data,
-                tipo: ev.credible ? 'oficial' : 'jornal', confiabilidade: sc,
-                relevance_score: ev.relevance, credibility_score: ev.credibility,
-                discovered_at: startTime.toISOString(), validated: ev.credible, needs_review: !ev.credible,
-                titulo: ev.titulo || null
+                promise_id: promise.id,
+                title: ev.titulo || ev.descricao?.substring(0, 100) || '',
+                description: ev.descricao || '',
+                url: ev.url,
+                source_name: ev.fonte || '',
+                evidence_type: ev.credible ? 'official' : 'news',
+                source_type: ev.credible ? 'official' : 'press',
+                validation_status: ev.credible ? 'validated' : 'pending',
+                published_at: ev.data || null,
+                confiabilidade: sc,
+                relevance_score: ev.relevance || 0,
+                credibility_score: ev.credibility || 0,
+                discovered_at: startTime.toISOString(),
+                validated: ev.credible,
+                needs_review: !ev.credible
               });
               if (!error) {
                 step1Inserted++;
