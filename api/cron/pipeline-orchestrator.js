@@ -31,7 +31,18 @@ function clampScore(status, score) {
 }
 
 function mapToFrontend(aiStatus) {
-  return (aiStatus === 'nao_iniciada' || aiStatus === 'nao_classificada') ? 'pendente' : aiStatus;
+  const map = {
+    'cumprida': 'cumprida',
+    'parcialmente_cumprida': 'parcial',
+    'em_andamento': 'parcial',
+    'nao_iniciada': 'pendente',
+    'nao_classificada': 'pendente',
+    'pendente': 'pendente',
+    'descumprida': 'quebrada',
+    'parcial': 'parcial',
+    'quebrada': 'quebrada'
+  };
+  return map[aiStatus] || 'pendente';
 }
 
 function requireCronSecret(req, res) {
