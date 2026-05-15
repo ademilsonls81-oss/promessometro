@@ -54,23 +54,24 @@ async function sendSlackAlert(message, data) {
 async function evaluateWithAI(promise) {
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
-  const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+  const SERPER_API_KEY = process.env.SERPER_API_KEY;
 
   const evidences = [];
   if (promise.source_link) {
     evidences.push({ descricao: `Fonte original`, fonte: new URL(promise.source_link).hostname, url: promise.source_link });
   }
 
-  if (TAVILY_API_KEY && TAVILY_API_KEY !== 'YOUR_TAVILY_API_KEY') {
+  if (SERPER_API_KEY) {
     try {
-      const res = await fetch('https://api.tavily.com/search', {
+      const res = await fetch('https://google.serper.dev/news', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': TAVILY_API_KEY },
-        body: JSON.stringify({ query: `${promise.politician_name || ''} ${promise.promise_title || ''}`, max_results: 5 })
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+        body: JSON.stringify({ q: `${promise.politician_name || ''} ${promise.promise_title || ''}`, gl: 'br', hl: 'pt', num: 5 })
       });
       if (res.ok) {
         const d = await res.json();
-        evidences.push(...(d.results || []).map(r => ({ descricao: r.content || '', fonte: r.source || '', url: r.url || '' })));
+        const results = d.news || d.organic || [];
+        evidences.push(...results.map(r => ({ descricao: r.snippet || '', fonte: r.source || '', url: r.link || '' })));
       }
     } catch (_) { }
   }

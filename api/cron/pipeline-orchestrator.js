@@ -58,48 +58,46 @@ function requireCronSecret(req, res) {
 }
 
 async function searchEv(query, maxResults = 8, includeDomains = []) {
-  const TAVILY = process.env.TAVILY_API_KEY;
-  if (TAVILY && TAVILY !== 'YOUR_TAVILY_API_KEY') {
+  const SERPER_KEY = process.env.SERPER_API_KEY;
+  if (SERPER_KEY) {
     try {
-      const searchBody = { query, max_results: maxResults, include_answer: true };
-      if (includeDomains.length > 0) {
-        searchBody.include_domains = includeDomains;
-      }
-
-      const r = await fetch('https://api.tavily.com/search', {
+      const r = await fetch('https://google.serper.dev/news', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': TAVILY },
-        body: JSON.stringify(searchBody)
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': SERPER_KEY
+        },
+        body: JSON.stringify({
+          q: query,
+          gl: 'br',
+          hl: 'pt',
+          num: maxResults
+        })
       });
       if (r.ok) {
         const d = await r.json();
-        const results = (d.results || []).map(r => {
-          const cred = isCredible(r.url);
-          return {
-            descricao: r.content || r.title || '',
-            fonte: r.source || '',
-            url: r.url || '',
-            data: r.published_date || null,
-            credible: cred,
-            relevance: Math.round((r.score || 0.5) * 100),
-            credibility: cred ? 90 : 50,
-            titulo: r.title || ''
-          };
-        });
-        if (results.length > 0) {
-          console.log(`[Pipeline:Tavily] ${results.length} resultados para: ${query}`);
-          return results;
-        }
+        const results = (d.news || d.organic || []);
+        console.log(`[Pipeline:Serper] ${results.length} resultados para: ${query}`);
+        return results.map(r => ({
+          descricao: r.snippet || r.title || '',
+          fonte: r.source || '',
+          url: r.link || '',
+          data: r.date || null,
+          credible: isCredible(r.link || ''),
+          relevance: 75,
+          credibility: isCredible(r.link || '') ? 90 : 50,
+          titulo: r.title || ''
+        }));
       } else {
         const errText = await r.text();
-        console.error(`[Pipeline:Tavily] HTTP ${r.status}: ${errText}`);
+        console.error(`[Pipeline:Serper] HTTP ${r.status}: ${errText}`);
       }
-    } catch (err) {
-      console.error('[Pipeline:Tavily] ERROR:', err.message);
+    } catch(err) {
+      console.error(`[Pipeline:Serper] ERROR: ${err.message}`);
     }
   }
 
-  // Fallback: pede ao Groq para sugerir URLs relevantes
+  // Fallback Groq quando Serper falha
   const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   if (!GROQ) return [];
   try {

@@ -48,28 +48,28 @@ export default async function handler(req, res) {
     
     for (const promise of promises) {
       try {
-        const tavilyKey = process.env.TAVILY_API_KEY;
-        if (!tavilyKey) continue;
-
-        const r = await fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Api-Key': tavilyKey },
-          body: JSON.stringify({ query: `${promise.politician_name} ${promise.promise_title}`, max_results: 3 })
-        });
-
-        if (r.ok) {
-          const d = await r.json();
-          for (const ev of (d.results || [])) {
-            discovered++;
-            const { error: inErr } = await supabase.from('promise_evidences').insert({
-              promise_id: promise.id,
-              politician_name: promise.politician_name,
-              promise_title: promise.promise_title,
-              url: ev.url,
-              descricao: ev.content,
-              fonte: ev.source || new URL(ev.url).hostname
-            });
-            if (!inErr) inserted++;
+        const serperKey = process.env.SERPER_API_KEY;
+        if (serperKey) {
+          const r = await fetch('https://google.serper.dev/news', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': serperKey },
+            body: JSON.stringify({ q: `${promise.politician_name} ${promise.promise_title}`, gl: 'br', hl: 'pt', num: 3 })
+          });
+          if (r.ok) {
+            const d = await r.json();
+            const results = d.news || d.organic || [];
+            for (const ev of results) {
+              discovered++;
+              const { error: inErr } = await supabase.from('promise_evidences').insert({
+                promise_id: promise.id,
+                politician_name: promise.politician_name,
+                promise_title: promise.promise_title,
+                url: ev.link,
+                descricao: ev.snippet,
+                fonte: ev.source
+              });
+              if (!inErr) inserted++;
+            }
           }
         }
       } catch (e) { failed++; }
