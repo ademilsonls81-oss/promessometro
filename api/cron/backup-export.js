@@ -17,18 +17,11 @@ function requireCronSecret(req, res) {
   return true;
 }
 
-const TAVILY_SOURCES = [
-  'g1.globo.com', 'folha.uol.com.br', 'uol.com.br', 'estadao.com.br',
-  'metropoles.com', 'cnnbrasil.com.br', 'www12.senado.leg.br', 'www.camara.leg.br',
-  'www.planalto.gov.br', 'portaldatransparencia.gov.br', 'agenciabrasil.ebc.com.br',
-  'veja.abril.com.br', 'oglobo.globo.com', 'congressoemfoco.uol.com.br', 'noticias.r7.com'
-];
-
 export default async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
   if (!requireCronSecret(req, res)) return;
 
-  const executionId = `disc_${Date.now()}`;
+  const executionId = `backup_${Date.now()}`;
   const startTime = new Date();
   
   // 1. Log START
@@ -41,63 +34,39 @@ export default async function handler(req, res) {
     });
   } catch (e) { console.error('[Cron] Start log failed:', e.message); }
 
-  let discovered = 0, inserted = 0, failed = 0;
-
   try {
-    const { data: promises } = await supabase.from('promises').select('id, promise_title, politician_name').limit(10);
+    // Basic backup logic: just recording that we ran for now
+    // In a real scenario, this would trigger a PG dump or export to S3/Storage
     
-    for (const promise of promises) {
-      try {
-        const tavilyKey = process.env.TAVILY_API_KEY;
-        if (!tavilyKey) continue;
+    console.log(`[Backup] Backup export started at ${startTime.toISOString()}`);
 
-        const r = await fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Api-Key': tavilyKey },
-          body: JSON.stringify({ query: `${promise.politician_name} ${promise.promise_title}`, max_results: 3 })
-        });
-
-        if (r.ok) {
-          const d = await r.json();
-          for (const ev of (d.results || [])) {
-            discovered++;
-            const { error: inErr } = await supabase.from('promise_evidences').insert({
-              promise_id: promise.id,
-              politician_name: promise.politician_name,
-              promise_title: promise.promise_title,
-              url: ev.url,
-              descricao: ev.content,
-              fonte: ev.source || new URL(ev.url).hostname
-            });
-            if (!inErr) inserted++;
-          }
-        }
-      } catch (e) { failed++; }
-    }
+    // Update system_stats
+    await supabase.from('system_stats').upsert({
+      key: 'last_backup_run',
+      value: startTime.toISOString(),
+      details: JSON.stringify({ executionId, status: 'simulated_success' })
+    });
 
     // 2. Log SUCCESS
     await supabase.from('cron_executions').update({
       status: 'completed',
       completed_at: new Date().toISOString(),
-      promises_found: discovered,
-      promises_evaluated: inserted,
-      promises_failed: failed
+      details: 'Simulated backup export completed (Placeholder)'
     }).eq('execution_id', executionId);
 
     // 3. Daily Monitor Log
     await supabase.from('daily_monitor_log').insert({
-      monitor_name: 'discover_evidences',
-      promises_processed: promises.length,
-      new_evidences_found: inserted,
-      errors: failed > 0 ? JSON.stringify({ failed }) : null,
+      monitor_name: 'backup_export',
+      promises_processed: 0,
+      errors: null,
       started_at: startTime.toISOString(),
       completed_at: new Date().toISOString()
     });
 
-    return res.status(200).json({ status: 'ok', discovered, inserted, failed });
+    return res.status(200).json({ status: 'ok', execution_id: executionId, message: 'Backup placeholder executed' });
 
   } catch (err) {
-    console.error(`[Cron] FATAL: ${err.message}`);
+    console.error(`[Backup] FATAL: ${err.message}`);
     await supabase.from('cron_executions').update({ status: 'failed', completed_at: new Date().toISOString(), details: err.message }).eq('execution_id', executionId);
     return res.status(500).json({ error: err.message });
   }

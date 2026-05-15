@@ -138,7 +138,7 @@ CRITÉRIOS:
 REGRAS:
 - Sem evidência com URL real: score máximo 30, status "nao_iniciada"
 - Score > 70 exige evidência verificável com URL real
-- Responda SOMENTE com JSON:
+- Responda SOMENTE with JSON:
 {"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara","evidencias_usadas":[]}`;
 
   try {
@@ -174,222 +174,234 @@ export default async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
   if (!requireCronSecret(req, res)) return;
 
-  const pipelineId = `pipeline_${Date.now()}`;
-  const now = new Date();
-  const dailyCutoff = new Date(now.getTime() - 23 * 60 * 60 * 1000).toISOString();
-  const weeklyCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const executionId = `pipeline_${Date.now()}`;
+  const startTime = new Date();
   const stage = req.query?.stage || 'all';
-
-  // Fetch active political feeds from DB
-  const { data: activeFeeds } = await supabase
-    .from('feeds')
-    .select('url')
-    .eq('active', true)
-    .in('category', ['Política', 'Governo']);
-
-  const activeDomains = (activeFeeds || []).map(f => {
-    try { return new URL(f.url).hostname; } catch { return null; }
-  }).filter(Boolean);
-
-  // Merge with static credible domains for verification
-  if (activeDomains.length > 0) {
-    activeDomains.forEach(d => CREDIBLE_DOMAINS.add(d.toLowerCase()));
+  
+  // 1. Log START
+  try {
+    await supabase.from('cron_executions').insert({
+      execution_id: executionId,
+      trigger: 'vercel_cron',
+      status: 'started',
+      started_at: startTime.toISOString(),
+      details: JSON.stringify({ stage })
+    });
+  } catch (logErr) {
+    console.error('[Pipeline] Start log failed:', logErr.message);
   }
-
-  console.log(`[Pipeline] ${pipelineId} started at ${now.toISOString()}, stage=${stage}, active_domains=${activeDomains.length}`);
 
   let step1Discovered = 0, step1Inserted = 0, step1Dupes = 0;
   let step2Updated = 0;
   let step3Evaluated = 0, step3Failed = 0;
+  let summary = {};
 
-  if (stage === 'all' || stage === 'discover') {
-    const { data: promises } = await supabase
-      .from('promises')
-      .select('id, promise_title, politician_name, category, status, evidence_count')
-      .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
-      .limit(5);
+  try {
+    const dailyCutoff = new Date(startTime.getTime() - 23 * 60 * 60 * 1000).toISOString();
+    const weeklyCutoff = new Date(startTime.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (promises && promises.length > 0) {
-      console.log(`[Pipeline:Discover] Processing ${promises.length} promises`);
-      for (const promise of promises) {
-        try {
-          const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, activeDomains);
-          for (const ev of evidences) {
-            step1Discovered++;
-            const domain = normalizeUrl(ev.url).split('/')[2] || '';
-            const { data: existing } = await supabase.from('promise_evidences')
-              .select('id, url').eq('promise_id', promise.id).limit(10);
-            const isDup = existing?.some(e => normalizeUrl(e.url || '').includes(domain));
-            if (isDup) { step1Dupes++; continue; }
-            const sc = Math.round(ev.relevance * 0.4 + ev.credibility * 0.6);
-            const { error } = await supabase.from('promise_evidences').insert({
-              promise_id: promise.id, politician_name: promise.politician_name, promise_title: promise.promise_title,
-              descricao: ev.descricao, fonte: ev.fonte, url: ev.url, data_publicacao: ev.data,
-              tipo: ev.credible ? 'oficial' : 'jornal', confiabilidade: sc,
-              relevance_score: ev.relevance, credibility_score: ev.credibility,
-              discovered_at: now.toISOString(), validated: ev.credible, needs_review: !ev.credible,
-              titulo: ev.titulo || null
-            });
-            if (!error) step1Inserted++;
-          }
-        } catch (e) { console.error(`[Pipeline:Discover] ✗ ${promise.id}: ${e.message}`); }
-        await new Promise(r => setTimeout(r, 200));
-      }
+    // Fetch active political feeds from DB
+    const { data: activeFeeds } = await supabase
+      .from('feeds')
+      .select('url')
+      .eq('active', true)
+      .in('category', ['Política', 'Governo']);
+
+    const activeDomains = (activeFeeds || []).map(f => {
+      try { return new URL(f.url).hostname; } catch { return null; }
+    }).filter(Boolean);
+
+    // Merge with static credible domains for verification
+    if (activeDomains.length > 0) {
+      activeDomains.forEach(d => CREDIBLE_DOMAINS.add(d.toLowerCase()));
     }
-    console.log(`[Pipeline:Discover] Done: discovered=${step1Discovered} inserted=${step1Inserted} dupes=${step1Dupes}`);
-  }
 
-  if (stage === 'all' || stage === 'count') {
-    const { data: promises } = await supabase
-      .from('promises')
-      .select('id, status, last_verified_at')
-      .limit(50);
+    console.log(`[Pipeline] ${executionId} started at ${startTime.toISOString()}, stage=${stage}, active_domains=${activeDomains.length}`);
 
-    if (promises) {
-      console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
-      for (const promise of promises) {
-        try {
-          const { count } = await supabase
-            .from('promise_evidences')
-            .select('*', { count: 'exact', head: true })
-            .eq('promise_id', promise.id);
-
-          const needsReavaliation = ['cumprida', 'descumprida', 'pendente'].includes(promise.status);
-          const updateData = { evidence_count: count || 0 };
-          if (!needsReavaliation) {
-            updateData.last_verified_at = now.toISOString();
-          }
-
-          await supabase.from('promises').update(updateData).eq('id', promise.id);
-          step2Updated++;
-        } catch (_) { }
-      }
-    }
-    console.log(`[Pipeline:Count] Done: updated=${step2Updated}`);
-  }
-
-  if (stage === 'all' || stage === 'reavaliate') {
-    const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-    if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
-      console.log('[Pipeline:Reavaliate] SKIPPED - no GROQ_API_KEY');
-    } else {
-      const { data: staleDaily } = await supabase
+    if (stage === 'all' || stage === 'discover') {
+      const { data: promises } = await supabase
         .from('promises')
-        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-        .lt('last_verified_at', dailyCutoff)
+        .select('id, promise_title, politician_name, category, status, evidence_count')
         .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
         .limit(5);
 
-      const { data: never } = await supabase
-        .from('promises')
-        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-        .is('last_verified_at', null)
-        .limit(5);
-
-      const { data: staleWeekly } = await supabase
-        .from('promises')
-        .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
-        .lt('last_verified_at', weeklyCutoff)
-        .in('status', ['cumprida', 'descumprida'])
-        .limit(3);
-
-      const seen = new Set();
-      const toReavaliate = [];
-      for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
-        if (!seen.has(p.id)) { seen.add(p.id); toReavaliate.push(p); }
-      }
-
-      if (toReavaliate.length > 0) {
-        console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
-        for (const promise of toReavaliate) {
+      if (promises && promises.length > 0) {
+        console.log(`[Pipeline:Discover] Processing ${promises.length} promises`);
+        for (const promise of promises) {
           try {
-            const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise, activeDomains);
-            const frontendStatus = mapToFrontend(result.status);
-
-            const { error: upErr } = await supabase.from('promises').update({
-              status: frontendStatus, fulfillment_score: result.score,
-              ai_evaluation: result.justification, evidences_used: result.evidences,
-              needs_human_review: result.needsReview, last_verified_at: now.toISOString()
-            }).eq('id', promise.id);
-
-            if (upErr) { step3Failed++; continue; }
-
-            await supabase.from('status_history').insert({
-              promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
-              previous_score: promise.fulfillment_score, new_score: result.score,
-              changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
-              evaluation_type: 'ai_auto'
-            }).catch(e => { console.error(`[status_history] ${e.message}`); });
-
-            await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).catch(e => { });
-            await supabase.from('promise_explanations').insert({
-              promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
-              criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
-              evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
-              o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
-              modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: now.toISOString()
-            }).catch(e => { console.error(`[promise_explanations] ${e.message}`); });
-
-            await supabase.from('audit_logs').insert({
-              action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
-              old_value: { status: promise.status, score: promise.fulfillment_score },
-              new_value: { status: frontendStatus, score: result.score },
-              performed_by: 'pipeline', details: {
-                promise_title: promise.promise_title, politician: promise.politician_name,
-                evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
-              }
-            }).catch(e => { console.error(`[audit_logs] ${e.message}`); });
-
-            step3Evaluated++;
-            console.log(`[Pipeline:Reavaliate] ✓ ${promise.promise_title}: ${promise.status}→${frontendStatus} (${result.score})`);
-          } catch (e) {
-            console.error(`[Pipeline:Reavaliate] ✗ ${promise.id}: ${e.message}`);
-            step3Failed++;
-          }
-          await new Promise(r => setTimeout(r, 500));
+            const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, activeDomains);
+            for (const ev of evidences) {
+              step1Discovered++;
+              const domain = normalizeUrl(ev.url).split('/')[2] || '';
+              const { data: existing } = await supabase.from('promise_evidences')
+                .select('id, url').eq('promise_id', promise.id).limit(10);
+              const isDup = existing?.some(e => normalizeUrl(e.url || '').includes(domain));
+              if (isDup) { step1Dupes++; continue; }
+              const sc = Math.round(ev.relevance * 0.4 + ev.credibility * 0.6);
+              const { error } = await supabase.from('promise_evidences').insert({
+                promise_id: promise.id, politician_name: promise.politician_name, promise_title: promise.promise_title,
+                descricao: ev.descricao, fonte: ev.fonte, url: ev.url, data_publicacao: ev.data,
+                tipo: ev.credible ? 'oficial' : 'jornal', confiabilidade: sc,
+                relevance_score: ev.relevance, credibility_score: ev.credibility,
+                discovered_at: startTime.toISOString(), validated: ev.credible, needs_review: !ev.credible,
+                titulo: ev.titulo || null
+              });
+              if (!error) step1Inserted++;
+            }
+          } catch (e) { console.error(`[Pipeline:Discover] ✗ ${promise.id}: ${e.message}`); }
+          await new Promise(r => setTimeout(r, 200));
         }
       }
     }
-    console.log(`[Pipeline:Reavaliate] Done: evaluated=${step3Evaluated} failed=${step3Failed}`);
-  }
 
-  try {
-    await supabase.from('cron_executions').insert({
-      execution_id: pipelineId,
-      trigger: 'vercel_cron',
-      promises_evaluated: step3Evaluated,
-      promises_found: promises?.length || 0,
-      promises_failed: step3Failed,
-      details: JSON.stringify({ stage, steps: { discover: step1Discovered, count: step2Updated, reavaliate: step3Evaluated } })
-    });
-  } catch (_) { }
+    if (stage === 'all' || stage === 'count') {
+      const { data: promises } = await supabase
+        .from('promises')
+        .select('id, status, last_verified_at')
+        .limit(50);
 
-  try {
-    await supabase.from('system_stats').upsert({
-      key: 'last_pipeline_run',
-      value: now.toISOString(),
-      details: JSON.stringify({ pipelineId, evaluated: step3Evaluated, discovered: step1Discovered, inserted: step1Inserted })
-    });
-  } catch (_) { }
+      if (promises) {
+        console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
+        for (const promise of promises) {
+          try {
+            const { count } = await supabase
+              .from('promise_evidences')
+              .select('*', { count: 'exact', head: true })
+              .eq('promise_id', promise.id);
 
-  let deployTriggered = false;
-  const VERCEL_DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK_URL;
-  const hasNewData = step1Inserted > 0 || step3Evaluated > 0;
-  if (VERCEL_DEPLOY_HOOK && hasNewData) {
-    try {
-      await fetch(VERCEL_DEPLOY_HOOK, { method: 'POST' });
-      console.log('[Pipeline] Deploy hook triggered');
-      deployTriggered = true;
-    } catch (e) {
-      console.error('[Pipeline] Deploy hook failed:', e.message);
+            const needsReavaliation = ['cumprida', 'descumprida', 'pendente'].includes(promise.status);
+            const updateData = { evidence_count: count || 0 };
+            if (!needsReavaliation) {
+              updateData.last_verified_at = startTime.toISOString();
+            }
+
+            await supabase.from('promises').update(updateData).eq('id', promise.id);
+            step2Updated++;
+          } catch (_) { }
+        }
+      }
     }
-  }
 
-  const response = {
-    status: 'ok', pipeline_id: pipelineId, stage,
-    deploy_triggered: deployTriggered,
-    steps: { discover: { discovered: step1Discovered, inserted: step1Inserted, dupes: step1Dupes }, count: { updated: step2Updated }, reavaliate: { evaluated: step3Evaluated, failed: step3Failed } },
-    timestamp: now.toISOString()
-  };
-  return res.status(200).json(response);
+    if (stage === 'all' || stage === 'reavaliate') {
+      const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+      if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
+        console.log('[Pipeline:Reavaliate] SKIPPED - no GROQ_API_KEY');
+      } else {
+        const { data: staleDaily } = await supabase
+          .from('promises')
+          .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+          .lt('last_verified_at', dailyCutoff)
+          .not('status', 'eq', 'cumprida').not('status', 'eq', 'descumprida').not('status', 'eq', 'pendente')
+          .limit(5);
+
+        const { data: never } = await supabase
+          .from('promises')
+          .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+          .is('last_verified_at', null)
+          .limit(5);
+
+        const { data: staleWeekly } = await supabase
+          .from('promises')
+          .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
+          .lt('last_verified_at', weeklyCutoff)
+          .in('status', ['cumprida', 'descumprida'])
+          .limit(3);
+
+        const seen = new Set();
+        const toReavaliate = [];
+        for (const p of [...(staleDaily || []), ...(never || []), ...(staleWeekly || [])]) {
+          if (!seen.has(p.id)) { seen.add(p.id); toReavaliate.push(p); }
+        }
+
+        if (toReavaliate.length > 0) {
+          console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
+          for (const promise of toReavaliate) {
+            try {
+              const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise, activeDomains);
+              const frontendStatus = mapToFrontend(result.status);
+
+              const { error: upErr } = await supabase.from('promises').update({
+                status: frontendStatus, fulfillment_score: result.score,
+                ai_evaluation: result.justification, evidences_used: result.evidences,
+                needs_human_review: result.needsReview, last_verified_at: startTime.toISOString()
+              }).eq('id', promise.id);
+
+              if (upErr) { step3Failed++; continue; }
+
+              await supabase.from('status_history').insert({
+                promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
+                previous_score: promise.fulfillment_score, new_score: result.score,
+                changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
+                evaluation_type: 'ai_auto'
+              }).catch(e => { console.error(`[status_history] ${e.message}`); });
+
+              await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).catch(e => { });
+              await supabase.from('promise_explanations').insert({
+                promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
+                criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
+                evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
+                o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
+                modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
+              }).catch(e => { console.error(`[promise_explanations] ${e.message}`); });
+
+              await supabase.from('audit_logs').insert({
+                action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
+                old_value: { status: promise.status, score: promise.fulfillment_score },
+                new_value: { status: frontendStatus, score: result.score },
+                performed_by: 'pipeline', details: {
+                  promise_title: promise.promise_title, politician: promise.politician_name,
+                  evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
+                }
+              }).catch(e => { console.error(`[audit_logs] ${e.message}`); });
+
+              step3Evaluated++;
+            } catch (e) {
+              console.error(`[Pipeline:Reavaliate] ✗ ${promise.id}: ${e.message}`);
+              step3Failed++;
+            }
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      }
+    }
+
+    summary = {
+      discover: { discovered: step1Discovered, inserted: step1Inserted, dupes: step1Dupes },
+      count: { updated: step2Updated },
+      reavaliate: { evaluated: step3Evaluated, failed: step3Failed }
+    };
+
+    // 2. Log SUCCESS
+    await supabase.from('cron_executions').update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      promises_evaluated: step3Evaluated,
+      promises_failed: step3Failed,
+      details: JSON.stringify(summary)
+    }).eq('execution_id', executionId);
+
+    // 3. Daily Monitor Log
+    await supabase.from('daily_monitor_log').insert({
+      monitor_name: 'pipeline_orchestrator',
+      promises_processed: step3Evaluated,
+      new_evidences_found: step1Inserted,
+      errors: step3Failed > 0 ? JSON.stringify({ failed: step3Failed }) : null,
+      started_at: startTime.toISOString(),
+      completed_at: new Date().toISOString()
+    });
+
+    return res.status(200).json({ status: 'ok', execution_id: executionId, summary });
+
+  } catch (err) {
+    console.error(`[Pipeline] FATAL ERROR: ${err.message}`);
+    
+    // 4. Log FAILURE
+    await supabase.from('cron_executions').update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      details: JSON.stringify({ error: err.message, partial_summary: summary })
+    }).eq('execution_id', executionId);
+
+    return res.status(500).json({ status: 'error', error: err.message, execution_id: executionId });
+  }
 }

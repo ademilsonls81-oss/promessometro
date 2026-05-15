@@ -32,6 +32,10 @@
             "destination": "/api/cron/politician-ranking.js"
         },
         {
+            "source": "/api/cron/test-run",
+            "destination": "/api/cron/test-run.js"
+        },
+        {
             "source": "/api/sitemap.xml",
             "destination": "/api/sitemap.js"
         },
