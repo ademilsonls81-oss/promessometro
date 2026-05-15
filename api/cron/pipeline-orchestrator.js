@@ -276,8 +276,8 @@ export default async function handler(req, res) {
                 description: ev.descricao || '',
                 url: ev.url,
                 source_name: ev.fonte || '',
-                evidence_type: 'related',
-                source_type: ev.credible ? 'government' : 'journalism',
+                evidence_type: 'news',
+                source_type: ev.credible ? 'official' : 'press',
                 validation_status: 'pending',
                 published_at: ev.data || null,
                 confiabilidade: sc,
@@ -348,31 +348,40 @@ export default async function handler(req, res) {
 
               if (upErr) { step3Failed++; continue; }
 
-              await supabase.from('status_history').insert({
-                promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
-                previous_score: promise.fulfillment_score, new_score: result.score,
-                changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
-                evaluation_type: 'ai_auto'
-              }).catch(e => { console.error(`[status_history] ${e.message}`); });
+              try {
+                await supabase.from('status_history').insert({
+                  promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
+                  previous_score: promise.fulfillment_score, new_score: result.score,
+                  changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
+                  evaluation_type: 'ai_auto'
+                });
+              } catch (e) { console.error(`[status_history] ${e.message}`); }
 
-              await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).catch(e => { });
-              await supabase.from('promise_explanations').insert({
-                promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
-                criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
-                evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
-                o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
-                modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
-              }).catch(e => { console.error(`[promise_explanations] ${e.message}`); });
+              try {
+                await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              } catch (e) { }
 
-              await supabase.from('audit_logs').insert({
-                action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
-                old_value: { status: promise.status, score: promise.fulfillment_score },
-                new_value: { status: frontendStatus, score: result.score },
-                performed_by: 'pipeline', details: {
-                  promise_title: promise.promise_title, politician: promise.politician_name,
-                  evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
-                }
-              }).catch(e => { console.error(`[audit_logs] ${e.message}`); });
+              try {
+                await supabase.from('promise_explanations').insert({
+                  promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
+                  criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
+                  evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
+                  o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
+                  modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
+                });
+              } catch (e) { console.error(`[promise_explanations] ${e.message}`); }
+
+              try {
+                await supabase.from('audit_logs').insert({
+                  action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
+                  old_value: { status: promise.status, score: promise.fulfillment_score },
+                  new_value: { status: frontendStatus, score: result.score },
+                  performed_by: 'pipeline', details: {
+                    promise_title: promise.promise_title, politician: promise.politician_name,
+                    evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
+                  }
+                });
+              } catch (e) { console.error(`[audit_logs] ${e.message}`); }
 
               step3Evaluated++;
             } catch (e) {
