@@ -46,14 +46,19 @@ function requireCronSecret(req, res) {
   return true;
 }
 
-async function searchEv(query, maxResults = 8) {
+async function searchEv(query, maxResults = 8, includeDomains = []) {
   const TAVILY = process.env.TAVILY_API_KEY;
   if (TAVILY && TAVILY !== 'YOUR_TAVILY_API_KEY') {
     try {
+      const searchBody = { query, max_results: maxResults, include_answer: true };
+      if (includeDomains.length > 0) {
+        searchBody.include_domains = includeDomains;
+      }
+
       const r = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Api-Key': TAVILY },
-        body: JSON.stringify({ query, max_results: maxResults, include_answer: true })
+        body: JSON.stringify(searchBody)
       });
       if (r.ok) {
         const d = await r.json();
@@ -105,10 +110,10 @@ function normalizeUrl(url) {
   try { return new URL(url).toString().split('?')[0].replace(/\/$/, ''); } catch { return url; }
 }
 
-async function searchAI(query, promise) {
+async function searchAI(query, promise, includeDomains = []) {
   const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const BASE = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
-  const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`);
+  const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, includeDomains);
 
   const evText = evidences.length > 0
     ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
@@ -175,7 +180,23 @@ export default async function handler(req, res) {
   const weeklyCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const stage = req.query?.stage || 'all';
 
-  console.log(`[Pipeline] ${pipelineId} started at ${now.toISOString()}, stage=${stage}`);
+  // Fetch active political feeds from DB
+  const { data: activeFeeds } = await supabase
+    .from('feeds')
+    .select('url')
+    .eq('active', true)
+    .in('category', ['Política', 'Governo']);
+
+  const activeDomains = (activeFeeds || []).map(f => {
+    try { return new URL(f.url).hostname; } catch { return null; }
+  }).filter(Boolean);
+
+  // Merge with static credible domains for verification
+  if (activeDomains.length > 0) {
+    activeDomains.forEach(d => CREDIBLE_DOMAINS.add(d.toLowerCase()));
+  }
+
+  console.log(`[Pipeline] ${pipelineId} started at ${now.toISOString()}, stage=${stage}, active_domains=${activeDomains.length}`);
 
   let step1Discovered = 0, step1Inserted = 0, step1Dupes = 0;
   let step2Updated = 0;
@@ -192,7 +213,7 @@ export default async function handler(req, res) {
       console.log(`[Pipeline:Discover] Processing ${promises.length} promises`);
       for (const promise of promises) {
         try {
-          const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`);
+          const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, activeDomains);
           for (const ev of evidences) {
             step1Discovered++;
             const domain = normalizeUrl(ev.url).split('/')[2] || '';
@@ -282,7 +303,7 @@ export default async function handler(req, res) {
         console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
         for (const promise of toReavaliate) {
           try {
-            const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise);
+            const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise, activeDomains);
             const frontendStatus = mapToFrontend(result.status);
 
             const { error: upErr } = await supabase.from('promises').update({

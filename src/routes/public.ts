@@ -142,7 +142,7 @@ router.post("/ingest", async (req, res) => {
   
   try {
 // Get feeds - try feeds table, if empty add default feeds
-    let { data: feeds, error: feedsError } = await supabase.from("feeds").select("*");
+    let { data: feeds, error: feedsError } = await supabase.from("feeds").select("*").eq("active", true);
     if (feedsError) {
       console.log("[Ingest] Feeds error:", feedsError.message);
     }
@@ -163,7 +163,7 @@ router.post("/ingest", async (req, res) => {
         await supabase.from("feeds").upsert(feed, { onConflict: 'url' });
       }
       console.log("[Ingest] Added default feeds");
-      ({ data: feeds } = await supabase.from("feeds").select("*"));
+      ({ data: feeds } = await supabase.from("feeds").select("*").eq("active", true));
     }
     
     if (!feeds?.length) return res.json({ message: "No feeds configured", inserted: 0 });
@@ -216,7 +216,7 @@ for (const feed of feeds) {
 // ==========================================
 router.get("/metrics", async (_req, res) => {
   const { count: postsCount } = await supabase.from("posts").select("*", { count: "exact", head: true });
-  const { count: feedsCount } = await supabase.from("feeds").select("*", { count: "exact", head: true });
+  const { count: feedsCount } = await supabase.from("feeds").select("*", { count: "exact", head: true }).eq("active", true);
   const { count: usersCount } = await supabase.from("users").select("*", { count: "exact", head: true });
   
   res.json({
@@ -244,7 +244,7 @@ router.get("/stats", async (_req, res) => {
 
   const [{ count: postsCount }, { count: feedsCount }] = await Promise.all([
     supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("feeds").select("*", { count: "exact", head: true })
+    supabase.from("feeds").select("*", { count: "exact", head: true }).eq("active", true)
   ]);
 
   const stats = { postsCount: postsCount || 0, feedsCount: feedsCount || 0, languages: 11, cache_enabled: true };

@@ -96,7 +96,7 @@ async function updateFeedHealth(feedId: string, result: ParseResult): Promise<vo
 export async function runIngestion(): Promise<number> {
   console.log(">>> [IngestionService] Starting RSS scan...");
   const [{ data: feeds }, { data: existingPosts }] = await Promise.all([
-    supabase.from("feeds").select("*"),
+    supabase.from("feeds").select("*").eq("active", true),
     supabase.from("posts").select("link")
   ]);
 

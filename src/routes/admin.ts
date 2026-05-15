@@ -88,7 +88,7 @@ router.post("/feeds", checkAdmin, async (req, res) => {
 // GET /api/admin/feeds/summary
 router.get("/feeds/summary", checkAdmin, async (req, res) => {
   try {
-    const { data: feeds } = await supabase.from("feeds").select("id, name, url, category").order("category");
+    const { data: feeds } = await supabase.from("feeds").select("id, name, url, category").eq("active", true).order("category");
     const { data: posts } = await supabase.from("posts").select("category, status").eq("status", "published");
 
     const feedByCategory: Record<string, number> = {};
@@ -112,7 +112,7 @@ router.get("/feeds/summary", checkAdmin, async (req, res) => {
 // GET /api/admin/feeds/health - Health de todos os feeds
 router.get("/feeds/health", checkAdmin, async (req, res) => {
   try {
-    const { data: feeds } = await supabase.from("feeds").select("*");
+    const { data: feeds } = await supabase.from("feeds").select("*").eq("active", true);
     const { data: health } = await supabase.from("feed_health").select("*");
 
     const healthMap = new Map((health || []).map((h: any) => [h.feed_id, h]));
@@ -361,6 +361,7 @@ router.get("/feeds", checkAdmin, async (req, res) => {
     const { data, error, count } = await supabase
       .from("feeds")
       .select("*", { count: "exact" })
+      .eq("active", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
