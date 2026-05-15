@@ -12,6 +12,20 @@ function toSlug(name) {
     .replace(/(^-|-$)/g, '');
 }
 
+function extractPositionFromSource(source) {
+  if (!source) return null;
+  const sourceLower = source.toLowerCase();
+  if (sourceLower.includes('presidente')) return 'Presidente';
+  if (sourceLower.includes('governador')) return 'Governador';
+  if (sourceLower.includes('senador')) return 'Senador';
+  if (sourceLower.includes('deputado federal')) return 'Deputado Federal';
+  if (sourceLower.includes('deputado estadual')) return 'Deputado Estadual';
+  if (sourceLower.includes('vereador')) return 'Vereador';
+  if (sourceLower.includes('prefeito')) return 'Prefeito';
+  if (sourceLower.includes('tse')) return 'Candidato';
+  return null;
+}
+
 export default async function handler(req, res) {
   const path = req.url;
   const method = req.method;
@@ -120,14 +134,42 @@ export default async function handler(req, res) {
       req.on('data', chunk => body += chunk);
       await new Promise(resolve => req.on('end', resolve));
       const data = JSON.parse(body);
-      const { politician_name, promise_title, promise_description, category, source_link } = data;
+      const { politician_name, promise_title, promise_description, category, source_link, position, state } = data;
 
       if (!politician_name || !promise_title) {
         return res.status(400).json({ error: 'Nome do político e título são obrigatórios' });
       }
 
+      const finalPosition = position || extractPositionFromSource(source_link);
+      if (!finalPosition) {
+        return res.status(400).json({ error: 'Cargo (position) é obrigatório. Envie no campo "position" ou inclua no link (ex: TSE, campanha)' });
+      }
+
+      if (state && !/^[A-Z]{2}$/.test(state)) {
+        return res.status(400).json({ error: 'Estado deve ter exatamente 2 letras maiúsculas (ex: MG, SP)' });
+      }
+
+      const cleanName = politician_name.trim();
+      const { data: existingPolitician } = await supabase
+        .from('politicians')
+        .select('id')
+        .ilike('nome', `%${cleanName}%`)
+        .limit(1);
+
+      if (!existingPolitician) {
+        const { error: politicianError } = await supabase.from('politicians').insert({
+          nome: cleanName,
+          cargo: finalPosition,
+          estado: state || null,
+          partido: null
+        });
+        if (politicianError && politicianError.code !== '23505') {
+          console.error('[Promises:Submit] Politician insert error:', politicianError.message);
+        }
+      }
+
       const { data: inserted, error } = await supabase.from('promises').insert({
-        politician_name: politician_name.trim(),
+        politician_name: cleanName,
         promise_title: promise_title.trim(),
         promise_description: promise_description?.trim() || null,
         category: category || 'Outros',
@@ -137,6 +179,63 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) return res.status(500).json({ error: error.message });
+      return res.status(201).json({ success: true, data: inserted });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (path === '/api/politicians' && method === 'POST') {
+    try {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      await new Promise(resolve => req.on('end', resolve));
+      const data = JSON.parse(body);
+      const { name, party, position, state, photo_url, source } = data;
+
+      if (!name) {
+        return res.status(400).json({ error: 'Nome do político é obrigatório' });
+      }
+
+      if (!position) {
+        return res.status(400).json({ error: 'Cargo (position) é obrigatório' });
+      }
+
+      const extractedPosition = extractPositionFromSource(source);
+      const finalPosition = position || extractedPosition;
+      if (!finalPosition) {
+        return res.status(400).json({ error: 'Cargo (position) é obrigatório' });
+      }
+
+      if (state) {
+        if (!/^[A-Z]{2}$/.test(state)) {
+          return res.status(400).json({ error: 'Estado deve ter exatamente 2 letras maiúsculas (ex: MG, SP)' });
+        }
+      }
+
+      const generatedSlug = toSlug(name);
+
+      const insertData = {
+        nome: name.trim(),
+        cargo: finalPosition,
+        estado: state || null,
+        foto_url: photo_url || null,
+        partido: party || null
+      };
+
+      const { data: inserted, error } = await supabase
+        .from('politicians')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          return res.status(409).json({ error: 'Político já existe' });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+
       return res.status(201).json({ success: true, data: inserted });
     } catch (e) {
       return res.status(500).json({ error: e.message });
