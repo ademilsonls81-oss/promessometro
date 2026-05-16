@@ -40,6 +40,10 @@
             "destination": "/api/sitemap.js"
         },
         {
+            "source": "/api/autonomous-seed",
+            "destination": "/api/autonomous-seed.js"
+        },
+        {
             "source": "/api/sitemap",
             "destination": "/api/sitemap.js"
         },
