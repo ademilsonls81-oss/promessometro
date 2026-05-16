@@ -128,14 +128,14 @@ async function evaluateWithAI(promise, evidences) {
        }
      }
      
-     const clampedScore = clampScore(basicStatus, basicScore);
-     return {
-       status: basicStatus,
-       fulfillment_score: clampedScore,
-       justificativa: `Avaliacao básica baseada em ${evidences.length} evidências encontradas (${evidences.filter(e => e.credible).length} credíveis). Groq API key nao configurada para avaliação detalhada.`,
-       evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
-       needsReview: true
-     };
+      const clampedScore = clampScore(basicStatus, basicScore);
+      return {
+        status: basicStatus,
+        fulfillment_score: clampedScore,
+        justificativa: `Avaliação baseada em ${evidences.length} evidências encontradas (${evidences.filter(e => e.credible).length} credíveis). IA não disponível para análise detalhada - verifique as fontes para confirmação.`,
+        evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
+        needsReview: true
+      };
    }
 
   const evText = evidences.length > 0
