@@ -57,6 +57,38 @@ function requireCronSecret(req, res) {
   return true;
 }
 
+function parseSerperDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date().toISOString();
+  }
+  const lower = dateStr.toLowerCase();
+  if (lower.includes('ago') || lower.includes('days') || lower.includes('months') || lower.includes('year') || lower.includes('hours')) {
+    return new Date().toISOString();
+  }
+  const ptMonths = {
+    'jan': 'Jan', 'fev': 'Feb', 'mar': 'Mar', 'abr': 'Apr',
+    'mai': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug',
+    'set': 'Sep', 'out': 'Oct', 'nov': 'Nov', 'dez': 'Dec'
+  };
+  const monthMatch = dateStr.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
+  if (monthMatch) {
+    const pt = monthMatch[1].toLowerCase();
+    const en = ptMonths[pt];
+    if (en) {
+      const replaced = dateStr.replace(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/gi, en);
+      const parsed = new Date(replaced);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+  }
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 async function searchEv(query, maxResults = 8, includeDomains = []) {
   const SERPER_KEY = process.env.SERPER_API_KEY;
   if (SERPER_KEY) {
@@ -81,7 +113,7 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
           descricao: r.snippet || r.title || '',
           fonte: r.source || '',
           url: r.link || '',
-          data: r.date || null,
+          data: parseSerperDate(r.date),
           credible: isCredible(r.link || ''),
           relevance: 75,
           credibility: isCredible(r.link || '') ? 90 : 50,

@@ -51,6 +51,38 @@ async function sendSlackAlert(message, data) {
   }
 }
 
+function parseSerperDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date().toISOString();
+  }
+  const lower = dateStr.toLowerCase();
+  if (lower.includes('ago') || lower.includes('days') || lower.includes('months') || lower.includes('year') || lower.includes('hours')) {
+    return new Date().toISOString();
+  }
+  const ptMonths = {
+    'jan': 'Jan', 'fev': 'Feb', 'mar': 'Mar', 'abr': 'Apr',
+    'mai': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug',
+    'set': 'Sep', 'out': 'Oct', 'nov': 'Nov', 'dez': 'Dec'
+  };
+  const monthMatch = dateStr.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
+  if (monthMatch) {
+    const pt = monthMatch[1].toLowerCase();
+    const en = ptMonths[pt];
+    if (en) {
+      const replaced = dateStr.replace(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/gi, en);
+      const parsed = new Date(replaced);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+  }
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 async function evaluateWithAI(promise) {
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
@@ -71,7 +103,7 @@ async function evaluateWithAI(promise) {
       if (res.ok) {
         const d = await res.json();
         const results = d.organic || [];
-        evidences.push(...results.map(r => ({ descricao: r.snippet || '', fonte: r.source || '', url: r.link || '' })));
+        evidences.push(...results.map(r => ({ descricao: r.snippet || '', fonte: r.source || '', url: r.link || '', data: parseSerperDate(r.date) })));
       }
     } catch (_) { }
   }
