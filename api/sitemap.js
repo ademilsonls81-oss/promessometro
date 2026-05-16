@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_S_URL || 'https://liqutcjzzrqstivvfele.supabase.co';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
 const BASE_URL = process.env.VITE_APP_URL || 'https://promessometro-brasil.vercel.app';
+
+function db() {
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 function generateSlug(text) {
   return text
@@ -15,8 +18,8 @@ function generateSlug(text) {
     .substring(0, 60);
 }
 
-module.exports = async (req, res) => {
-  if (req.method === 'GET' && (req.url === '/api/sitemap.xml' || req.url === '/sitemap.xml')) {
+export default async (req, res) => {
+  if (req.method === 'GET' && (req.url === '/api/sitemap.xml' || req.url === '/sitemap.xml' || req.url === '/api/sitemap')) {
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
 
@@ -35,7 +38,7 @@ module.exports = async (req, res) => {
     let promiseUrls = [];
 
     try {
-      const { data: politicians } = await supabase
+      const { data: politicians } = await db()
         .from('promises')
         .select('politician_name, updated_at')
         .limit(500);
@@ -49,7 +52,7 @@ module.exports = async (req, res) => {
         }
       });
 
-      const { data: promises } = await supabase
+      const { data: promises } = await db()
         .from('promises')
         .select('promise_title, updated_at')
         .limit(1000);
