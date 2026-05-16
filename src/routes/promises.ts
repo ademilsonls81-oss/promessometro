@@ -12,12 +12,11 @@ export interface PromiseSubmission {
   promise_description?: string;
   category?: string;
   source_link?: string;
-  reported_by?: string;
 }
 
 router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
   try {
-    const { politician_name, promise_title, promise_description, category, source_link, reported_by } = req.body;
+    const { politician_name, promise_title, promise_description, category, source_link } = req.body;
 
     if (!politician_name || !promise_title) {
       return res.status(400).json({ error: "Nome do político e título da promessa são obrigatórios" });
@@ -29,8 +28,7 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
       promise_description: promise_description?.trim() || null,
       category: category || "Outros",
       source_link: source_link || null,
-      reported_by: reported_by || null,
-      status: "pending_analysis",
+      status: "pendente",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }).select().single();
@@ -145,7 +143,7 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status, evidence } = req.body;
 
-    if (!status || !["pending_analysis", "verified", "rejected", "fulfilled", "broken", "partial"].includes(status)) {
+    if (!status || !["pendente", "parcial", "cumprida", "quebrada"].includes(status)) {
       return res.status(400).json({ error: "Status inválido" });
     }
 

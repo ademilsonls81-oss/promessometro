@@ -1,10 +1,14 @@
-import { createClient } from '@db()/db()-js';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
+}
 
 function db() {
-  return createClient(
-    process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.db().co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0'
-  );
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function extractHostname(url) {
@@ -33,9 +37,8 @@ function isCredible(url) {
 
 function clampScore(status, score) {
   const ranges = {
-    cumprida: [80, 100], parcialmente_cumprida: [40, 79],
-    em_andamento: [20, 39], nao_iniciada: [0, 19],
-    descumprida: [0, 0], nao_classificada: [0, 100], pendente: [0, 19]
+    cumprida: [80, 100], parcial: [40, 79],
+    pendente: [0, 39], quebrada: [0, 0]
   };
   const [min, max] = ranges[status] || [0, 100];
   return Math.max(min, Math.min(max, Math.round(score)));
@@ -403,10 +406,105 @@ export default async function handler(req, res) {
     }
 
     if (stage === 'all' || stage === 'reavaliate') {
-      const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-      if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
-        console.log('[Pipeline:Reavaliate] SKIPPED - no GROQ_API_KEY');
-      } else {
+       const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+       if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
+         console.log('[Pipeline:Reavaliate] Using evidence-based evaluation (no GROQ_API_KEY)');
+         // Avaliação baseada em evidências quando IA não está disponível
+         for (const promise of toReavaliate) {
+           try {
+             // Busca evidências recentes para esta promessa
+             const { data: recentEvidences } = await db()
+               .from('promise_evidences')
+               .select('url, fonte, credible')
+               .eq('promise_id', promise.id)
+               .order('discovered_at', { ascending: false })
+               .limit(10);
+
+             let basicScore = 50;
+             let basicStatus = 'nao_iniciada';
+             
+             if (recentEvidences && recentEvidences.length > 0) {
+               // Conta evidências credíveis
+               const credibleEvidences = recentEvidences.filter(e => e.credible);
+               
+               if (credibleEvidences.length >= 3) {
+                 basicScore = 85; // Boa quantidade de evidências credíveis
+                 basicStatus = 'cumprida';
+               } else if (credibleEvidences.length > 0) {
+                 basicScore = 60; // Algumas evidências credíveis
+                 basicStatus = 'parcial';
+               } else if (recentEvidences.length > 0) {
+                 basicScore = 40; // Evidências não credíveis
+                 basicStatus = 'pendente';
+               }
+             }
+             
+             const frontendStatus = mapToFrontend(basicStatus);
+             const clampedScore = clampScore(frontendStatus, basicScore);
+             
+             const { error: upErr } = await db().from('promises').update({
+               status: frontendStatus, fulfillment_score: clampedScore,
+               ai_evaluation: `Avaliação baseada em ${recentEvidences?.length || 0} evidências (${credibleEvidences?.length || 0} credíveis). IA não disponível para avaliação detalhada.`,
+               evidences_used: recentEvidences?.slice(0, 3).map(e => ({ 
+                 fonte: e.fonte || '', 
+                 url: e.url || '' 
+               })) || [],
+               needs_human_review: true,
+               last_verified_at: startTime.toISOString()
+             }).eq('id', promise.id);
+
+if (upErr) {
+                console.error(`[Pipeline:Reavaliate] ERRO ao atualizar promise ${promise.id}: ${upErr.message}`);
+                step3Failed++; continue;
+              }
+
+              try {
+                await db().from('status_history').insert({
+                  promise_id: promise.id, old_status: promise.status, new_status: frontendStatus
+                });
+              } catch (e) { console.error(`[status_history] ${e.message}`); }
+
+              try {
+                await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              } catch (e) { }
+
+              try {
+                await db().from('promise_explanations').insert({
+                  promise_id: promise.id, status: frontendStatus, fulfillment_score: clampedScore,
+                 criterio_aplicado: 'evidence_based_fallback', justificativa: `Avaliação baseada em ${recentEvidences?.length || 0} evidências (${credibleEvidences?.length || 0} credíveis). IA não disponível para avaliação detalhada.`,
+                 evidencias_usadas: recentEvidences?.slice(0, 3).map(e => ({ 
+                   fonte: e.fonte || '', 
+                   url: e.url || '' 
+                 })) || [],
+                 o_que_falta: 'Revisão humana necessária para avaliação IA detalhada',
+                 o_que_foi_feito: `Análise baseada em ${recentEvidences?.length || 0} evidências encontradas`,
+                 confianca: 0.5,
+                 modelo_ia: 'evidence-fallback-v1',
+                 is_latest: true, gerado_em: startTime.toISOString()
+               });
+             } catch (e) { console.error(`[promise_explanations] ${e.message}`); }
+
+             try {
+await db().from('audit_logs').insert({
+                  action: 'pipeline_reavaliation', entity_type: 'promises', entity_id: promise.id,
+                  details: JSON.stringify({
+                    promise_id: promise.id, promise_title: promise.promise_title,
+                    politician: promise.politician_name,
+                    old_status: promise.status, new_status: frontendStatus,
+                    previous_score: promise.fulfillment_score, new_score: clampedScore,
+                    evidences_count: recentEvidences?.length || 0, needs_human_review: true
+                  })
+                });
+             } catch (e) { console.error(`[audit_logs] ${e.message}`); }
+
+             step3Evaluated++;
+           } catch (e) {
+             console.error(`[Pipeline:Reavaliate] ✗ FALHA na promessa ${promise.id}: ${e.message}`);
+             step3Failed++;
+           }
+           await new Promise(r => setTimeout(r, 500));
+         }
+       } else {
         const { data: staleDaily } = await db()
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
@@ -453,7 +551,7 @@ export default async function handler(req, res) {
 
               try {
                 await db().from('status_history').insert({
-                  promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus
+                  promise_id: promise.id, old_status: promise.status, new_status: frontendStatus
                 });
               } catch (e) { console.error(`[status_history] ${e.message}`); }
 
@@ -473,11 +571,11 @@ export default async function handler(req, res) {
 
               try {
                 await db().from('audit_logs').insert({
-                  action: 'pipeline_reavaliation', table_name: 'promises',
+                  action: 'pipeline_reavaliation', entity_type: 'promises', entity_id: promise.id,
                   details: JSON.stringify({
                     promise_id: promise.id, promise_title: promise.promise_title,
                     politician: promise.politician_name,
-                    previous_status: promise.status, new_status: frontendStatus,
+                    old_status: promise.status, new_status: frontendStatus,
                     previous_score: promise.fulfillment_score, new_score: result.score,
                     evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
                   })

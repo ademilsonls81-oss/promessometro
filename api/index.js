@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
+}
+
 function db() {
-  return createClient(
-    process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
-    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis'
-  );
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 function toSlug(name) {
@@ -142,13 +146,29 @@ export default async function handler(req, res) {
       let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
       const d = JSON.parse(body);
       if (!d.politician_name || !d.promise_title) return res.status(400).json({ error: 'Nome e titulo obrigatorios' });
+
+      let politicianId = null;
+      const { data: polData } = await db().from('politicians').select('id').ilike('name', d.politician_name.trim()).maybeSingle();
+      if (polData) politicianId = polData.id;
+
       const { data, error } = await db().from('promises').insert({
         politician_name: d.politician_name.trim(), promise_title: d.promise_title.trim(),
         promise_description: d.promise_description?.trim() || null, category: d.category || 'Outros',
-        source_link: d.source_link || null, status: 'pendente', fulfillment_score: 50
+        source_link: d.source_link || null, status: 'pendente', fulfillment_score: 50,
+        politician_id: politicianId
       }).select().single();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(201).json({ data });
+    }
+
+    if (path.startsWith('/api/promises/') && method === 'GET') {
+      const cleanPath = path.split('?')[0];
+      const id = cleanPath.replace('/api/promises/', '');
+      if (!id) return res.status(400).json({ error: 'id obrigatorio' });
+      const { data: promise, error } = await db().from('promises').select('*').eq('id', id).maybeSingle();
+      if (error || !promise) return res.status(404).json({ error: 'Promessa nao encontrada' });
+      const { data: evaluation } = await db().from('promise_explanations').select('*').eq('promise_id', id).eq('is_latest', true).maybeSingle();
+      return res.json({ ...promise, evaluation: evaluation || null });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
