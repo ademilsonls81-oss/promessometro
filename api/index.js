@@ -279,5 +279,76 @@ export default async function handler(req, res) {
     }
   }
 
+  if (path === '/api/force-reavaliation' && method === 'POST') {
+    const supabaseService = createClient(
+      process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0'
+    );
+
+    const POLITICIANS = ['Lula', 'Nunes', 'Paes', 'Zema'];
+    const results = [];
+
+    for (const name of POLITICIANS) {
+      const { data: promises } = await supabaseService
+        .from('promises')
+        .select('id, promise_title, politician_name, category')
+        .ilike('politician_name', `%${name}%`)
+        .limit(5);
+
+      if (!promises || promises.length === 0) continue;
+
+      for (const promise of promises) {
+        const { data: evidences } = await supabaseService
+          .from('promise_evidences')
+          .select('titulo, descricao, url, fonte')
+          .eq('promise_id', promise.id)
+          .limit(8);
+
+        if (!evidences || evidences.length === 0) {
+          results.push({ promise: promise.promise_title, status: 'no_evidences' });
+          continue;
+        }
+
+        const evText = evidences.map(e => `[${e.fonte}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n');
+
+        const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: ${promise.promise_title}. POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS: ${evText}. CRITÉRIOS: cumprida (80-100), parcialmente_cumprida (40-79), em_andamento (20-39), nao_iniciada (0-19), descumprida (0). Responda JSON: {"status":"status","fulfillment_score":0-100,"justificativa":"explicação"}`;
+
+        try {
+          const groqKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+          const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+          const r = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 512 })
+          });
+
+          if (!r.ok) throw new Error(`Groq ${r.status}`);
+
+          const d = await r.json();
+          const p = JSON.parse((d.choices?.[0]?.message?.content || '{}').match(/\{[\s\S]*\}/)?.[0] || '{}');
+
+          const statusMap = { 'cumprida': 'cumprida', 'parcialmente_cumprida': 'parcial', 'em_andamento': 'parcial', 'nao_iniciada': 'pendente', 'descumprida': 'quebrada' };
+          const newStatus = statusMap[p.status] || 'pendente';
+
+          await supabaseService.from('promises').update({
+            status: newStatus,
+            fulfillment_score: p.fulfillment_score || 50,
+            ai_evaluation: p.justificativa || '',
+            last_verified_at: new Date().toISOString()
+          }).eq('id', promise.id);
+
+          results.push({ promise: promise.promise_title, status: newStatus, score: p.fulfillment_score });
+        } catch (err) {
+          results.push({ promise: promise.promise_title, status: 'error', error: err.message });
+        }
+
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    return res.status(200).json({ success: true, results });
+  }
+
   return res.status(404).json({ error: 'Endpoint não encontrado', path });
 }
