@@ -59,7 +59,7 @@ export default function Ranking() {
     try {
       setLoading(true);
       
-      const response = await fetch('/api/politicians/ranking?includeInactive=true');
+       const response = await fetch('/api/politicians/ranking');
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Erro na API');
