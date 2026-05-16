@@ -265,8 +265,7 @@ export default async function handler(req, res) {
           previous_status: promise.status || 'pendente',
           new_status: frontendStatus,
           previous_score: promise.fulfillment_score || 0,
-          new_score: evaluation.fulfillment_score,
-          evaluation_type: 'ai_auto'
+          new_score: evaluation.fulfillment_score
         });
         if (!shErr) {
           results.status_history_inserted++;
@@ -301,7 +300,6 @@ export default async function handler(req, res) {
           action: 'autonomous_seed_evaluation',
           table_name: 'promises',
           record_id: promise.id,
-          performed_by: 'autonomous_seed',
           details: JSON.stringify({
             promise_title: promise.promise_title,
             politician: promise.politician_name,
