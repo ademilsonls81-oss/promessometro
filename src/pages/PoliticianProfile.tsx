@@ -145,11 +145,12 @@ export default function PoliticianProfile() {
           promise_description: p.promise_description || p.description || null,
           data_promessa: p.data_promessa || null,
           category: p.category,
-          status: p.status,
+          status: p.evaluation?.status || p.status,
           evidence: p.evidence || null,
           source_link: p.source_link || p.source_doc_url || null,
-          fulfillment_score: p.fulfillment_score || 0,
-          created_at: p.created_at
+          fulfillment_score: p.evaluation?.fulfillment_score || p.fulfillment_score || 0,
+          created_at: p.created_at,
+          evaluation: p.evaluation || null
         }))
       });
       setError(null);

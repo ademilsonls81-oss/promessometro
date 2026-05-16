@@ -58,6 +58,13 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
     icon: <CheckCircle className="w-5 h-5" />,
     description: "A promessa foi concretizada com evidências verificáveis"
   },
+  parcial: { 
+    label: "Parcialmente Cumprida", 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10 border-yellow-500/30",
+    icon: <Minus className="w-5 h-5" />,
+    description: "Houve progresso, mas a promessa não foi completamente atendida"
+  },
   parcialmente_cumprida: { 
     label: "Parcialmente Cumprida", 
     color: "text-yellow-400", 
@@ -66,18 +73,32 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
     description: "Houve progresso, mas a promessa não foi completamente atendida"
   },
   em_andamento: { 
-    label: "Em Andamento", 
-    color: "text-blue-400", 
-    bg: "bg-blue-500/10 border-blue-500/30",
+    label: "Parcialmente Cumprida", 
+    color: "text-yellow-400", 
+    bg: "bg-yellow-500/10 border-yellow-500/30",
     icon: <TrendingUp className="w-5 h-5" />,
     description: "A promessa está em execução, com ações verificáveis em curso"
   },
+  pendente: { 
+    label: "Pendente", 
+    color: "text-gray-400", 
+    bg: "bg-gray-500/10 border-gray-500/30",
+    icon: <Clock className="w-5 h-5" />,
+    description: "A promessa ainda não foi avaliada ou está aguardando evidências"
+  },
   nao_iniciada: { 
-    label: "Não Iniciada", 
+    label: "Pendente", 
     color: "text-gray-400", 
     bg: "bg-gray-500/10 border-gray-500/30",
     icon: <Clock className="w-5 h-5" />,
     description: "Não foram encontradas ações relacionadas à promessa"
+  },
+  quebrada: { 
+    label: "Descumprida", 
+    color: "text-red-400", 
+    bg: "bg-red-500/10 border-red-500/30",
+    icon: <XCircle className="w-5 h-5" />,
+    description: "A promessa foi explicitamente descumprida ou houve ação contrária"
   },
   descumprida: { 
     label: "Descumprida", 

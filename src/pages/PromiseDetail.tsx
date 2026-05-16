@@ -114,29 +114,52 @@ export default function PromiseDetail() {
   useEffect(() => {
     if (promise && showEvaluation && !explanation) {
       setLoadingExplanation(true);
-      supabase
-        .from("promise_explanations")
-        .select("*")
-        .eq("promise_id", promise.id)
-        .order("gerado_em", { ascending: false })
-        .limit(1)
-        .single()
-        .then(({ data, error }) => {
-          if (data) {
-            setExplanation(data);
-          } else if (error?.code !== "PGRST116") {
-            supabase
-              .from("promise_explanations")
-              .select("*")
-              .eq("promise_id", promise.id)
-              .order("gerado_em", { ascending: false })
-              .limit(1)
-              .single()
-              .then(({ data: fallback }) => setExplanation(fallback))
-              .catch(console.error);
+      fetch(`/api/evaluate/${promise.id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.has_evaluation) {
+            setExplanation({
+              status: data.status,
+              fulfillment_score: data.score,
+              criterio_aplicado: data.criteria,
+              justificativa: data.justification,
+              evidencias_usadas: data.sources,
+              o_que_falta: data.what_is_missing,
+              o_que_foi_feito: data.what_was_done,
+              confianca: data.confidence / 100,
+              modelo_ia: data.model,
+              gerado_em: data.evaluated_at
+            });
+          } else {
+            // Fallback - criar evaluation básica do status da promessa
+            setExplanation({
+              status: promise.status,
+              fulfillment_score: promise.fulfillment_score,
+              criterio_aplicado: 'status_herdado',
+              justificativa: promise.ai_evaluation || 'Aguardando avaliação completa',
+              evidencias_usadas: promise.evidences_used || [],
+              o_que_falta: 'Avaliação detalhada pendente',
+              o_que_foi_feito: 'Status herdado do registro original',
+              confianca: 0.3,
+              modelo_ia: 'heranca-v1',
+              gerado_em: promise.last_verified_at || promise.created_at
+            });
           }
         })
-        .catch(console.error)
+        .catch(() => {
+          setExplanation({
+            status: promise.status,
+            fulfillment_score: promise.fulfillment_score,
+            criterio_aplicado: 'fallback_local',
+            justificativa: promise.ai_evaluation || 'Dados carregados diretamente da promessa',
+            evidencias_usadas: promise.evidences_used || [],
+            o_que_falta: 'Avaliação via servidor indisponível',
+            o_que_foi_feito: 'Dados locais',
+            confianca: 0.2,
+            modelo_ia: 'fallback-v1',
+            gerado_em: promise.created_at
+          });
+        })
         .finally(() => setLoadingExplanation(false));
     }
   }, [promise, showEvaluation]);

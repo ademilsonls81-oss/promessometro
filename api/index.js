@@ -12,6 +12,16 @@ function toSlug(name) {
     .replace(/(^-|-$)/g, '');
 }
 
+const STATUS_MAP = {
+  'cumprida': 'cumprida', 'parcialmente_cumprida': 'parcial', 'em_andamento': 'parcial',
+  'nao_iniciada': 'pendente', 'nao_classificada': 'pendente', 'pendente': 'pendente',
+  'descumprida': 'quebrada', 'parcial': 'parcial', 'quebrada': 'quebrada'
+};
+
+const STATUS_SCORE_RANGES = {
+  cumprida: [80, 100], parcial: [40, 79], pendente: [0, 39], quebrada: [0, 0]
+};
+
 function extractPositionFromSource(source) {
   if (!source) return null;
   const sourceLower = source.toLowerCase();
@@ -40,45 +50,66 @@ export default async function handler(req, res) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
-    const { data: promises, error: promError } = await supabase
-      .from('promises')
-      .select('politician_id, politician_name, status, fulfillment_score');
-
-    if (promError) return res.status(500).json({ error: promError.message });
-
-    const statsMap = {};
-    (promises || []).forEach(p => {
-      const id = p.politician_id || p.politician_name;
-      if (!statsMap[id]) {
-        statsMap[id] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, name: p.politician_name };
-      }
-      statsMap[id].total++;
-      if (p.status === 'cumprida') statsMap[id].fulfilled++;
-      else if (p.status === 'parcialmente_cumprida' || p.status === 'parcial') statsMap[id].partial++;
-      else if (p.status === 'descumprida') statsMap[id].broken++;
-      else statsMap[id].pending++;
-    });
-
     let query = supabase.from('politicians').select('id, name, role, state, party, slug, photo_url, is_active');
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
     const { data: politicians, error: polError } = await query;
-
     if (polError) return res.status(500).json({ error: polError.message });
 
+    const { data: evaluations } = await supabase
+      .from('promise_explanations')
+      .select('promise_id, status, fulfillment_score, confianca')
+      .eq('is_latest', true);
+
+    const { data: promises } = await supabase
+      .from('promises')
+      .select('id, politician_id, politician_name');
+
+    const evalByPromise = {};
+    (evaluations || []).forEach(e => { evalByPromise[e.promise_id] = e; });
+
+    const promiseByPol = {};
+    (promises || []).forEach(p => {
+      const polId = p.politician_id || p.politician_name;
+      if (!promiseByPol[polId]) promiseByPol[polId] = [];
+      promiseByPol[polId].push({ ...p, evaluation: evalByPromise[p.id] || null });
+    });
+
     const ranking = (politicians || []).map(pol => {
-      const stats = statsMap[pol.id] || statsMap[pol.name] || { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0 };
+      const polPromises = promiseByPol[pol.id] || promiseByPol[pol.name] || [];
+      const evaluated = polPromises.filter(p => p.evaluation);
+      const stats = {
+        fulfilled: evaluated.filter(e => e.evaluation.status === 'cumprida').length,
+        partial: evaluated.filter(e => e.evaluation.status === 'parcial').length,
+        broken: evaluated.filter(e => e.evaluation.status === 'quebrada').length,
+        pending: evaluated.filter(e => e.evaluation.status === 'pendente').length,
+        total: polPromises.length,
+        without_evaluation: polPromises.length - evaluated.length
+      };
+      const avgScore = evaluated.length > 0
+        ? Math.round(evaluated.reduce((sum, e) => sum + (e.evaluation.fulfillment_score || 0), 0) / evaluated.length)
+        : 0;
+      const avgConfidence = evaluated.length > 0
+        ? Math.round(evaluated.reduce((sum, e) => sum + ((e.evaluation.confianca || 0) * 100), 0) / evaluated.length)
+        : 0;
+      const evalPercentage = evaluated.length > 0
+        ? Math.round((evaluated.filter(e => e.evaluation.status === 'cumprida').length
+          + evaluated.filter(e => e.evaluation.status === 'parcial').length * 0.5) / evaluated.length * 100)
+        : 0;
+
       return {
         ...pol,
         stats,
-        percentage: stats.total > 0 ? Math.round((stats.fulfilled + stats.partial * 0.5) / stats.total * 100) : 0,
-        promise_count: stats.total
+        percentage: evalPercentage,
+        avg_score: avgScore,
+        avg_confidence: avgConfidence,
+        promise_count: polPromises.length,
+        evaluated_count: evaluated.length
       };
     }).filter(p => p.promise_count > 0);
 
     ranking.sort((a, b) => b.percentage - a.percentage);
-
     return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
   }
 
@@ -115,38 +146,49 @@ export default async function handler(req, res) {
 
     if (promError) return res.status(500).json({ error: promError.message });
 
-    // Buscar evidências separadamente se houver promessas
-    let promisesWithEvidences = promises || [];
+    // Buscar evaluations para todas as promessas
+    let promisesWithEval = promises || [];
     if (promises && promises.length > 0) {
       const promiseIds = promises.map(p => p.id);
-      const { data: evidences } = await supabase
-        .from('promise_evidences')
-        .select('*')
-        .in('promise_id', promiseIds);
-      
-      if (evidences) {
-        promisesWithEvidences = promises.map(p => ({
-          ...p,
-          promise_evidences: evidences.filter(e => e.promise_id === p.id)
-        }));
-      }
+
+      const [{ data: evaluations }, { data: evidences }] = await Promise.all([
+        supabase.from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true),
+        supabase.from('promise_evidences').select('*').in('promise_id', promiseIds)
+      ]);
+
+      const evalMap = {};
+      (evaluations || []).forEach(e => { evalMap[e.promise_id] = e; });
+
+      promisesWithEval = promises.map(p => ({
+        ...p,
+        evaluation: evalMap[p.id] || null,
+        promise_evidences: (evidences || []).filter(e => e.promise_id === p.id)
+      }));
     }
-    
-    const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: promises?.length || 0 };
-    (promises || []).forEach(p => {
-      if (p.status === 'cumprida') stats.fulfilled++;
-      else if (p.status === 'parcialmente_cumprida' || p.status === 'parcial') stats.partial++;
-      else if (p.status === 'descumprida') stats.broken++;
-      else stats.pending++;
+
+    // Stats baseados nas evaluations (fonte única da verdade)
+    const stats = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, without_evaluation: 0 };
+    let totalScore = 0;
+    let evaluatedCount = 0;
+    (promisesWithEval || []).forEach(p => {
+      stats.total++;
+      const evalStatus = p.evaluation?.status || p.status;
+      if (!p.evaluation) { stats.without_evaluation++; }
+      if (evalStatus === 'cumprida') { stats.fulfilled++; totalScore += p.evaluation?.fulfillment_score || 95; evaluatedCount++; }
+      else if (evalStatus === 'parcial') { stats.partial++; totalScore += p.evaluation?.fulfillment_score || 50; evaluatedCount++; }
+      else if (evalStatus === 'quebrada') { stats.broken++; totalScore += 0; evaluatedCount++; }
+      else { stats.pending++; if (p.evaluation) { totalScore += p.evaluation?.fulfillment_score || 20; evaluatedCount++; } }
     });
     
-    const percentage = stats.total > 0 ? Math.round((stats.fulfilled / stats.total) * 100) : 0;
+    const avgScore = evaluatedCount > 0 ? Math.round(totalScore / evaluatedCount) : 0;
+    const percentage = stats.total > 0 ? Math.round(((stats.fulfilled + stats.partial * 0.5) / stats.total) * 100) : 0;
     
     return res.status(200).json({ 
       politician,
       stats, 
       percentage,
-      promises: promisesWithEvidences
+      avg_score: avgScore,
+      promises: promisesWithEval
     });
   }
 
@@ -274,6 +316,117 @@ export default async function handler(req, res) {
       }
 
       return res.status(201).json({ success: true, data: inserted });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (path.startsWith('/api/evaluate/') && method === 'GET') {
+    const promiseId = path.replace('/api/evaluate/', '');
+    if (!promiseId) return res.status(400).json({ error: 'promiseId é obrigatório' });
+
+    const { data: evaluation, error } = await supabase
+      .from('promise_explanations')
+      .select('*')
+      .eq('promise_id', promiseId)
+      .eq('is_latest', true)
+      .single();
+
+    if (error || !evaluation) {
+      const { data: promise } = await supabase
+        .from('promises')
+        .select('id, status, fulfillment_score, ai_evaluation, evidences_used')
+        .eq('id', promiseId)
+        .single();
+
+      if (!promise) return res.status(404).json({ error: 'Promessa não encontrada' });
+
+      return res.status(200).json({
+        promise_id: promiseId,
+        status: promise.status || 'pendente',
+        score: promise.fulfillment_score ?? 50,
+        confidence: 0,
+        justification: promise.ai_evaluation || 'Aguardando avaliação completa',
+        sources: promise.evidences_used || [],
+        evaluated_at: null,
+        is_fresh: false,
+        has_evaluation: false
+      });
+    }
+
+    return res.status(200).json({
+      promise_id: promiseId,
+      status: evaluation.status,
+      score: evaluation.fulfillment_score,
+      confidence: (evaluation.confianca || 0) * 100,
+      justification: evaluation.justificativa || '',
+      sources: evaluation.evidencias_usadas || [],
+      evaluated_at: evaluation.gerado_em,
+      is_fresh: true,
+      has_evaluation: true,
+      criteria: evaluation.criterio_aplicado,
+      what_was_done: evaluation.o_que_foi_feito,
+      what_is_missing: evaluation.o_que_falta,
+      model: evaluation.modelo_ia
+    });
+  }
+
+  if (path === '/api/batch-evaluate' && method === 'POST') {
+    try {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      await new Promise(resolve => req.on('end', resolve));
+      const { limit = 50 } = JSON.parse(body || '{}');
+
+      const { data: promises } = await supabase
+        .from('promises')
+        .select('id, promise_title, politician_name, category, status, fulfillment_score')
+        .order('last_verified_at', { ascending: nullsFirst: true })
+        .limit(limit);
+
+      if (!promises || promises.length === 0) {
+        return res.status(200).json({ evaluated: 0, message: 'Nenhuma promessa para avaliar' });
+      }
+
+      const results = [];
+      for (const p of promises) {
+        const { data: evalExists } = await supabase
+          .from('promise_explanations')
+          .select('id')
+          .eq('promise_id', p.id)
+          .eq('is_latest', true)
+          .single();
+
+        if (evalExists) { results.push({ id: p.id, status: 'already_evaluated' }); continue; }
+
+        const statusMap = {
+          'cumprida': { status: 'cumprida', score: 85, confianca: 0.75, justification: 'Status herdado do registro original. Aguardando avaliação por IA.' },
+          'parcial': { status: 'parcial', score: 50, confianca: 0.5, justification: 'Status herdado. Avaliação parcial baseada em dados disponíveis.' },
+          'pendente': { status: 'pendente', score: 20, confianca: 0.3, justification: 'Promessa registrada. Aguardando evidências para avaliação completa.' },
+          'quebrada': { status: 'quebrada', score: 0, confianca: 0.8, justification: 'Status herdado. Promessa registrada como não cumprida.' }
+        };
+
+        const eval = statusMap[p.status] || statusMap['pendente'];
+        await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', p.id);
+        await supabase.from('promise_explanations').insert({
+          promise_id: p.id,
+          status: eval.status,
+          fulfillment_score: eval.score,
+          criterio_aplicado: 'batch-heranca',
+          justificativa: eval.justification,
+          evidencias_usadas: [],
+          o_que_falta: 'Avaliação detalhada pendente',
+          o_que_foi_feito: 'Avaliação herdada do status original',
+          confianca: eval.confianca,
+          modelo_ia: 'batch-v1',
+          is_latest: true,
+          gerado_em: new Date().toISOString()
+        });
+
+        results.push({ id: p.id, status: eval.status, score: eval.score });
+      }
+
+      return res.status(200).json({ evaluated: results.length, results });
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
