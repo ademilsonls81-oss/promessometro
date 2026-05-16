@@ -36,6 +36,17 @@ function extractPositionFromSource(source) {
   return null;
 }
 
+function normalizeStatus(status) {
+  if (!status) return 'pendente';
+  const map = {
+    'cumprida': 'cumprida', 'fulfilled': 'cumprida', 'realizada': 'cumprida',
+    'parcial': 'parcial', 'parcialmente_cumprida': 'parcial', 'em_andamento': 'parcial', 'partial': 'parcial',
+    'pendente': 'pendente', 'nao_iniciada': 'pendente', 'nao_classificada': 'pendente',
+    'quebrada': 'quebrada', 'descumprida': 'quebrada', 'broken': 'quebrada', 'nao_cumprida': 'quebrada'
+  };
+  return map[status] || 'pendente';
+}
+
 export default async function handler(req, res) {
   const path = req.url;
   const method = req.method;
@@ -47,70 +58,72 @@ export default async function handler(req, res) {
   }
 
   if (path.startsWith('/api/politicians/ranking') && method === 'GET') {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const includeInactive = url.searchParams.get('includeInactive') === 'true';
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
-    let query = supabase.from('politicians').select('id, name, role, state, party, slug, photo_url, is_active');
-    if (!includeInactive) {
-      query = query.eq('is_active', true);
+      let query = supabase.from('politicians').select('id, name, role, state, party, slug, photo_url, is_active');
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+      const { data: politicians, error: polError } = await query;
+      if (polError) return res.status(500).json({ error: polError.message });
+
+      const { data: evaluations } = await supabase
+        .from('promise_explanations')
+        .select('promise_id, status, fulfillment_score, confianca')
+        .eq('is_latest', true);
+
+      const { data: promises } = await supabase
+        .from('promises')
+        .select('id, politician_id, politician_name, status, fulfillment_score');
+
+      const evalByPromise = {};
+      (evaluations || []).forEach(e => { evalByPromise[e.promise_id] = e; });
+
+      const promiseByPol = {};
+      (promises || []).forEach(p => {
+        const polId = p.politician_id || p.politician_name;
+        if (!promiseByPol[polId]) promiseByPol[polId] = [];
+        promiseByPol[polId].push(p);
+      });
+
+      const ranking = (politicians || []).map(pol => {
+        const polPromises = promiseByPol[pol.id] || promiseByPol[pol.name] || [];
+        let fulfilled = 0, partial = 0, broken = 0, pending = 0;
+        let totalScore = 0, evaluatedCount = 0;
+
+        for (const p of polPromises) {
+          const ev = evalByPromise[p.id];
+          const status = ev ? normalizeStatus(ev.status) : normalizeStatus(p.status);
+          const score = ev ? (ev.fulfillment_score || 0) : (p.fulfillment_score || 0);
+
+          if (status === 'cumprida') { fulfilled++; totalScore += score; evaluatedCount++; }
+          else if (status === 'parcial') { partial++; totalScore += score; evaluatedCount++; }
+          else if (status === 'quebrada') { broken++; totalScore += 0; evaluatedCount++; }
+          else { pending++; if (ev) { totalScore += score; evaluatedCount++; } }
+        }
+
+        const avgScore = evaluatedCount > 0 ? Math.round(totalScore / evaluatedCount) : 0;
+        const evalCount = fulfilled + partial + broken + pending;
+        const evalPercentage = evalCount > 0
+          ? Math.round((fulfilled + partial * 0.5) / evalCount * 100)
+          : 0;
+
+        return {
+          ...pol,
+          stats: { fulfilled, partial, broken, pending, total: polPromises.length, without_evaluation: polPromises.filter(p => !evalByPromise[p.id]).length },
+          percentage: evalPercentage,
+          avg_score: avgScore,
+          promise_count: polPromises.length
+        };
+      }).filter(p => p.promise_count > 0);
+
+      ranking.sort((a, b) => b.percentage - a.percentage);
+      return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
+    } catch (err) {
+      return res.status(500).json({ error: err.message, detail: 'Erro ao processar ranking' });
     }
-    const { data: politicians, error: polError } = await query;
-    if (polError) return res.status(500).json({ error: polError.message });
-
-    const { data: evaluations } = await supabase
-      .from('promise_explanations')
-      .select('promise_id, status, fulfillment_score, confianca')
-      .eq('is_latest', true);
-
-    const { data: promises } = await supabase
-      .from('promises')
-      .select('id, politician_id, politician_name');
-
-    const evalByPromise = {};
-    (evaluations || []).forEach(e => { evalByPromise[e.promise_id] = e; });
-
-    const promiseByPol = {};
-    (promises || []).forEach(p => {
-      const polId = p.politician_id || p.politician_name;
-      if (!promiseByPol[polId]) promiseByPol[polId] = [];
-      promiseByPol[polId].push({ ...p, evaluation: evalByPromise[p.id] || null });
-    });
-
-    const ranking = (politicians || []).map(pol => {
-      const polPromises = promiseByPol[pol.id] || promiseByPol[pol.name] || [];
-      const evaluated = polPromises.filter(p => p.evaluation);
-      const stats = {
-        fulfilled: evaluated.filter(e => e.evaluation.status === 'cumprida').length,
-        partial: evaluated.filter(e => e.evaluation.status === 'parcial').length,
-        broken: evaluated.filter(e => e.evaluation.status === 'quebrada').length,
-        pending: evaluated.filter(e => e.evaluation.status === 'pendente').length,
-        total: polPromises.length,
-        without_evaluation: polPromises.length - evaluated.length
-      };
-      const avgScore = evaluated.length > 0
-        ? Math.round(evaluated.reduce((sum, e) => sum + (e.evaluation.fulfillment_score || 0), 0) / evaluated.length)
-        : 0;
-      const avgConfidence = evaluated.length > 0
-        ? Math.round(evaluated.reduce((sum, e) => sum + ((e.evaluation.confianca || 0) * 100), 0) / evaluated.length)
-        : 0;
-      const evalPercentage = evaluated.length > 0
-        ? Math.round((evaluated.filter(e => e.evaluation.status === 'cumprida').length
-          + evaluated.filter(e => e.evaluation.status === 'parcial').length * 0.5) / evaluated.length * 100)
-        : 0;
-
-      return {
-        ...pol,
-        stats,
-        percentage: evalPercentage,
-        avg_score: avgScore,
-        avg_confidence: avgConfidence,
-        promise_count: polPromises.length,
-        evaluated_count: evaluated.length
-      };
-    }).filter(p => p.promise_count > 0);
-
-    ranking.sort((a, b) => b.percentage - a.percentage);
-    return res.status(200).json({ ranking: ranking.slice(0, 50), total: ranking.length });
   }
 
   if (path === '/api/stats' && method === 'GET') {
@@ -381,7 +394,7 @@ export default async function handler(req, res) {
       const { data: promises } = await supabase
         .from('promises')
         .select('id, promise_title, politician_name, category, status, fulfillment_score')
-        .order('last_verified_at', { ascending: nullsFirst: true })
+        .order('last_verified_at', { ascending: false, nullsFirst: true })
         .limit(limit);
 
       if (!promises || promises.length === 0) {
