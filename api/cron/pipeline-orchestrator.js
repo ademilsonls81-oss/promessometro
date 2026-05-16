@@ -183,6 +183,7 @@ function normalizeUrl(url) {
 }
 
 async function searchAI(query, promise, includeDomains = []) {
+  console.log(`[Pipeline:searchAI] Processing promise: ${promise.promise_title}`);
   const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const BASE = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
 
