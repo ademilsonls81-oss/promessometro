@@ -44,6 +44,10 @@
             "destination": "/api/sitemap.js"
         },
         {
+            "source": "/api/force-reavaliation",
+            "destination": "/api/index.js"
+        },
+        {
             "source": "/api/(.*)",
             "destination": "/api/index.js"
         },
