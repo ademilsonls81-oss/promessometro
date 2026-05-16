@@ -107,16 +107,36 @@ async function evaluateWithAI(promise, evidences) {
   const originalStatus = promise.status || 'pendente';
   const originalScore = promise.fulfillment_score ?? 50;
 
-  if (!GROQ) {
-    const clampedScore = clampScore(originalStatus, originalScore);
-    return {
-      status: originalStatus,
-      fulfillment_score: clampedScore,
-      justificativa: `Avaliacao herdada do status original (${originalStatus}, score ${clampedScore}). Groq API key nao configurada.`,
-      evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
-      needsReview: true
-    };
-  }
+   if (!GROQ) {
+     // Avaliação básica baseada nas evidências encontradas quando IA não disponível
+     let basicScore = 50;
+     let basicStatus = 'nao_iniciada';
+     
+     if (evidences.length > 0) {
+       // Conta evidências credíveis
+       const credibleEvidences = evidences.filter(e => e.credible);
+       
+       if (credibleEvidences.length >= 3) {
+         basicScore = 85; // Boa quantidade de evidências credíveis
+         basicStatus = 'cumprida';
+       } else if (credibleEvidences.length > 0) {
+         basicScore = 60; // Algumas evidências credíveis
+         basicStatus = 'parcial';
+       } else if (evidences.length > 0) {
+         basicScore = 40; // Evidências não credíveis
+         basicStatus = 'pendente';
+       }
+     }
+     
+     const clampedScore = clampScore(basicStatus, basicScore);
+     return {
+       status: basicStatus,
+       fulfillment_score: clampedScore,
+       justificativa: `Avaliacao básica baseada em ${evidences.length} evidências encontradas (${evidences.filter(e => e.credible).length} credíveis). Groq API key nao configurada para avaliação detalhada.`,
+       evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
+       needsReview: true
+     };
+   }
 
   const evText = evidences.length > 0
     ? evidences.map(e => `[${e.fonte || extractHostname(e.url)}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n')
