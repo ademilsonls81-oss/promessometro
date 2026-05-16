@@ -50,14 +50,14 @@ export default async function handler(req, res) {
       try {
         const serperKey = process.env.SERPER_API_KEY;
         if (serperKey) {
-          const r = await fetch('https://google.serper.dev/news', {
+          const r = await fetch('https://google.serper.dev/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-API-KEY': serperKey },
-            body: JSON.stringify({ q: `${promise.politician_name} ${promise.promise_title}`, gl: 'br', hl: 'pt', num: 3 })
+            body: JSON.stringify({ q: `${promise.politician_name} ${promise.promise_title}`, gl: 'br', hl: 'pt-br' })
           });
           if (r.ok) {
             const d = await r.json();
-            const results = d.news || d.organic || [];
+            const results = d.organic || [];
             for (const ev of results) {
               discovered++;
               const { error: inErr } = await supabase.from('promise_evidences').insert({

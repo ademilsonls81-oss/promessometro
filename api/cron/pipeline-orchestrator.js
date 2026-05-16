@@ -61,7 +61,7 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
   const SERPER_KEY = process.env.SERPER_API_KEY;
   if (SERPER_KEY) {
     try {
-      const r = await fetch('https://google.serper.dev/news', {
+      const r = await fetch('https://google.serper.dev/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,13 +70,12 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
         body: JSON.stringify({
           q: query,
           gl: 'br',
-          hl: 'pt',
-          num: maxResults
+          hl: 'pt-br'
         })
       });
       if (r.ok) {
         const d = await r.json();
-        const results = (d.news || d.organic || []);
+        const results = d.organic || [];
         console.log(`[Pipeline:Serper] ${results.length} resultados para: ${query}`);
         return results.map(r => ({
           descricao: r.snippet || r.title || '',

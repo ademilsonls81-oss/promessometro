@@ -63,14 +63,14 @@ async function evaluateWithAI(promise) {
 
   if (SERPER_API_KEY) {
     try {
-      const res = await fetch('https://google.serper.dev/news', {
+      const res = await fetch('https://google.serper.dev/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-        body: JSON.stringify({ q: `${promise.politician_name || ''} ${promise.promise_title || ''}`, gl: 'br', hl: 'pt', num: 5 })
+        body: JSON.stringify({ q: `${promise.politician_name || ''} ${promise.promise_title || ''}`, gl: 'br', hl: 'pt-br' })
       });
       if (res.ok) {
         const d = await res.json();
-        const results = d.news || d.organic || [];
+        const results = d.organic || [];
         evidences.push(...results.map(r => ({ descricao: r.snippet || '', fonte: r.source || '', url: r.link || '' })));
       }
     } catch (_) { }
