@@ -106,6 +106,46 @@ export default async function handler(req, res) {
       return res.json({ total_politicians: polCount || 0, total_promises: promCount || 0 });
     }
 
+    if (path.startsWith('/api/politician/') && method === 'GET') {
+      const cleanPath = path.split('?')[0];
+      const slug = cleanPath.replace('/api/politician/', '');
+      
+      const { data: pol, error: polErr } = await db().from('politicians').select('*').eq('slug', slug).single();
+      if (polErr || !pol) return res.status(404).json({ error: 'Politico nao encontrado' });
+
+      const { data: promises } = await db().from('promises').select('*').eq('politician_id', pol.id).order('created_at', { ascending: false });
+
+      const { data: evaluations } = promises?.length
+        ? await db().from('promise_explanations').select('*').in('promise_id', promises.map(p => p.id)).eq('is_latest', true)
+        : { data: [] };
+
+      const evalMap = {}; (evaluations || []).forEach(e => evalMap[e.promise_id] = e);
+      let f = 0, pa = 0, b = 0, pe = 0;
+      const promisesWith = (promises || []).map(p => {
+        const ev = evalMap[p.id];
+        const s = ev ? normStatus(ev.status) : normStatus(p.status);
+        if (s === 'cumprida') f++; else if (s === 'parcial') pa++; else if (s === 'quebrada') b++; else pe++;
+        return { ...p, evaluation: ev || null };
+      });
+      const total = promisesWith.length;
+      const pct = total > 0 ? Math.round(((f + pa * 0.5) / total) * 100) : 0;
+
+      return res.json({ politician: pol, stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total }, percentage: pct, promises: promisesWith });
+    }
+
+    if (path === '/api/promises/submit' && method === 'POST') {
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const d = JSON.parse(body);
+      if (!d.politician_name || !d.promise_title) return res.status(400).json({ error: 'Nome e titulo obrigatorios' });
+      const { data, error } = await db().from('promises').insert({
+        politician_name: d.politician_name.trim(), promise_title: d.promise_title.trim(),
+        promise_description: d.promise_description?.trim() || null, category: d.category || 'Outros',
+        source_link: d.source_link || null, status: 'pendente', fulfillment_score: 50
+      }).select().single();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(201).json({ data });
+    }
+
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });
