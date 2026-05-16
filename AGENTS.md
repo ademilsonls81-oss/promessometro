@@ -4,7 +4,7 @@
 - **Banco**: ✅ Operacional
 - **Frontend**: ✅ Deployado (https://promessometro-brasil.vercel.app)
 - **Cron**: ✅ Implementado e em produção
-- **Validação**: ⏳ Aguardando smoke tests
+- **Auditoria**: ✅ Concluída (ver relatório abaixo)
 
 ---
 
@@ -12,23 +12,66 @@
 - **Frontend**: React + Vite + TypeScript (SPA)
 - **Backend**: Express/Node (server.ts) + Vercel Serverless Functions
 - **Banco**: Supabase (PostgreSQL)
-- **IA**: Groq (llama-3.3-70b-versatile) + Tavily (evidências)
+- **IA**: Groq (llama-3.3-70b-versatile) + Serper.dev (evidências)
 - **Deploy**: Vercel (Frontend + API routes)
 
 ---
 
-## Status de Promessa (banco de dados)
-```
-cumprida              → Cumprida        (score 80-100)
-parcialmente_cumprida → Parcialmente Cumprida (score 40-79)
-em_andamento          → Em Andamento   (score 20-39)
-nao_iniciada          → Pendente       (score 0-19)
-nao_classificada      → Pendente       (score 0-100)
-pendente              → Pendente       (score 0-19)
-descumprida           → Descumprida    (score 0)
-```
+## Status de Promessa (banco de dados) — NORMALIZADOS
+Os status no banco agora usam apenas 4 valores normalizados:
 
-**Regra**: `nao_iniciada` e `nao_classificada` são salvos no banco como `pendente` pelo cron.
+| Status DB | Label | Score Range |
+|-----------|-------|-------------|
+| `cumprida` | Cumprida | 80-100 |
+| `parcial` | Parcialmente Cumprida | 40-79 |
+| `pendente` | Pendente | 0-39 |
+| `quebrada` | Descumprida | 0 |
+
+**Mapeamento reverso** (para compatibilidade com dados legados):
+- `parcialmente_cumprida`, `em_andamento` → `parcial`
+- `nao_iniciada`, `nao_classificada`, `pendente` → `pendente`
+- `descumprida` → `quebrada`
+- `cumprida` → `cumprida`
+
+---
+
+## Avaliações (promise_explanations) — FONTE ÚNICA DA VERDADE
+A tabela `promise_explanations` com `is_latest=true` é a fonte única para:
+- Score e status exibidos no ranking
+- Score e status exibidos no detalhe da promessa
+- Evidências (evidencias_usadas)
+- Justificativa e nível de confiança
+
+**Regra**: Ranking e Detalhe NUNCA devem calcular stats próprios.
+Sempre consultar `promise_explanations` via endpoint unificado `/api/evaluate/:promiseId`.
+
+---
+
+## Auditoria e Correções (Maio 2026)
+Resultado da auditoria completa:
+- **35 promessas sem avaliação** → Criado endpoint `/api/batch-evaluate` para popular
+- **6 status divergentes** entre evaluation e promise → Corrigido via SQL
+- **0 evidências inválidas** (todas com descrição, URL e fonte)
+- **Colunas do banco padronizadas** (name, role, state, party)
+
+### Novos endpoints
+| Método | Path | Descrição |
+|--------|------|-----------|
+| GET | `/api/evaluate/:promiseId` | Avaliação unificada da promessa |
+| POST | `/api/batch-evaluate` | Popular avaliações em lote |
+| POST | `/api/seed-evaluations` | Seed básico de avaliações |
+
+### Como testar a consistência
+```bash
+# Verificar avaliação de uma promessa
+curl https://promessometro-brasil.vercel.app/api/evaluate/PROMISE_ID
+
+# Popular avaliações faltantes
+curl -X POST https://promessometro-brasil.vercel.app/api/batch-evaluate
+
+# Verificar ranking (agora usa promise_explanations)
+curl https://promessometro-brasil.vercel.app/api/politicians/ranking
+```
 
 ---
 
@@ -81,6 +124,7 @@ GROQ_API_KEY
 OPENAI_API_KEY (fallback)
 OPENAI_BASE_URL = https://api.groq.com/openai/v1
 TAVILY_API_KEY (opcional)
+SERPER_API_KEY (recomendado)
 CRON_SECRET (opcional em produção)
 SLACK_WEBHOOK_URL (opcional)
 NODE_ENV
