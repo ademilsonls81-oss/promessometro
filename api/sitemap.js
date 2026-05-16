@@ -1,12 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_S_URL || 'https://liqutcjzzrqstivvfele.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTgwMzYsImV4cCI6MjA5MTA3NDAzNn0.deYYQjqFEAkJu9zRowDNQsfTNw99RR9aMqnKeb8-Cuis';
-const BASE_URL = process.env.VITE_APP_URL || 'https://promessometro-brasil.vercel.app';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-function db() {
-  return createClient(supabaseUrl, supabaseKey);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
 }
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const BASE_URL = process.env.VITE_APP_URL || 'https://promessometro-brasil.vercel.app';
 
 function generateSlug(text) {
   return text
@@ -38,7 +40,7 @@ export default async (req, res) => {
     let promiseUrls = [];
 
     try {
-      const { data: politicians } = await db()
+      const { data: politicians } = await supabase
         .from('promises')
         .select('politician_name, updated_at')
         .limit(500);
@@ -52,7 +54,7 @@ export default async (req, res) => {
         }
       });
 
-      const { data: promises } = await db()
+      const { data: promises } = await supabase
         .from('promises')
         .select('promise_title, updated_at')
         .limit(1000);
