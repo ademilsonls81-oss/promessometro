@@ -279,6 +279,55 @@ export default async function handler(req, res) {
     }
   }
 
+  if (path === '/api/seed-evaluations' && method === 'POST') {
+    const supabaseService = createClient(
+      process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0'
+    );
+
+    const statusMap = {
+      'cumprida': { score: 90, justification: 'Promessa cumprida - ações concretas implementadas', confianca: 85 },
+      'parcial': { score: 60, justification: 'Promessa parcialmente cumprida - progresso demonstrado mas incomplete', confianca: 70 },
+      'pendente': { score: 30, justification: 'Promessa ainda em andamento ou não iniciada', confianca: 50 },
+      'quebrada': { score: 0, justification: 'Promessa não cumprida', confianca: 80 }
+    };
+
+    const { data: promises } = await supabaseService
+      .from('promises')
+      .select('id, promise_title, politician_name, status');
+
+    let seeded = 0;
+    for (const p of promises || []) {
+      const mapping = statusMap[p.status] || statusMap['pendente'];
+      const exists = await supabaseService
+        .from('promise_explanations')
+        .select('id')
+        .eq('promise_id', p.id)
+        .eq('is_latest', true)
+        .single();
+
+      if (!exists.data) {
+        await supabaseService.from('promise_explanations').insert({
+          promise_id: p.id,
+          status: p.status,
+          fulfillment_score: mapping.score,
+          criterio_aplicado: 'seed_2026',
+          justificativa: mapping.justification,
+          evidencias_usadas: [],
+          o_que_falta: p.status === 'cumprida' ? 'Completo' : 'Avaliação detalhada pendente',
+          o_que_foi_feito: mapping.justification,
+          confianca: mapping.confianca,
+          modelo_ia: 'seed-v1',
+          is_latest: true,
+          gerado_em: new Date().toISOString()
+        });
+        seeded++;
+      }
+    }
+
+    return res.status(200).json({ success: true, seeded, total: promises?.length || 0 });
+  }
+
   if (path === '/api/force-reavaliation' && method === 'POST') {
     const supabaseService = createClient(
       process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
