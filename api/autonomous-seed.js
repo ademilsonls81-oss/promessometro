@@ -237,7 +237,7 @@ export default async function handler(req, res) {
           if (!evErr) {
             results.evidences_inserted++;
           } else {
-            console.error(`[Autonomous] Evidence insert failed: ${evErr.message}`);
+            results.errors.push({ promise_id: promise.id, table: 'promise_evidences', error: evErr.message });
           }
         }
 
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
         if (!shErr) {
           results.status_history_inserted++;
         } else {
-          console.error(`[Autonomous] Status history insert failed: ${shErr.message}`);
+          results.errors.push({ promise_id: promise.id, table: 'status_history', error: shErr.message });
         }
 
         // Step 6: Insert/replace promise_explanations
@@ -293,7 +293,7 @@ export default async function handler(req, res) {
         if (!peErr) {
           results.explanations_inserted++;
         } else {
-          console.error(`[Autonomous] Explanation insert failed: ${peErr.message}`);
+          results.errors.push({ promise_id: promise.id, table: 'promise_explanations', error: peErr.message });
         }
 
         // Step 7: Insert audit_log
@@ -314,7 +314,7 @@ export default async function handler(req, res) {
         if (!alErr) {
           results.audit_logs_inserted++;
         } else {
-          console.error(`[Autonomous] Audit log insert failed: ${alErr.message}`);
+          results.errors.push({ promise_id: promise.id, table: 'audit_logs', error: alErr.message });
         }
 
         results.evaluations_completed++;
