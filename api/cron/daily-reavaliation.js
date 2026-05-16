@@ -103,7 +103,10 @@ function parseSerperDate(dateStr) {
 }
 
 async function evaluateWithAI(promise) {
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+   const apiKeyRaw = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+   const apiKey = apiKeyRaw.replace(/^YOUR_.*_KEY$/, '');
+   // Debug: log whether we have a valid key (without exposing the key itself)
+   console.log(`[DailyReavaliation] GROQ key check: raw="${apiKeyRaw.substring(0, 10)}...", valid=${!!apiKey}`);
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
   const SERPER_API_KEY = process.env.SERPER_API_KEY;
   const originalStatus = promise.status || 'pendente';

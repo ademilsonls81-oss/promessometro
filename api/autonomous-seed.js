@@ -103,7 +103,12 @@ async function searchSerper(query) {
 }
 
 async function evaluateWithAI(promise, evidences) {
-   const GROQ = (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '').replace(/^YOUR_.*_KEY$/, '');
+   const GROQ_RAW = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+   const GROQ = GROQ_RAW.replace(/^YOUR_.*_KEY$/, '');
+   // Debug: log whether we have a valid key (without exposing the key itself)
+   if (typeof window === 'undefined') { // Only in server environment
+     console.log(`[AutonomousSeed] GROQ key check: raw="${GROQ_RAW.substring(0, 10)}...", valid=${!!GROQ}`);
+   }
   const originalStatus = promise.status || 'pendente';
   const originalScore = promise.fulfillment_score ?? 50;
 
