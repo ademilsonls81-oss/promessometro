@@ -185,10 +185,50 @@ function normalizeUrl(url) {
 async function searchAI(query, promise, includeDomains = []) {
   const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const BASE = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
-  const evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, includeDomains);
+
+  const { data: dbEvidences } = await supabase
+    .from('promise_evidences')
+    .select('titulo, descricao, url, fonte, data_publicacao')
+    .eq('promise_id', promise.id)
+    .limit(10);
+
+  let evidences = [];
+  if (dbEvidences && dbEvidences.length > 0) {
+    evidences = dbEvidences.map(e => ({
+      titulo: e.titulo || e.descricao || '',
+      descricao: e.descricao || '',
+      fonte: e.fonte || '',
+      url: e.url || '',
+      data: e.data_publicacao || null,
+      credible: isCredible(e.url || ''),
+      relevance: 75,
+      credibility: isCredible(e.url || '') ? 90 : 50
+    }));
+  }
+
+  if (evidences.length === 0) {
+    evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, includeDomains);
+    for (const ev of evidences) {
+      await supabase.from('promise_evidences').insert({
+        promise_id: promise.id,
+        politician_name: promise.politician_name,
+        promise_title: promise.promise_title,
+        titulo: ev.titulo || null,
+        descricao: ev.descricao,
+        fonte: ev.fonte,
+        url: ev.url,
+        data_publicacao: ev.data,
+        tipo: ev.credible ? 'oficial' : 'jornal',
+        confiabilidade: ev.credibility,
+        discovered_at: new Date().toISOString(),
+        validated: ev.credible,
+        needs_review: !ev.credible
+      }).catch(() => {});
+    }
+  }
 
   const evText = evidences.length > 0
-    ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
+    ? evidences.map(e => `[${e.fonte}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n')
     : 'Nenhuma evidência encontrada.';
 
   const prompt = `Você é um avaliador independente de promessas políticas brasileiras.
@@ -196,7 +236,7 @@ async function searchAI(query, promise, includeDomains = []) {
 PROMESSA: ${promise.promise_title || ''}
 POLÍTICO: ${promise.politician_name || ''}
 
-EVIDÊNCIAS ENCONTRADAS:
+EVIDÊNCIAS ENCONTRADAS (USE ESTAS URLs EXATAS PARA AVALIAR):
 ${evText}
 
 CRITÉRIOS:
@@ -207,11 +247,13 @@ CRITÉRIOS:
 | nao_iniciada | 0-19 | Nenhuma ação verificável |
 | descumprida | 0 | Ação contrária ou prazo expirado |
 
+IMPORTANTE: Use APENAS as evidências acima. Cada evidência tem uma URL específica - use-a para verificar o status real da promessa.
+
 REGRAS:
 - Sem evidência com URL real: score máximo 30, status "nao_iniciada"
-- Score > 70 exige evidência verificável com URL real
-- Responda SOMENTE with JSON:
-{"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara","evidencias_usadas":[]}`;
+- Score > 70 exige evidência verificável com URL real das listadas acima
+- Responda SOMENTE com JSON estruturado:
+{"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara citing os titulos das evidencias usadas","evidencias_usadas":[{"fonte":"nome da fonte","url":"url exata da evidencia"}]}`;
 
   try {
     const r = await fetch(`${BASE}/chat/completions`, {
