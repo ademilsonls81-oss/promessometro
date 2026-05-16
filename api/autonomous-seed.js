@@ -234,7 +234,11 @@ export default async function handler(req, res) {
             validated: ev.credible,
             needs_review: !ev.credible
           });
-          if (!evErr) results.evidences_inserted++;
+          if (!evErr) {
+            results.evidences_inserted++;
+          } else {
+            console.error(`[Autonomous] Evidence insert failed: ${evErr.message}`);
+          }
         }
 
         // Step 3: Evaluate with AI
@@ -264,7 +268,11 @@ export default async function handler(req, res) {
           change_reason: evaluation.justificativa || 'Seed automatico',
           evaluation_type: 'ai_auto'
         });
-        if (!shErr) results.status_history_inserted++;
+        if (!shErr) {
+          results.status_history_inserted++;
+        } else {
+          console.error(`[Autonomous] Status history insert failed: ${shErr.message}`);
+        }
 
         // Step 6: Insert/replace promise_explanations
         await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
@@ -282,7 +290,11 @@ export default async function handler(req, res) {
           is_latest: true,
           gerado_em: startTime
         });
-        if (!peErr) results.explanations_inserted++;
+        if (!peErr) {
+          results.explanations_inserted++;
+        } else {
+          console.error(`[Autonomous] Explanation insert failed: ${peErr.message}`);
+        }
 
         // Step 7: Insert audit_log
         const { error: alErr } = await db().from('audit_logs').insert({
@@ -299,7 +311,11 @@ export default async function handler(req, res) {
             needs_human_review: evaluation.needsReview
           }
         });
-        if (!alErr) results.audit_logs_inserted++;
+        if (!alErr) {
+          results.audit_logs_inserted++;
+        } else {
+          console.error(`[Autonomous] Audit log insert failed: ${alErr.message}`);
+        }
 
         results.evaluations_completed++;
 
