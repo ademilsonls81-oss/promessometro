@@ -103,7 +103,7 @@ async function searchSerper(query) {
 }
 
 async function evaluateWithAI(promise, evidences) {
-  const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+   const GROQ = (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '').replace(/^YOUR_.*_KEY$/, '');
   const originalStatus = promise.status || 'pendente';
   const originalScore = promise.fulfillment_score ?? 50;
 
