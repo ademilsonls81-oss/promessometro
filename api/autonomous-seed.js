@@ -263,9 +263,7 @@ export default async function handler(req, res) {
         const { error: shErr } = await db().from('status_history').insert({
           promise_id: promise.id,
           previous_status: promise.status || 'pendente',
-          new_status: frontendStatus,
-          previous_score: promise.fulfillment_score || 0,
-          new_score: evaluation.fulfillment_score
+          new_status: frontendStatus
         });
         if (!shErr) {
           results.status_history_inserted++;
@@ -299,8 +297,8 @@ export default async function handler(req, res) {
         const { error: alErr } = await db().from('audit_logs').insert({
           action: 'autonomous_seed_evaluation',
           table_name: 'promises',
-          record_id: promise.id,
           details: JSON.stringify({
+            promise_id: promise.id,
             promise_title: promise.promise_title,
             politician: promise.politician_name,
             previous_status: promise.status,
