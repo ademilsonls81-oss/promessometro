@@ -56,7 +56,7 @@ export default async function handler(req, res) {
           else { pe++; if (ev) { totalScore += sc || 20; evalCount++; } }
         });
         const pct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
-        return { ...pol, stats: { f, pa, b, pe, total: list.length }, percentage: pct, promise_count: list.length };
+        return { ...pol, stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length }, percentage: pct, promise_count: list.length };
       }).filter(p => p.promise_count > 0).sort((a, b) => b.percentage - a.percentage);
 
       return res.json({ ranking: ranking.slice(0, 50), total: ranking.length });
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       return res.json({ promise_id: id, status: normStatus(p.status), score: p.fulfillment_score || 50, confidence: 0, justification: p.ai_evaluation || 'Aguardando avaliacao', sources: p.evidences_used || [], evaluated_at: null, has_evaluation: false });
     }
 
-    if (path === '/api/batch-evaluate' && method === 'POST') {
+    if (path === '/api/batch-evaluate' && (method === 'POST' || method === 'GET')) {
       const { data: promises } = await db().from('promises').select('id, status').limit(100);
       let seeded = 0;
       for (const p of promises || []) {
