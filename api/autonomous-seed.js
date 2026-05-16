@@ -221,15 +221,17 @@ export default async function handler(req, res) {
         for (const ev of evidences) {
           const { error: evErr } = await db().from('promise_evidences').insert({
             promise_id: promise.id,
-            politician_name: promise.politician_name,
-            promise_title: promise.promise_title,
-            titulo: ev.titulo || null,
+            title: ev.titulo || ev.descricao?.substring(0, 100) || null,
             description: ev.descricao || null,
-            fonte: ev.fonte || null,
             url: ev.url || null,
-            data_publicacao: ev.data || null,
-            tipo: ev.credible ? 'oficial' : 'jornal',
+            source_name: ev.fonte || null,
+            evidence_type: 'news',
+            source_type: ev.credible ? 'official' : 'press',
+            validation_status: 'pending',
+            published_at: ev.data || null,
             confiabilidade: ev.credibility,
+            relevance_score: ev.relevance || 0,
+            credibility_score: ev.credibility || 0,
             discovered_at: startTime,
             validated: ev.credible,
             needs_review: !ev.credible
@@ -264,7 +266,6 @@ export default async function handler(req, res) {
           new_status: frontendStatus,
           previous_score: promise.fulfillment_score || 0,
           new_score: evaluation.fulfillment_score,
-          changed_by: 'autonomous_seed',
           evaluation_type: 'ai_auto'
         });
         if (!shErr) {
@@ -300,12 +301,14 @@ export default async function handler(req, res) {
           action: 'autonomous_seed_evaluation',
           table_name: 'promises',
           record_id: promise.id,
-          old_data: { status: promise.status, score: promise.fulfillment_score },
-          new_data: { status: frontendStatus, score: evaluation.fulfillment_score },
           performed_by: 'autonomous_seed',
           details: JSON.stringify({
             promise_title: promise.promise_title,
             politician: promise.politician_name,
+            previous_status: promise.status,
+            new_status: frontendStatus,
+            previous_score: promise.fulfillment_score,
+            new_score: evaluation.fulfillment_score,
             evidences_count: evidences.length,
             needs_human_review: evaluation.needsReview
           })
