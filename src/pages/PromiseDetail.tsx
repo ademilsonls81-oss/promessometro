@@ -24,10 +24,12 @@ import { supabase } from "../lib/supabaseClient";
 const statusConfig: Record<string, { label: string; icon: React.ComponentType<any>; color: string; bg: string }> = {
   cumprida: { label: "Cumprida", icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10" },
   parcialmente_cumprida: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+  parcial: { label: "Parcialmente Cumprida", icon: AlertCircle, color: "text-yellow-400", bg: "bg-yellow-500/10" },
   em_andamento: { label: "Em Andamento", icon: Clock, color: "text-blue-400", bg: "bg-blue-500/10" },
   nao_iniciada: { label: "Pendente", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10" },
   pendente: { label: "Pendente", icon: Clock, color: "text-gray-400", bg: "bg-gray-500/10" },
   descumprida: { label: "Descumprida", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
+  quebrada: { label: "Descumprida", icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
   nao_classificada: { label: "Não Classificada", icon: AlertTriangle, color: "text-gray-500", bg: "bg-gray-500/10" }
 };
 

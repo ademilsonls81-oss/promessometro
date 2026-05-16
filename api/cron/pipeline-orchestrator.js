@@ -1,9 +1,20 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@db()/db()-js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0'
-);
+function db() {
+  return createClient(
+    process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://liqutcjzzrqstivvfele.db().co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcXV0Y2p6enJxc3RpdnZmZWxlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ5ODAzNiwiZXhwIjoyMDkxMDc0MDM2fQ.CEwxEeOB2CoAF0JyreovFYhU4Ibc03np8RgU6B6SiP0'
+  );
+}
+
+function extractHostname(url) {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return url.split('/')[2]?.replace('www.', '') || '';
+  }
+}
 
 const TAVILY_SOURCES = [
   'g1.globo.com', 'folha.uol.com.br', 'uol.com.br', 'estadao.com.br',
@@ -111,7 +122,7 @@ async function searchEv(query, maxResults = 8, includeDomains = []) {
         console.log(`[Pipeline:Serper] ${results.length} resultados para: ${query}`);
         return results.map(r => ({
           descricao: r.snippet || r.title || '',
-          fonte: r.source || '',
+          fonte: r.source || extractHostname(r.link) || '',
           url: r.link || '',
           data: parseSerperDate(r.date),
           credible: isCredible(r.link || ''),
@@ -187,20 +198,20 @@ async function searchAI(query, promise, includeDomains = []) {
   const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const BASE = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
 
-  const { data: dbEvidences } = await supabase
+  const { data: dbEvidences } = await db()
     .from('promise_evidences')
-    .select('titulo, descricao, url, fonte, data_publicacao')
+    .select('title, description, url, source_name, published_at')
     .eq('promise_id', promise.id)
     .limit(10);
 
   let evidences = [];
   if (dbEvidences && dbEvidences.length > 0) {
     evidences = dbEvidences.map(e => ({
-      titulo: e.titulo || e.descricao || '',
-      descricao: e.descricao || '',
-      fonte: e.fonte || '',
+      titulo: e.title || e.description || '',
+      descricao: e.description || '',
+      fonte: e.source_name || '',
       url: e.url || '',
-      data: e.data_publicacao || null,
+      data: e.published_at || null,
       credible: isCredible(e.url || ''),
       relevance: 75,
       credibility: isCredible(e.url || '') ? 90 : 50
@@ -210,17 +221,19 @@ async function searchAI(query, promise, includeDomains = []) {
   if (evidences.length === 0) {
     evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, includeDomains);
     for (const ev of evidences) {
-      await supabase.from('promise_evidences').insert({
+      await db().from('promise_evidences').insert({
         promise_id: promise.id,
-        politician_name: promise.politician_name,
-        promise_title: promise.promise_title,
-        titulo: ev.titulo || null,
-        descricao: ev.descricao,
-        fonte: ev.fonte,
-        url: ev.url,
-        data_publicacao: ev.data,
-        tipo: ev.credible ? 'oficial' : 'jornal',
+        title: ev.titulo || ev.descricao?.substring(0, 100) || null,
+        description: ev.descricao || null,
+        url: ev.url || null,
+        source_name: ev.fonte || extractHostname(ev.url) || null,
+        evidence_type: 'news',
+        source_type: ev.credible ? 'official' : 'press',
+        validation_status: 'pending',
+        published_at: ev.data || null,
         confiabilidade: ev.credibility,
+        relevance_score: ev.relevance || 0,
+        credibility_score: ev.credibility || 0,
         discovered_at: new Date().toISOString(),
         validated: ev.credible,
         needs_review: !ev.credible
@@ -299,7 +312,7 @@ export default async function handler(req, res) {
   
   // 1. Log START
   try {
-    await supabase.from('cron_executions').insert({
+    await db().from('cron_executions').insert({
       execution_id: executionId,
       trigger: 'vercel_cron',
       status: 'started',
@@ -320,7 +333,7 @@ export default async function handler(req, res) {
     const weeklyCutoff = new Date(startTime.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Fetch active political feeds from DB
-    const { data: activeFeeds } = await supabase
+    const { data: activeFeeds } = await db()
       .from('feeds')
       .select('url')
       .eq('active', true)
@@ -338,7 +351,7 @@ export default async function handler(req, res) {
     console.log(`[Pipeline] ${executionId} started at ${startTime.toISOString()}, stage=${stage}, active_domains=${activeDomains.length}`);
 
     if (stage === 'all' || stage === 'discover') {
-      const { data: promises } = await supabase
+      const { data: promises } = await db()
         .from('promises')
         .select('id, promise_title, politician_name, category, status, evidence_count')
         .not('status', 'eq', 'cumprida')
@@ -352,17 +365,17 @@ export default async function handler(req, res) {
             for (const ev of evidences) {
               step1Discovered++;
               const domain = normalizeUrl(ev.url).split('/')[2] || '';
-              const { data: existing } = await supabase.from('promise_evidences')
+              const { data: existing } = await db().from('promise_evidences')
                 .select('id, url').eq('promise_id', promise.id).limit(10);
               const isDup = existing?.some(e => normalizeUrl(e.url || '').includes(domain));
               if (isDup) { step1Dupes++; continue; }
               const sc = Math.round(ev.relevance * 0.4 + ev.credibility * 0.6);
-              const { error } = await supabase.from('promise_evidences').insert({
+              const { error } = await db().from('promise_evidences').insert({
                 promise_id: promise.id,
-                title: ev.titulo || ev.descricao?.substring(0, 100) || '',
-                description: ev.descricao || '',
-                url: ev.url,
-                source_name: ev.fonte || '',
+                title: ev.titulo || ev.descricao?.substring(0, 100) || null,
+                description: ev.descricao || null,
+                url: ev.url || null,
+                source_name: ev.fonte || extractHostname(ev.url) || null,
                 evidence_type: 'news',
                 source_type: ev.credible ? 'official' : 'press',
                 validation_status: 'pending',
@@ -394,20 +407,20 @@ export default async function handler(req, res) {
       if (!GROQ || GROQ === 'YOUR_GROQ_API_KEY') {
         console.log('[Pipeline:Reavaliate] SKIPPED - no GROQ_API_KEY');
       } else {
-        const { data: staleDaily } = await supabase
+        const { data: staleDaily } = await db()
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
           .lt('last_verified_at', dailyCutoff)
           .not('status', 'eq', 'cumprida')
           .limit(5);
 
-        const { data: never } = await supabase
+        const { data: never } = await db()
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
           .is('last_verified_at', null)
           .limit(10);
 
-        const { data: staleWeekly } = await supabase
+        const { data: staleWeekly } = await db()
           .from('promises')
           .select('id, promise_title, politician_name, category, status, fulfillment_score, last_verified_at, evidence_count')
           .lt('last_verified_at', weeklyCutoff)
@@ -427,7 +440,7 @@ export default async function handler(req, res) {
               const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise, activeDomains);
               const frontendStatus = mapToFrontend(result.status);
 
-              const { error: upErr } = await supabase.from('promises').update({
+              const { error: upErr } = await db().from('promises').update({
                 status: frontendStatus, fulfillment_score: result.score,
                 ai_evaluation: result.justification, evidences_used: result.evidences,
                 needs_human_review: result.needsReview, last_verified_at: startTime.toISOString()
@@ -439,37 +452,35 @@ export default async function handler(req, res) {
               }
 
               try {
-                await supabase.from('status_history').insert({
-                  promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus,
-                  previous_score: promise.fulfillment_score, new_score: result.score,
-                  changed_by: 'pipeline_reavaliation', change_reason: result.justification || 'Pipeline automático',
-                  evaluation_type: 'ai_auto'
+                await db().from('status_history').insert({
+                  promise_id: promise.id, previous_status: promise.status, new_status: frontendStatus
                 });
               } catch (e) { console.error(`[status_history] ${e.message}`); }
 
               try {
-                await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+                await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
               } catch (e) { }
 
               try {
-                await supabase.from('promise_explanations').insert({
+                await db().from('promise_explanations').insert({
                   promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
                   criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
                   evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
-                  o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 50 : 85,
+                  o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 0.5 : 0.85,
                   modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
                 });
               } catch (e) { console.error(`[promise_explanations] ${e.message}`); }
 
               try {
-                await supabase.from('audit_logs').insert({
-                  action: 'pipeline_reavaliation', table_name: 'promises', record_id: promise.id,
-                  old_value: { status: promise.status, score: promise.fulfillment_score },
-                  new_value: { status: frontendStatus, score: result.score },
-                  performed_by: 'pipeline', details: {
-                    promise_title: promise.promise_title, politician: promise.politician_name,
+                await db().from('audit_logs').insert({
+                  action: 'pipeline_reavaliation', table_name: 'promises',
+                  details: JSON.stringify({
+                    promise_id: promise.id, promise_title: promise.promise_title,
+                    politician: promise.politician_name,
+                    previous_status: promise.status, new_status: frontendStatus,
+                    previous_score: promise.fulfillment_score, new_score: result.score,
                     evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
-                  }
+                  })
                 });
               } catch (e) { console.error(`[audit_logs] ${e.message}`); }
 
@@ -485,7 +496,7 @@ export default async function handler(req, res) {
     }
 
     if (stage === 'all' || stage === 'count') {
-      const { data: promises } = await supabase
+      const { data: promises } = await db()
         .from('promises')
         .select('id, status, last_verified_at')
         .limit(50);
@@ -494,14 +505,14 @@ export default async function handler(req, res) {
         console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
         for (const promise of promises) {
           try {
-            const { count } = await supabase
+            const { count } = await db()
               .from('promise_evidences')
               .select('*', { count: 'exact', head: true })
               .eq('promise_id', promise.id);
 
             const updateData = { evidence_count: count || 0 };
 
-            await supabase.from('promises').update(updateData).eq('id', promise.id);
+            await db().from('promises').update(updateData).eq('id', promise.id);
             step2Updated++;
           } catch (_) { }
         }
@@ -515,7 +526,7 @@ export default async function handler(req, res) {
     };
 
     // 2. Log SUCCESS
-    await supabase.from('cron_executions').update({
+    await db().from('cron_executions').update({
       status: 'completed',
       completed_at: new Date().toISOString(),
       promises_evaluated: step3Evaluated,
@@ -524,7 +535,7 @@ export default async function handler(req, res) {
     }).eq('execution_id', executionId);
 
     // 3. Daily Monitor Log
-    await supabase.from('daily_monitor_log').insert({
+    await db().from('daily_monitor_log').insert({
       monitor_name: 'pipeline_orchestrator',
       promises_processed: step3Evaluated,
       new_evidences_found: step1Inserted,
@@ -539,7 +550,7 @@ export default async function handler(req, res) {
     console.error(`[Pipeline] FATAL ERROR: ${err.message}`);
     
     // 4. Log FAILURE
-    await supabase.from('cron_executions').update({
+    await db().from('cron_executions').update({
       status: 'failed',
       completed_at: new Date().toISOString(),
       details: JSON.stringify({ error: err.message, partial_summary: summary })

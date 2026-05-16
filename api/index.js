@@ -79,16 +79,21 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/batch-evaluate' && (method === 'POST' || method === 'GET')) {
-      const { data: promises } = await db().from('promises').select('id, status').limit(100);
+      const scoreRanges = {
+        cumprida: [80, 100], parcial: [40, 79], pendente: [0, 39], quebrada: [0, 0]
+      };
+      const { data: promises } = await db().from('promises').select('id, status, fulfillment_score').limit(100);
       let seeded = 0;
       for (const p of promises || []) {
         const { data: exists } = await db().from('promise_explanations').select('id').eq('promise_id', p.id).eq('is_latest', true).maybeSingle();
         if (exists) continue;
-        const scoreMap = { cumprida: 85, parcial: 50, pendente: 20, quebrada: 0 };
+        const norm = normStatus(p.status);
+        const [min, max] = scoreRanges[norm] || [0, 39];
+        const score = p.fulfillment_score ? Math.max(min, Math.min(max, p.fulfillment_score)) : Math.round((min + max) / 2);
         await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', p.id);
         await db().from('promise_explanations').insert({
-          promise_id: p.id, status: normStatus(p.status), fulfillment_score: scoreMap[normStatus(p.status)] || 20,
-          criterio_aplicado: 'batch-heranca', justificativa: 'Avaliacao herdada do status original', evidencias_usadas: [],
+          promise_id: p.id, status: norm, fulfillment_score: score,
+          criterio_aplicado: 'batch-heranca', justificativa: `Avaliacao herdada do status original (${norm}, score ${score})`, evidencias_usadas: [],
           o_que_falta: 'Avaliacao detalhada pendente', o_que_foi_feito: 'Herdado do status original',
           confianca: 0.5, modelo_ia: 'batch-v1', is_latest: true, gerado_em: new Date().toISOString()
         });

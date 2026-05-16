@@ -69,6 +69,15 @@ function parseSerperDate(dateStr) {
   return new Date().toISOString();
 }
 
+function extractHostname(url) {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return url.split('/')[2]?.replace('www.', '') || '';
+  }
+}
+
 async function searchSerper(query) {
   const SERPER_KEY = process.env.SERPER_API_KEY;
   if (!SERPER_KEY) return [];
@@ -83,7 +92,7 @@ async function searchSerper(query) {
     return (d.organic || []).map(r => ({
       titulo: r.title || '',
       descricao: r.snippet || '',
-      fonte: r.source || '',
+      fonte: r.source || extractHostname(r.link) || '',
       url: r.link || '',
       data: parseSerperDate(r.date),
       credible: isCredible(r.link || ''),
@@ -95,18 +104,22 @@ async function searchSerper(query) {
 
 async function evaluateWithAI(promise, evidences) {
   const GROQ = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  const originalStatus = promise.status || 'pendente';
+  const originalScore = promise.fulfillment_score ?? 50;
+
   if (!GROQ) {
+    const clampedScore = clampScore(originalStatus, originalScore);
     return {
-      status: promise.status || 'pendente',
-      fulfillment_score: promise.fulfillment_score ?? 50,
-      justificativa: 'Avaliacao herdada do status original',
-      evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte, url: e.url })),
+      status: originalStatus,
+      fulfillment_score: clampedScore,
+      justificativa: `Avaliacao herdada do status original (${originalStatus}, score ${clampedScore}). Groq API key nao configurada.`,
+      evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
       needsReview: true
     };
   }
 
   const evText = evidences.length > 0
-    ? evidences.map(e => `[${e.fonte}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n')
+    ? evidences.map(e => `[${e.fonte || extractHostname(e.url)}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n')
     : 'Nenhuma evidencia encontrada.';
 
   const prompt = `Voce e um avaliador independente de promessas politicas brasileiras.
@@ -143,7 +156,10 @@ REGRAS:
         temperature: 0.1, max_tokens: 512
       })
     });
-    if (!r.ok) throw new Error(`Groq ${r.status}`);
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      throw new Error(`Groq ${r.status}: ${errText.substring(0, 200)}`);
+    }
     const d = await r.json();
     let text = (d.choices?.[0]?.message?.content || '{}').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
     const match = text.match(/\{[\s\S]*\}/);
@@ -151,19 +167,21 @@ REGRAS:
     let status = p.status || 'nao_classificada';
     let score = p.fulfillment_score ?? 50;
     if (evidences.length === 0 && score > 30) { status = 'nao_iniciada'; score = 30; }
+    const clampedScore = clampScore(status, score);
     return {
       status,
-      fulfillment_score: clampScore(status, score),
+      fulfillment_score: clampedScore,
       justificativa: p.justificativa || 'Avaliacao automatica via IA',
-      evidencias_usadas: p.evidencias_usadas || evidences.slice(0, 3).map(e => ({ fonte: e.fonte, url: e.url })),
-      needsReview: score > 80 || evidences.length === 0
+      evidencias_usadas: p.evidencias_usadas || evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
+      needsReview: clampedScore > 80 || evidences.length === 0
     };
   } catch (err) {
+    const clampedScore = clampScore(originalStatus, originalScore);
     return {
-      status: promise.status || 'pendente',
-      fulfillment_score: promise.fulfillment_score ?? 50,
-      justificativa: 'Avaliacao herdada do status original - IA falhou',
-      evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte, url: e.url })),
+      status: originalStatus,
+      fulfillment_score: clampedScore,
+      justificativa: `Avaliacao herdada do status original (${originalStatus}, score ${clampedScore}). IA falhou: ${err.message}`,
+      evidencias_usadas: evidences.slice(0, 3).map(e => ({ fonte: e.fonte || extractHostname(e.url), url: e.url })),
       needsReview: true
     };
   }
@@ -217,14 +235,26 @@ export default async function handler(req, res) {
         const evidences = await searchSerper(query);
         results.evidences_discovered += evidences.length;
 
-        // Step 2: Insert evidences into promise_evidences
+        // Step 1.5: Get existing evidence URLs for deduplication
+        const { data: existingEvidences } = await db()
+          .from('promise_evidences')
+          .select('url')
+          .eq('promise_id', promise.id);
+        const existingUrls = new Set((existingEvidences || []).map(e => e.url).filter(Boolean));
+
+        // Step 2: Insert evidences into promise_evidences (with deduplication)
         for (const ev of evidences) {
+          if (!ev.url || existingUrls.has(ev.url)) {
+            continue; // Skip duplicate URLs
+          }
+          existingUrls.add(ev.url); // Add to set to prevent duplicates in same batch
+
           const { error: evErr } = await db().from('promise_evidences').insert({
             promise_id: promise.id,
             title: ev.titulo || ev.descricao?.substring(0, 100) || null,
             description: ev.descricao || null,
             url: ev.url || null,
-            source_name: ev.fonte || null,
+            source_name: ev.fonte || extractHostname(ev.url) || null,
             evidence_type: 'news',
             source_type: ev.credible ? 'official' : 'press',
             validation_status: 'pending',
@@ -246,6 +276,7 @@ export default async function handler(req, res) {
         // Step 3: Evaluate with AI
         const evaluation = await evaluateWithAI(promise, evidences);
         const frontendStatus = mapToFrontend(evaluation.status);
+        const previousStatus = promise.status;
 
         // Step 4: Update promise
         const { error: upErr } = await db().from('promises').update({
@@ -259,7 +290,18 @@ export default async function handler(req, res) {
         }).eq('id', promise.id);
         if (!upErr) results.promises_updated++;
 
-        // Step 5: Insert status_history (skipped - schema mismatch)
+        // Step 5: Insert status_history
+        try {
+          await db().from('status_history').insert({
+            promise_id: promise.id,
+            previous_status: previousStatus,
+            new_status: frontendStatus
+          });
+          results.status_history_inserted++;
+        } catch (shErr) {
+          results.errors.push({ promise_id: promise.id, table: 'status_history', error: shErr.message });
+        }
+
         // Step 6: Insert/replace promise_explanations
         await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
         const { error: peErr } = await db().from('promise_explanations').insert({
@@ -282,7 +324,23 @@ export default async function handler(req, res) {
           results.errors.push({ promise_id: promise.id, table: 'promise_explanations', error: peErr.message });
         }
 
-        // Step 7: Insert audit_log (skipped - schema mismatch)
+        // Step 7: Insert audit_log
+        try {
+          await db().from('audit_logs').insert({
+            action: 'promise_evaluated',
+            table_name: 'promises',
+            details: JSON.stringify({
+              promise_id: promise.id,
+              previous_status: previousStatus,
+              new_status: frontendStatus,
+              score: evaluation.fulfillment_score,
+              evaluation_id: executionId
+            })
+          });
+          results.audit_logs_inserted++;
+        } catch (alErr) {
+          results.errors.push({ promise_id: promise.id, table: 'audit_logs', error: alErr.message });
+        }
 
         results.evaluations_completed++;
 
