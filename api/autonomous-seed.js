@@ -176,7 +176,7 @@ export default async function handler(req, res) {
 
   const executionId = `autonomous_${Date.now()}`;
   const startTime = new Date().toISOString();
-  const batchSize = parseInt(req.query?.batch) || 10;
+  const batchSize = parseInt(req.query?.batch) || 3;
   const offset = parseInt(req.query?.offset) || 0;
 
   try {
@@ -304,7 +304,7 @@ export default async function handler(req, res) {
         results.evaluations_completed++;
 
         // Rate limiting
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 200));
       } catch (err) {
         results.errors.push({ promise_id: promise.id, error: err.message });
         console.error(`[Autonomous] Error on ${promise.id}: ${err.message}`);
