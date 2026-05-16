@@ -224,7 +224,7 @@ export default async function handler(req, res) {
             politician_name: promise.politician_name,
             promise_title: promise.promise_title,
             titulo: ev.titulo || null,
-            descricao: ev.descricao || null,
+            description: ev.descricao || null,
             fonte: ev.fonte || null,
             url: ev.url || null,
             data_publicacao: ev.data || null,
@@ -265,7 +265,6 @@ export default async function handler(req, res) {
           previous_score: promise.fulfillment_score || 0,
           new_score: evaluation.fulfillment_score,
           changed_by: 'autonomous_seed',
-          change_reason: evaluation.justificativa || 'Seed automatico',
           evaluation_type: 'ai_auto'
         });
         if (!shErr) {
@@ -285,7 +284,7 @@ export default async function handler(req, res) {
           evidencias_usadas: evaluation.evidencias_usadas,
           o_que_falta: evaluation.needsReview ? 'Revisao humana necessaria' : 'Completo',
           o_que_foi_feito: evaluation.justificativa || 'Analise IA automatica',
-          confianca: evaluation.needsReview ? 50 : 85,
+          confianca: evaluation.needsReview ? 0.5 : 0.85,
           modelo_ia: 'autonomous-seed-v1',
           is_latest: true,
           gerado_em: startTime
@@ -301,15 +300,15 @@ export default async function handler(req, res) {
           action: 'autonomous_seed_evaluation',
           table_name: 'promises',
           record_id: promise.id,
-          old_value: { status: promise.status, score: promise.fulfillment_score },
-          new_value: { status: frontendStatus, score: evaluation.fulfillment_score },
+          old_data: { status: promise.status, score: promise.fulfillment_score },
+          new_data: { status: frontendStatus, score: evaluation.fulfillment_score },
           performed_by: 'autonomous_seed',
-          details: {
+          details: JSON.stringify({
             promise_title: promise.promise_title,
             politician: promise.politician_name,
             evidences_count: evidences.length,
             needs_human_review: evaluation.needsReview
-          }
+          })
         });
         if (!alErr) {
           results.audit_logs_inserted++;
