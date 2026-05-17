@@ -74,34 +74,34 @@ export default function PromiseDetail() {
     try {
       const { data, error: fetchError } = await supabase
         .from("promises")
-        .select("*")
-        .limit(50);
+        .select(`
+          *,
+          politicians(name, slug, photo_url, state, party)
+        `)
+        .eq("id", slugText)
+        .single();
 
       if (fetchError) throw fetchError;
 
-      const found = (data || []).find((p: any) => {
-        const pSlug = generateSlug(p.promise_title || p.title || "");
-        return pSlug === slugText || p.id === slugText;
-      });
-
-      if (found) {
+      if (data) {
+        const politician = data.politicians;
         setPromise({
-          id: found.id,
-          politician_name: found.politician_name || found.nome_politico || "",
-          party: found.party || found.partido,
-          state: found.state || found.estado,
-          title: found.promise_title || found.title || found.titulo,
-          description: found.promise_description || found.description,
-          category: found.category || found.categoria,
-          status: found.status,
-          fulfillment_score: found.fulfillment_score || 0,
-          source_link: found.source_link || found.link_fonte,
-          created_at: found.created_at,
-          last_verified_at: found.last_verified_at,
-          ai_evaluation: found.ai_evaluation,
-          needs_human_review: found.needs_human_review,
-          evidence_count: found.evidence_count,
-          evidences_used: found.evidences_used
+          id: data.id,
+          politician_name: data.politician_name || politician?.name || "",
+          party: data.party || politician?.party,
+          state: data.state || politician?.state,
+          title: data.promise_title || data.title || "",
+          description: data.promise_description || data.description,
+          category: data.category || data.categoria,
+          status: data.status,
+          fulfillment_score: data.fulfillment_score || 0,
+          source_link: data.source_link || data.link_fonte,
+          created_at: data.created_at,
+          last_verified_at: data.last_verified_at,
+          ai_evaluation: data.ai_evaluation,
+          needs_human_review: data.needs_human_review,
+          evidence_count: data.evidence_count,
+          evidences_used: data.evidences_used
         });
       } else {
         setError("Promessa não encontrada");

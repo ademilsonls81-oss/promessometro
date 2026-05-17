@@ -124,45 +124,63 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
     try {
       const timelineEntries: TimelineEntry[] = [];
 
-      const [auditLog, explanations, contestations] = await Promise.all([
+      const [statusHistory, auditLog, explanations, contests] = await Promise.all([
         supabase
-          .from("promise_audit_log")
-          .select("*")
+          .from("status_history")
+          .select("old_status, new_status, updated_by_type, ai_confidence, evidence_url, evidence_description, created_at")
           .eq("promise_id", promiseId)
-          .order("criado_em", { ascending: true }),
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("audit_logs")
+          .select("created_at, action, previous_value, new_value, source")
+          .eq("entity_id", promiseId)
+          .order("created_at", { ascending: true }),
         supabase
           .from("promise_explanations")
           .select("*")
           .eq("promise_id", promiseId)
           .order("gerado_em", { ascending: true }),
         supabase
-          .from("promise_contestations")
+          .from("contests")
           .select("*")
           .eq("promise_id", promiseId)
-          .order("criado_em", { ascending: true })
+          .order("created_at", { ascending: true })
       ]);
 
+      statusHistory.data?.forEach((entry: any) => {
+        const change = getStatusChange(entry.old_status || "", entry.new_status || "");
+        timelineEntries.push({
+          id: `hist-${entry.created_at}`,
+          tipo: "alteracao_status",
+          data: entry.created_at,
+          titulo: `Status alterado: ${change.fromLabel} → ${change.toLabel}`,
+          descricao: entry.evidence_description || "Alteração registrada no sistema",
+          ator: entry.updated_by_type === 'ia' ? "IA" : entry.updated_by_type || "Sistema",
+          url: entry.evidence_url,
+          detalhes: {
+            confianca: entry.ai_confidence ? `${entry.ai_confidence}%` : undefined,
+            old_status: entry.old_status,
+            new_status: entry.new_status
+          }
+        });
+      });
+
       auditLog.data?.forEach((log: any) => {
-        if (log.campo_alterado === "status") {
-          const change = getStatusChange(log.valor_anterior || "", log.valor_novo || "");
-          timelineEntries.push({
-            id: `audit-${log.id}`,
-            tipo: "alteracao_status",
-            data: log.criado_em,
-            titulo: `Status alterado: ${change.fromLabel} → ${change.toLabel}`,
-            descricao: log.motivo || "Alteração registrada no sistema",
-            ator: log.alterado_por || "Sistema",
-            url: null
-          });
-        } else if (log.campo_alterado === "fulfillment_score") {
-          timelineEntries.push({
-            id: `audit-${log.id}`,
-            tipo: "alteracao_status",
-            data: log.criado_em,
-            titulo: `Score atualizado: ${log.valor_anterior} → ${log.valor_novo}`,
-            descricao: log.motivo || "Score atualizado",
-            ator: log.alterado_por || "Sistema"
-          });
+        if (log.action === "status_change" || log.action === "pipeline_reavaliation" || log.action === "promise_reavaluated") {
+          try {
+            const details = typeof log.previous_value === 'string' ? JSON.parse(log.previous_value) : log.previous_value;
+            if (details?.status) {
+              const change = getStatusChange(details.status, log.new_value?.status || "");
+              timelineEntries.push({
+                id: `audit-${log.created_at}`,
+                tipo: "alteracao_status",
+                data: log.created_at,
+                titulo: `Status alterado: ${change.fromLabel} → ${change.toLabel}`,
+                descricao: `Fonte: ${log.source || "Sistema"}`,
+                ator: log.source || "Sistema"
+              });
+            }
+          } catch {}
         }
       });
 

@@ -90,14 +90,14 @@ export default function ContestationModal({
       const fingerprint = `anon_${promiseId}_${Date.now()}`;
 
       const { error: insertError } = await supabase
-        .from("promise_contestations")
+        .from("contests")
         .insert({
           promise_id: promiseId,
-          nome_contestante: nome.trim(),
-          email_contestante: email.trim() || null,
-          motivo: motivo.trim(),
-          evidencia_url: evidenciaUrl.trim() || null,
-          status: "pendente",
+          contestant_name: nome.trim(),
+          contestant_email: email.trim() || null,
+          reasoning: motivo.trim(),
+          evidence_url: evidenciaUrl.trim() || null,
+          suggested_status: "pendente",
           fingerprint: fingerprint,
           recaptcha_token: recaptchaToken
         });
