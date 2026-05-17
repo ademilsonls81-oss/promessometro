@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase.js";
 import { checkAndSanitizeResult } from "./contentGuardService.js";
+import { prioritizeSources } from "../lib/sourceLevel.js";
 
 const CRITERIA = {
   cumprida: {
@@ -409,7 +410,7 @@ export async function applyScore(
         fulfillment_score: sanitizedResult.fulfillment_score,
         criterio_aplicado: sanitizedResult.criterio_aplicado,
         justificativa: sanitizedResult.justificativa,
-        evidencias_usadas: sanitizedResult.evidencias_usadas,
+        evidencias_usadas: prioritizeSources(sanitizedResult.evidencias_usadas || []),
         o_que_falta: sanitizedResult.o_que_falta,
         o_que_foi_feito: sanitizedResult.o_que_foi_feito,
         confianca: sanitizedResult.confianca,

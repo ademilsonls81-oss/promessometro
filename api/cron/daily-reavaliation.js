@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { prioritizeSources, classifySource, getLevelLabel } from '../lib/sourceLevel.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -237,7 +238,7 @@ export default async function handler(req, res) {
               fulfillment_score: result.fulfillment_score,
               criterio_aplicado: 'daily_reavaliation_v1',
               justificativa: result.justification,
-              evidencias_usadas: result.evidences.map(e => ({ fonte: e.fonte, url: e.url })),
+              evidencias_usadas: prioritizeSources(result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data }))),
               o_que_falta: 'Reavaliacao automatica',
               o_que_foi_feito: result.justification,
               confianca: 0.75,

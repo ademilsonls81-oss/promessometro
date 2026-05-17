@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { prioritizeSources, classifySource, getLevelLabel } from '../lib/sourceLevel.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -472,10 +473,11 @@ if (upErr) {
                 await db().from('promise_explanations').insert({
                   promise_id: promise.id, status: frontendStatus, fulfillment_score: clampedScore,
                  criterio_aplicado: 'evidence_based_fallback', justificativa: `Avaliação baseada em ${recentEvidences?.length || 0} evidências (${credibleEvidences?.length || 0} credíveis). IA não disponível para avaliação detalhada.`,
-                 evidencias_usadas: recentEvidences?.slice(0, 3).map(e => ({ 
-                   fonte: e.fonte || '', 
-                   url: e.url || '' 
-                 })) || [],
+                 evidencias_usadas: prioritizeSources(recentEvidences?.map(e => ({
+                   descricao: e.descricao || e.titulo || '',
+                   fonte: e.fonte || '',
+                   url: e.url || ''
+                 })) || []),
                  o_que_falta: 'Revisão humana necessária para avaliação IA detalhada',
                  o_que_foi_feito: `Análise baseada em ${recentEvidences?.length || 0} evidências encontradas`,
                  confianca: 0.5,
@@ -563,7 +565,7 @@ await db().from('audit_logs').insert({
                 await db().from('promise_explanations').insert({
                   promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
                   criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
-                  evidencias_usadas: result.evidences, o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
+                  evidencias_usadas: prioritizeSources(result.evidences || []), o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
                   o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 0.5 : 0.85,
                   modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
                 });

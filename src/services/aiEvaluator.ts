@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase.js";
 import { checkAndSanitizeResult } from "./contentGuardService.js";
 import { logSystemError } from "../middleware/auditLog.js";
 import { logAuditAction } from "../middleware/auditLog.js";
+import { prioritizeSources } from "../lib/sourceLevel.js";
 
 export interface PromiseData {
   id: string;
@@ -532,7 +533,7 @@ export async function saveEvaluation(
         fulfillment_score: result.fulfillment_score,
         criterio_aplicado: result.criterio_aplicado,
         justificativa: result.justificativa,
-        evidencias_usadas: result.evidencias_usadas,
+evidencias_usadas: prioritizeSources(result.evidencias_usadas || []),
         o_que_falta: result.o_que_falta,
         o_que_foi_feito: result.o_que_foi_feito,
         confianca: result.confianca,

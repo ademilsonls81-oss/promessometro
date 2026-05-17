@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { prioritizeSources, classifySource, getLevelLabel } from './lib/sourceLevel.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -339,7 +340,7 @@ export default async function handler(req, res) {
           fulfillment_score: evaluation.fulfillment_score,
           criterio_aplicado: 'autonomous_seed_v1',
           justificativa: evaluation.justificativa,
-          evidencias_usadas: evaluation.evidencias_usadas,
+          evidencias_usadas: prioritizeSources(evaluation.evidencias_usadas || []),
           o_que_falta: evaluation.needsReview ? 'Revisao humana necessaria' : 'Completo',
           o_que_foi_feito: evaluation.justificativa || 'Analise IA automatica',
           confianca: evaluation.needsReview ? 0.5 : 0.85,
