@@ -77,7 +77,7 @@ async function ensurePolitician(name) {
 }
 
 export default async function handler(req, res) {
-  const path = req.url;
+  const path = req.url ? new URL(req.url, 'http://localhost').pathname : '/';
   const method = req.method;
   res.setHeader('Content-Type', 'application/json');
 
