@@ -48,6 +48,10 @@
             "destination": "/api/sitemap.js"
         },
         {
+            "source": "/api/cron/metodologia-audit",
+            "destination": "/api/cron/metodologia-audit.js"
+        },
+        {
             "source": "/api/force-reavaliation",
             "destination": "/api/index.js"
         },
@@ -92,6 +96,10 @@
         {
             "path": "/api/cron/backup-export",
             "schedule": "0 3 * * 0"
+        },
+        {
+            "path": "/api/cron/metodologia-audit",
+            "schedule": "0 5 * * *"
         }
     ],
     "headers": [
