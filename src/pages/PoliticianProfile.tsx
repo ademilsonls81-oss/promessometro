@@ -17,7 +17,11 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  History
+  History,
+  Target,
+  BarChart3,
+  Gavel,
+  Layers
 } from "lucide-react";
 import { Badge, Button } from "../components/ui";
 import ReportPromiseModal from "../components/ReportPromiseModal";
@@ -40,6 +44,15 @@ interface PromiseData {
   created_at: string;
 }
 
+interface MethodologyData {
+  c1_score: number;
+  c2_score: number;
+  c3_score: number;
+  final_score: number;
+  grade: string;
+  version: string;
+}
+
 interface PoliticianData {
   id: string;
   name: string;
@@ -57,6 +70,10 @@ interface PoliticianData {
     total: number;
     percentage: number;
   };
+  methodology: MethodologyData | null;
+  mandates: any[];
+  indicators: any[];
+  legal_facts: any[];
   promises: PromiseData[];
 }
 
@@ -85,6 +102,7 @@ const statusConfig: Record<string, { label: string; icon: React.ComponentType<an
 export default function PoliticianProfile() {
   const { id } = useParams<{ id: string }>();
   const [politician, setPolitician] = useState<PoliticianData | null>(null);
+  const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
@@ -135,6 +153,10 @@ export default function PoliticianProfile() {
         city: pol.city || null,
         photo_url: pol.photo_url || null,
         bio: pol.bio || null,
+        methodology: data.methodology || null,
+        mandates: data.mandates || [],
+        indicators: data.indicators || [],
+        legal_facts: data.legal_facts || [],
         stats: {
           ...stats,
           percentage: data.percentage || Math.round((stats.fulfilled / stats.total) * 100)
@@ -254,7 +276,14 @@ export default function PoliticianProfile() {
                   {politician.role && (
                     <div className="flex items-center gap-2 text-gray-400">
                       <Briefcase className="w-4 h-4" />
-                      <span>{politician.role}</span>
+                      <span>{{
+                        presidente: "Presidente",
+                        governador: "Governador",
+                        prefeito: "Prefeito",
+                        senador: "Senador",
+                        deputado_federal: "Dep. Federal",
+                        deputado_estadual: "Dep. Estadual"
+                      }[politician.role.toLowerCase()] || politician.role}</span>
                     </div>
                   )}
                   {(politician.city || politician.state) && (
@@ -288,11 +317,43 @@ export default function PoliticianProfile() {
               </div>
 
               <div className="w-full md:w-auto p-6 bg-black/40 border border-white/5 rounded-2xl text-center">
-                <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Índice de Confiança</div>
-                <div className="text-5xl font-display font-bold text-neon-cyan mb-2">{politician.stats.percentage}%</div>
-                <div className="h-2 w-32 bg-white/5 rounded-full overflow-hidden mx-auto">
-                  <div className="h-full bg-neon-cyan" style={{ width: `${politician.stats.percentage}%` }} />
-                </div>
+                {politician.methodology ? (
+                  <>
+                    <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Nota Final</div>
+                    <div className={`text-5xl font-display font-bold mb-1 ${
+                      politician.methodology.grade === 'A' ? 'text-green-400' :
+                      politician.methodology.grade === 'B' ? 'text-blue-400' :
+                      politician.methodology.grade === 'C' ? 'text-yellow-400' :
+                      politician.methodology.grade === 'D' ? 'text-orange-400' : 'text-red-400'
+                    }`}>{politician.methodology.final_score}</div>
+                    <div className={`text-sm font-bold mb-2 ${
+                      politician.methodology.grade === 'A' ? 'text-green-400' :
+                      politician.methodology.grade === 'B' ? 'text-blue-400' :
+                      politician.methodology.grade === 'C' ? 'text-yellow-400' :
+                      politician.methodology.grade === 'D' ? 'text-orange-400' : 'text-red-400'
+                    }`}>
+                      {politician.methodology.grade === 'A' ? 'Excelente — referência' :
+                       politician.methodology.grade === 'B' ? 'Bom — acima da média' :
+                       politician.methodology.grade === 'C' ? 'Regular — mediano' :
+                       politician.methodology.grade === 'D' ? 'Fraco — abaixo do esperado' :
+                       'Reprovado — gestão crítica'}
+                    </div>
+                    <div className="h-2 w-32 bg-white/5 rounded-full overflow-hidden mx-auto">
+                      <div className={`h-full rounded-full ${
+                        politician.methodology.grade === 'A' ? 'bg-green-400' :
+                        politician.methodology.grade === 'B' ? 'bg-blue-400' :
+                        politician.methodology.grade === 'C' ? 'bg-yellow-400' :
+                        politician.methodology.grade === 'D' ? 'bg-orange-400' : 'bg-red-400'
+                      }`} style={{ width: `${Math.min(100, politician.methodology.final_score)}%` }} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Avaliação Incompleta</div>
+                    <div className="text-5xl font-display font-bold text-gray-500 mb-2">—</div>
+                    <div className="text-xs text-gray-500">C1 Promessas: {politician.stats.percentage}%</div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -342,6 +403,224 @@ export default function PoliticianProfile() {
               <div className="text-gray-500 text-xs uppercase font-bold">Pendentes</div>
             </button>
           </div>
+
+          {/* Methodology Layers */}
+          {politician.methodology && (
+            <div className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <Layers className="w-5 h-5 text-neon-cyan" />
+                <h2 className="text-2xl font-bold">Avaliação Metodológica</h2>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <button onClick={() => setExpandedLayer(expandedLayer === 'c1' ? null : 'c1')}
+                  className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'c1' ? 'border-green-400 ring-1 ring-green-400/50' : 'border-green-500/20'}`}>
+                  <Target className="w-5 h-5 text-green-400 mb-2 mx-auto" />
+                  <div className="text-2xl font-bold font-display text-green-400">{politician.methodology.c1_score}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">C1 · Promessas</div>
+                  <div className="text-[10px] text-gray-600">Peso 40%</div>
+                </button>
+                <button onClick={() => setExpandedLayer(expandedLayer === 'c2' ? null : 'c2')}
+                  className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'c2' ? 'border-blue-400 ring-1 ring-blue-400/50' : 'border-blue-500/20'}`}>
+                  <BarChart3 className="w-5 h-5 text-blue-400 mb-2 mx-auto" />
+                  <div className="text-2xl font-bold font-display text-blue-400">{politician.methodology.c2_score}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">C2 · Indicadores</div>
+                  <div className="text-[10px] text-gray-600">Peso 35%</div>
+                </button>
+                <button onClick={() => setExpandedLayer(expandedLayer === 'c3' ? null : 'c3')}
+                  className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'c3' ? 'border-red-400 ring-1 ring-red-400/50' : 'border-red-500/20'}`}>
+                  <Gavel className="w-5 h-5 text-red-400 mb-2 mx-auto" />
+                  <div className="text-2xl font-bold font-display text-red-400">{politician.methodology.c3_score}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">C3 · Fatos Jurídicos</div>
+                  <div className="text-[10px] text-gray-600">Peso 25%</div>
+                </button>
+                <button onClick={() => setExpandedLayer(expandedLayer === 'final' ? null : 'final')}
+                  className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'final' ? 'border-neon-cyan ring-1 ring-neon-cyan/50' : 'border-neon-cyan/20'}`}>
+                  <div className={`text-3xl font-bold font-display mb-1 ${
+                    politician.methodology.grade === 'A' ? 'text-green-400' :
+                    politician.methodology.grade === 'B' ? 'text-blue-400' :
+                    politician.methodology.grade === 'C' ? 'text-yellow-400' :
+                    politician.methodology.grade === 'D' ? 'text-orange-400' : 'text-red-400'
+                  }`}>
+                    {politician.methodology.grade}
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Nota Final</div>
+                  <div className="text-[10px] text-gray-600">{politician.methodology.final_score} pts</div>
+                </button>
+              </div>
+
+              {/* Expanded layer details */}
+              <AnimatePresence>
+                {expandedLayer === 'c1' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mb-6">
+                    <div className="p-5 bg-green-500/5 border border-green-500/20 rounded-2xl">
+                      <h3 className="text-sm font-bold text-green-400 mb-4">C1 · Detalhamento das Promessas</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="p-3 bg-green-500/10 rounded-xl text-center">
+                          <div className="text-xl font-bold text-green-400">{politician.stats.fulfilled}</div>
+                          <div className="text-xs text-gray-500">Cumpridas (×1.0)</div>
+                        </div>
+                        <div className="p-3 bg-yellow-500/10 rounded-xl text-center">
+                          <div className="text-xl font-bold text-yellow-400">{politician.stats.partial}</div>
+                          <div className="text-xs text-gray-500">Parciais (×0.5)</div>
+                        </div>
+                        <div className="p-3 bg-gray-500/10 rounded-xl text-center">
+                          <div className="text-xl font-bold text-gray-400">{politician.stats.pending}</div>
+                          <div className="text-xs text-gray-500">Pendentes (×0)</div>
+                        </div>
+                        <div className="p-3 bg-red-500/10 rounded-xl text-center">
+                          <div className="text-xl font-bold text-red-400">{politician.stats.broken}</div>
+                          <div className="text-xs text-gray-500">Descumpridas (×0)</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        <code className="text-green-300">
+                          C1 = ({politician.stats.fulfilled}×1.0 + {politician.stats.partial}×0.5) / {politician.stats.total} × 100 = {politician.methodology.c1_score}
+                        </code>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {expandedLayer === 'c2' && politician.indicators.length > 0 && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mb-6">
+                    <div className="p-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
+                      <h3 className="text-sm font-bold text-blue-400 mb-4">C2 · Indicadores por Categoria</h3>
+                      {['seguranca', 'financas', 'funcionalismo'].map(cat => {
+                        const items = politician.indicators.filter(i => i.category === cat);
+                        if (items.length === 0) return null;
+                        const avg = Math.round(items.reduce((s, i) => s + i.score, 0) / items.length);
+                        const peso = cat === 'seguranca' ? '30%' : cat === 'financas' ? '40%' : '30%';
+                        return (
+                          <div key={cat} className="mb-4 last:mb-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-bold capitalize text-gray-300">{cat}</span>
+                              <span className="text-xs text-gray-500">peso {peso} · média {avg}</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {items.map((ind, i) => (
+                                <div key={i} className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
+                                  <span className="text-xs text-gray-400">{ind.name.replace(/_/g, ' ')}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                      <div className="h-full bg-blue-400 rounded-full" style={{ width: `${ind.score}%` }} />
+                                    </div>
+                                    <span className="text-xs font-bold text-blue-300 w-6 text-right">{ind.score}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="mt-3 pt-3 border-t border-white/5 text-xs text-gray-500">
+                        <code className="text-blue-300">C2 = Σ(indicador_score × peso) / Σ(pesos) = {politician.methodology.c2_score}</code>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {expandedLayer === 'c3' && politician.legal_facts.length > 0 && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mb-6">
+                    <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-2xl">
+                      <h3 className="text-sm font-bold text-red-400 mb-4">C3 · Fatos Jurídicos</h3>
+                      <div className="space-y-3 mb-4">
+                        {politician.legal_facts.map((fact, i) => {
+                          const colors: Record<string, string> = {
+                            condemnation: 'bg-red-500/20 text-red-400 border-red-500/30',
+                            investigation: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                            alert: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                            irregularity: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                          };
+                          const labels: Record<string, string> = {
+                            condemnation: 'Condenação',
+                            investigation: 'Investigação',
+                            alert: 'Alerta',
+                            irregularity: 'Irregularidade'
+                          };
+                          const color = colors[fact.fact_type] || colors.irregularity;
+                          const label = labels[fact.fact_type] || fact.fact_type;
+                          return (
+                            <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${color}`}>{label}</span>
+                                <span className="text-sm font-bold text-red-400">-{fact.penalty_points}</span>
+                              </div>
+                              <p className="text-xs text-gray-400 leading-relaxed">{fact.description}</p>
+                              <p className="text-[10px] text-gray-600 mt-1">{fact.authority} · {fact.date?.substring(0, 7)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        <code className="text-red-300">
+                          C3 = 100 - {politician.legal_facts.reduce((s: number, f: any) => s + f.penalty_points, 0)} = {politician.methodology.c3_score}
+                        </code>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {expandedLayer === 'final' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mb-6">
+                    <div className="p-5 bg-neon-cyan/5 border border-neon-cyan/20 rounded-2xl">
+                      <h3 className="text-sm font-bold text-neon-cyan mb-4">Nota Final — Cálculo</h3>
+                      <div className="space-y-3 mb-4">
+                        <div className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
+                          <span className="text-sm text-gray-300">C1 · Promessas</span>
+                          <span className="text-sm font-bold text-green-400">{politician.methodology.c1_score} × 0.40 = {(politician.methodology.c1_score * 0.40).toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
+                          <span className="text-sm text-gray-300">C2 · Indicadores</span>
+                          <span className="text-sm font-bold text-blue-400">{politician.methodology.c2_score} × 0.35 = {(politician.methodology.c2_score * 0.35).toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
+                          <span className="text-sm text-gray-300">C3 · Fatos Jurídicos</span>
+                          <span className="text-sm font-bold text-red-400">{politician.methodology.c3_score} × 0.25 = {(politician.methodology.c3_score * 0.25).toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-2 bg-white/10 rounded-lg border border-neon-cyan/30">
+                          <span className="text-sm font-bold text-white">Nota Final</span>
+                          <span className="text-sm font-bold text-neon-cyan">{politician.methodology.final_score}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Grade: {politician.methodology.grade} ({politician.methodology.final_score >= 80 ? '80-100' : politician.methodology.final_score >= 60 ? '60-79' : politician.methodology.final_score >= 40 ? '40-59' : politician.methodology.final_score >= 20 ? '20-39' : '0-19'})
+                        · Metodologia v{politician.methodology.version}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Grade bar */}
+              <div className="flex gap-1 h-3 rounded-full overflow-hidden mb-1">
+                <div className="flex-1 bg-red-500/30" title="F (0-19)" />
+                <div className="flex-1 bg-orange-500/30" title="D (20-39)" />
+                <div className="flex-1 bg-yellow-500/30" title="C (40-59)" />
+                <div className="flex-1 bg-blue-500/30" title="B (60-79)" />
+                <div className="flex-1 bg-green-500/30" title="A (80-100)" />
+              </div>
+              <div className="relative h-1 mb-4">
+                <div className="absolute top-0 h-3 w-1 bg-white rounded-full transition-all" style={{
+                  left: `${Math.min(100, Math.max(0, politician.methodology.final_score))}%`,
+                  top: '-4px'
+                }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-600 mb-6">
+                <span>F</span><span>D</span><span>C</span><span>B</span><span>A</span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">

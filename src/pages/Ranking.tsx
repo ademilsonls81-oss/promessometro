@@ -21,6 +21,14 @@ interface PoliticianStats {
   total: number;
 }
 
+const GRADE_STYLES: Record<string, string> = {
+  A: 'text-green-400 bg-green-500/10 border-green-500/30',
+  B: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  C: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
+  D: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  F: 'text-red-400 bg-red-500/10 border-red-500/30'
+};
+
 interface Politician {
   name: string;
   slug: string | null;
@@ -30,6 +38,11 @@ interface Politician {
   photo_url: string | null;
   is_active: boolean;
   percentage: number;
+  grade: string | null;
+  final_score: number | null;
+  c1_score: number | null;
+  c2_score: number | null;
+  c3_score: number | null;
   stats: PoliticianStats;
   promise_count: number;
 }
@@ -77,6 +90,11 @@ export default function Ranking() {
           photo_url: item.photo_url,
           is_active: item.is_active !== false,
           percentage: item.percentage,
+          grade: item.grade || null,
+          final_score: item.final_score || null,
+          c1_score: item.c1_score || null,
+          c2_score: item.c2_score || null,
+          c3_score: item.c3_score || null,
           stats: {
             fulfilled: stats.fulfilled || 0,
             partial: stats.partial || 0,
@@ -328,6 +346,15 @@ export default function Ranking() {
                             <h3 className="text-lg font-bold group-hover:text-neon-cyan transition-colors">
                               {politician.name}
                             </h3>
+                            {politician.grade && (politician.c2_score != null || (politician.c3_score ?? 100) < 100) ? (
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold border ${GRADE_STYLES[politician.grade] || 'text-gray-400 bg-white/5 border-white/10'}`}>
+                                {politician.grade}
+                              </span>
+                            ) : politician.grade ? (
+                              <span className="px-2 py-0.5 rounded text-xs font-bold border text-gray-500 bg-white/5 border-white/10">
+                                Avaliação incompleta
+                              </span>
+                            ) : null}
                             <span className={`px-2 py-0.5 rounded text-xs font-medium border ${badge.color}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} inline-block mr-1`} />
                               {badge.label}
@@ -358,14 +385,16 @@ export default function Ranking() {
 
                         <div className="w-full md:w-48">
                           <div className="flex justify-between text-xs font-bold mb-2">
-                            <span className="text-gray-500 uppercase tracking-wider">Cumprimento</span>
-                            <span className="text-neon-cyan">{politician.percentage}%</span>
+                            <span className="text-gray-500 uppercase tracking-wider">
+                              {politician.final_score != null && (politician.c2_score != null || politician.c3_score < 100) ? "Score Final" : "C1 Promessas"}
+                            </span>
+                            <span className="text-neon-cyan">{politician.final_score ?? politician.percentage}%</span>
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
-                              animate={{ width: `${politician.percentage}%` }}
-                              className={`h-full rounded-full ${politician.percentage >= 70 ? "bg-green-500" : politician.percentage >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                              animate={{ width: `${politician.final_score ?? politician.percentage}%` }}
+                              className={`h-full rounded-full ${(politician.final_score ?? politician.percentage) >= 70 ? "bg-green-500" : (politician.final_score ?? politician.percentage) >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
                             />
                           </div>
                         </div>
