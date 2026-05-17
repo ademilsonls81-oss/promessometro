@@ -572,8 +572,8 @@ Responda SOMENTE JSON array:
     }
 
     if (path === '/api/audit-metodologia') {
-      const fix = req.method === 'POST';
-      const report = await runAudit({ fix });
+      const autoFix = req.method === 'POST';
+      const report = await runAudit({ autoFix });
       return res.json(report);
     }
 

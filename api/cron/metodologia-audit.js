@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const report = await runAudit({ fix: true });
+    const report = await runAudit({ autoFix: true });
 
     console.log(`[MetodologiaAudit] ${report.politicians_checked} políticos, ${report.total_issues} issues, ${report.fixed} corrigidos`);
 
