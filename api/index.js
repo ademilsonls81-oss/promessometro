@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { runAudit } from './lib/metodologiaAudit.js';
+import { runQualidadeAudit } from './lib/qualidadeAudit.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
@@ -582,6 +583,14 @@ Responda SOMENTE JSON array:
       const autoFix = req.method === 'POST';
       const report = await runAudit({ autoFix });
       return res.json(report);
+    }
+
+    if (path === '/api/admin/qualidade') {
+      const adminPwd = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY;
+      const sentPwd = req.headers['x-admin-password'] || req.query.password;
+      if (!adminPwd || sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
+      const report = await runQualidadeAudit();
+      return res.json({ metodologia_versao: '1.0', politicos: report });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });

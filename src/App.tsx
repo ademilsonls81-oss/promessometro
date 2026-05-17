@@ -21,6 +21,7 @@ import Reportar from "./pages/Reportar";
 import Mapa from "./pages/Mapa";
 import Transparencia from "./pages/Transparencia";
 import Auditoria from "./pages/Auditoria";
+import AdminPage from "./pages/Admin";
 
 import SEO from "./components/SEO";
 
@@ -203,6 +204,7 @@ function AppRoutes() {
       <Route path="/mapa" element={<ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>} />
       <Route path="/transparencia" element={<ErrorBoundary context="Transparencia"><Transparencia /></ErrorBoundary>} />
       <Route path="/auditoria" element={<ErrorBoundary context="Auditoria"><Auditoria /></ErrorBoundary>} />
+      <Route path="/admin" element={<AdminPage />} />
       
       <Route path="/404" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
       <Route path="*" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
