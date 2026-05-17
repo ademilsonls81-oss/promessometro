@@ -36,6 +36,7 @@ const statusConfig: Record<string, { label: string; icon: React.ComponentType<an
 interface PromiseData {
   id: string;
   politician_name: string;
+  politician_photo_url?: string | null;
   party?: string;
   state?: string;
   title: string;
@@ -88,6 +89,7 @@ export default function PromiseDetail() {
         setPromise({
           id: data.id,
           politician_name: data.politician_name || politician?.name || "",
+          politician_photo_url: politician?.photo_url || null,
           party: data.party || politician?.party,
           state: data.state || politician?.state,
           title: data.promise_title || data.title || "",
@@ -270,9 +272,27 @@ const politicianSlug = generateSlug(promise.politician_name);
             <h1 className="text-3xl font-bold mb-4">{promise.title}</h1>
 
             <div className="flex flex-wrap items-center gap-4 mb-6">
-              <Link to={`/politico/${encodeURIComponent(politicianSlug)}`} className="text-lg text-neon-cyan hover:underline">
-                {promise.politician_name}
-              </Link>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
+                  {promise.politician_photo_url ? (
+                    <img
+                      src={promise.politician_photo_url}
+                      alt={promise.politician_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.querySelector('.pd-fallback')!.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <span className={`text-xs font-bold text-white/50 pd-fallback ${promise.politician_photo_url ? 'hidden' : ''}`}>
+                    {promise.politician_name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </span>
+                </div>
+                <Link to={`/politico/${encodeURIComponent(politicianSlug)}`} className="text-lg text-neon-cyan hover:underline">
+                  {promise.politician_name}
+                </Link>
+              </div>
               {promise.party && <span className="text-gray-500">{promise.party} {promise.state && `/ ${promise.state}`}</span>}
             </div>
 

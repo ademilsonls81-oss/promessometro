@@ -107,22 +107,56 @@ async function searchSerper(query) {
   } catch { return []; }
 }
 
+let lastAiCall = 0;
+const AI_CALL_INTERVAL = 2000;
+const MAX_RETRIES = 3;
+const MAX_AI_CALLS_PER_RUN = 30;
+
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 async function evaluateViaAI(promise, evidences) {
   if (!GROQ_API_KEY) return null;
   const evText = evidences.length > 0
     ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
     : 'Nenhuma evidência encontrada.';
   const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: ${promise.promise_title}. POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS: ${evText}. Responda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicacao","o_que_foi_feito":"o que foi concluido","o_que_falta":"o que ainda falta"}`;
-  try {
-    const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return JSON.parse(data.choices[0].message.content);
-  } catch { return null; }
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastAiCall;
+    if (timeSinceLastCall < AI_CALL_INTERVAL) {
+      await sleep(AI_CALL_INTERVAL - timeSinceLastCall);
+    }
+    lastAiCall = Date.now();
+
+    try {
+      const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
+      });
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('retry-after') || '10', 10);
+        if (attempt < MAX_RETRIES - 1) {
+          await sleep(retryAfter * 1000 + 2000);
+          continue;
+        }
+        return null;
+      }
+      if (!res.ok) return null;
+      const data = await res.json();
+      return JSON.parse(data.choices[0].message.content);
+    } catch {
+      if (attempt < MAX_RETRIES - 1) {
+        await sleep(3000 * (attempt + 1));
+        continue;
+      }
+      return null;
+    }
+  }
+  return null;
 }
 
 async function runAudit(options = { autoFix: false }) {
@@ -143,6 +177,8 @@ async function runAudit(options = { autoFix: false }) {
     .from('promise_explanations')
     .select('id, promise_id, status, fulfillment_score, evidencias_usadas, criterio_aplicado, o_que_foi_feito, o_que_falta, justificativa')
     .eq('is_latest', true);
+
+  let aiCallsThisRun = 0;
 
   for (const pol of pols) {
     report.politicians_checked++;
@@ -165,13 +201,25 @@ async function runAudit(options = { autoFix: false }) {
       if (!promise) continue;
 
       let needsFix = false;
+      const issues = [];
+
+      if (aiCallsThisRun >= MAX_AI_CALLS_PER_RUN && options.autoFix) {
+        issues.push('Limite de chamadas IA atingido — será processado na próxima execução');
+        report.issues.push({
+          politician_id: pol.id, politician_name: pol.name,
+          promise_id: ev.promise_id, explanation_id: ev.id,
+          issues: ['Limite de chamadas IA atingido — será processado na próxima execução do cron'],
+          action: null
+        });
+        report.total_issues++;
+        continue;
+      }
       let newEvidencias = ev.evidencias_usadas || [];
       let newStatus = ev.status;
       let newScore = ev.fulfillment_score;
       let newJustificativa = ev.justificativa || '';
       let newOQueFoiFeito = ev.o_que_foi_feito || '';
       let newOQueFalta = ev.o_que_falta || '';
-      const issues = [];
       let action = null;
 
       // --- Step 1: Dedup domains ---
@@ -197,6 +245,7 @@ async function runAudit(options = { autoFix: false }) {
           newEvidencias = rededuped;
 
           // Re-evaluate via AI with new evidence
+          aiCallsThisRun++;
           const aiResult = await evaluateViaAI(promise, newEvidencias);
           if (aiResult) {
             const mappedStatus = mapStatusToFrontend(aiResult.status);

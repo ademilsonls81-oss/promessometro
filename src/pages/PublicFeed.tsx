@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle, Clock, Search, Filter, ChevronRight, ExternalLink, PartyPopper, TrendingUp, User, AlertCircle, Link as LinkIcon } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Search, Filter, ChevronRight, ExternalLink, PartyPopper, TrendingUp, AlertCircle, Link as LinkIcon } from "lucide-react";
 
 function toSlug(name: string): string {
   if (!name) return '';
@@ -14,6 +14,7 @@ function toSlug(name: string): string {
 interface Promise {
   id: string;
   politician_name: string;
+  politician_photo_url?: string | null;
   slug?: string;
   party: string | null;
   state: string | null;
@@ -249,10 +250,27 @@ export default function PublicFeed() {
                         </p>
                       )}
                       <div className="flex items-center gap-3 text-sm flex-wrap">
-                        <span className="text-neon-cyan font-medium flex items-center gap-1">
-                          <User className="w-3 h-3" />
-                          {promise.politician_name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
+                            {promise.politician_photo_url ? (
+                              <img
+                                src={promise.politician_photo_url}
+                                alt={promise.politician_name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.querySelector('.pf-fallback')!.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className={`text-[10px] font-bold text-white/50 pf-fallback ${promise.politician_photo_url ? 'hidden' : ''}`}>
+                              {promise.politician_name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                            </span>
+                          </div>
+                          <span className="text-neon-cyan font-medium">
+                            {promise.politician_name}
+                          </span>
+                        </div>
                         {promise.party && (
                           <span className="text-gray-500">{promise.party}</span>
                         )}

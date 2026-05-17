@@ -1,10 +1,11 @@
 # HANDSOFF PROMESSÔMETRO BRASIL v2.0
 
 ## Status Geral
-- **Banco**: ✅ Operacional
+- **Banco**: ✅ Operacional (~242 promessas, antes 41)
 - **Frontend**: ✅ Deployado (https://promessometro-brasil.vercel.app)
 - **Cron**: ✅ Implementado e em produção
-- **Auditoria**: ✅ Concluída (ver relatório abaixo)
+- **Auditoria**: ✅ Concluída
+- **Descoberta**: ✅ `/api/discover-promises` + `/api/import-promises`
 
 ---
 
@@ -60,6 +61,27 @@ Resultado da auditoria completa:
 | GET | `/api/evaluate/:promiseId` | Avaliação unificada da promessa |
 | POST | `/api/batch-evaluate` | Popular avaliações em lote |
 | POST | `/api/seed-evaluations` | Seed básico de avaliações |
+| GET/POST | `/api/photos/backfill` | Preencher fotos faltantes de políticos via Wikipedia |
+
+### Descoberta de Promessas (Maio 2026)
+O sistema agora tem pipeline de descoberta automática de promessas via Serper.dev + Groq:
+
+| Endpoint | Método | Descrição |
+|---|---|---|
+| `GET/POST /api/discover-promises?politician=NOME&dryrun=true` | GET/POST | Busca artigos + extrai promessas via Groq (se `dryrun=true`, não insere) |
+| `POST /api/import-promises` | POST | Importa JSON de promessas para um político |
+
+**Como funciona a descoberta:**
+1. Serper.dev busca 4 queries por político (plano de governo + promessas + propostas)
+2. Groq (llama-3.1-8b-instant) extrai promessas específicas dos snippets
+3. Insere no banco com status `pendente` e score 50
+4. Dedup futuro: comparação fuzzy por título (desabilitado temporariamente)
+
+**Notas:**
+- Groq free tier: rate limit ~30 req/min por modelo
+- Categorias normalizadas para 10 valores: Saude, Educacao, Seguranca, Economia, Infraestrutura, Meio_Ambiente, Trabalho, Habitacao, Transporte, Outros
+- Usa `dbAdmin()` (service_role key) para inserts (RLS policy bloqueia anon key)
+- Colunas disponíveis em `promises`: `id, politician_id, politician_name, promise_title, category, status, fulfillment_score, party, created_at, updated_at`
 
 ### Como testar a consistência
 ```bash
@@ -152,6 +174,24 @@ curl "https://liqutcjzzrqstivvfele.supabase.co/rest/v1/cron_executions?order=cre
 
 ---
 
+## Fotos de Políticos
+- **Coluna `photo_url`** na tabela `politicians` (TEXT)
+- **Ranking.tsx** e **PoliticianProfile.tsx** já exibem foto com fallback para iniciais
+- **PublicFeed.tsx** exibe foto circular ao lado do nome do político (fallback: iniciais)
+- **PromiseDetail.tsx** exibe foto circular ao lado do nome do político (fallback: iniciais)
+
+### Como funciona para novos candidatos
+- Ao submeter promessa via `/api/promises/submit`, o `ensurePolitician()` cria/atualiza o político e busca foto via Wikipedia automaticamente
+- Endpoint `/api/photos/backfill` preenche fotos de políticos que ainda não têm
+
+### População manual
+```bash
+# Preencher fotos de até 50 políticos sem foto
+curl -X POST https://promessometro-brasil.vercel.app/api/photos/backfill
+```
+
+---
+
 ## Colunas do banco (promises)
 ```sql
 -- Essenciais para o cron
@@ -181,7 +221,90 @@ needs_human_review     BOOLEAN    -- requer revisão humana
 
 ---
 
-## Commits recentes (main)
+---
+
+## Metodologia 3 Camadas (Maio 2026)
+
+### Migração do Banco (17/05/2026)
+**Status**: ✅ Completa
+
+#### Novas tabelas (4)
+| Tabela | Descrição |
+|--------|-----------|
+| `mandates` | Mandatos políticos (mandato fechado, linked a politician) |
+| `indicators` | Indicadores objetivos — Camada 2 (segurança, finanças, funcionalismo) |
+| `legal_facts` | Fatos jurídicos — Camada 3 (condenações, investigações, etc) |
+| `methodology` | Documento de metodologia versionado (JSONB) |
+
+#### Novas colunas em `promises`
+`mandate_id UUID`, `is_primary_source BOOLEAN`, `verification_sources JSONB`, `government_response TEXT`, `contestation_sent_at TIMESTAMPTZ`, `contestation_response TEXT`, `fulfillment_percentage INTEGER`, `verification_notes TEXT`
+
+#### Novas colunas em `politicians`
+`c1_score DECIMAL`, `c2_score DECIMAL`, `c3_score DECIMAL`, `final_score DECIMAL`, `grade TEXT`, `methodology_version TEXT`, `last_evaluated_at TIMESTAMPTZ`
+
+#### Índices (5)
+`idx_promises_mandate`, `idx_promises_is_primary`, `idx_indicators_politician`, `idx_legal_facts_politician`, `idx_mandates_politician`
+
+### Executando DDL via exec_sql
+A função `exec_sql` usa `EXECUTE sql INTO result` — DDL puro falha com "INTO used with a command that cannot return data".
+**Workaround**: Sempre anexar `; SELECT 1;` no final do DDL:
+```sql
+CREATE TABLE IF NOT EXISTS x (id int); SELECT 1;
+```
+**Schema cache**: Após criar tabelas via exec_sql, PostgREST não descobre automaticamente. Executar:
+```sql
+NOTIFY pgrst, 'reload schema'
+```
+Via exec_sql para forçar refresh (funciona comprovadamente).
+
+### Estrutura Metodológica
+```
+Nota Final = (C1 × 0.40) + (C2 × 0.35) + (C3 × 0.25)
+Grade: A(80-100) B(60-79) C(40-59) D(20-39) F(0-19)
+```
+
+**Camada 1** (Promessas, 40%):
+- C1 = (cumpridas×1.0 + parciais×0.5) / total × 100
+- Status: cumprida/parcial/pendente/quebrada
+
+**Camada 2** (Indicadores, 35%):
+- C2 = Σ(indicador_score × peso) / Σ(pesos)
+- Categorias: seguranca (30%), financas (40%), funcionalismo (30%)
+
+**Camada 3** (Fatos Jurídicos, 25%):
+- C3 começa em 100, deduz penalidades
+- Condenação transitada: -50, Investigação formal: -20, Alerta: -10, Irregularidade: -5
+- Se C3 < 20 → grade máxima = C independente das demais camadas
+
+### Prioridade Atual
+Cláudio Castro **primeiro** (implementação completa end-to-end), depois replicar.
+
+### Endpoints implementados
+| Método | Path | Descrição |
+|--------|------|-----------|
+| GET | `/api/metodologia` | Documento de metodologia versionado (current) |
+| GET | `/api/politician/:slug` | Perfil completo + C1/C2/C3 + grade + mandates/indicators/legal_facts |
+
+O endpoint `/api/politician/:slug` agora calcula e salva automaticamente:
+- C1 = promessas (cumpridas/parciais/pendentes/quebradas)
+- C2 = indicadores objetivos (por categoria)
+- C3 = fatos jurídicos (deduções)
+- Grade final (A-F)
+
+### Status atual do Castro
+| Camada | Score | Peso |
+|--------|-------|------|
+| C1 Promessas | 15.4 | 40% |
+| C2 Indicadores | 0 (vazio) | 35% |
+| C3 Fatos Jurídicos | 100 (vazio) | 25% |
+| **Final** | **31.2** | **Grade D** |
+
+### Arquivos de migração
+- `sql/migration-2026-05-17-metodologia.sql` — DDL puro
+- `run-migration.mjs` — Runner que executa cada statement com `; SELECT 1`
+- `verify-migration.mjs` — Verificação pós-migração
+
+### Commits recentes (main)
 ```
 ac7735b fix: improve cron with score clamping, promise_explanations populating, status_history mandatory, cutoff logic, audit logging
 bb01ae7 fix: todas inconsistências de status - em_andamento=pending, nao_classificada=Pendente, StatusBadge, og, middleware

@@ -1,12 +1,62 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, ArrowLeft, Scale, FileText, Check, Brain, AlertTriangle, Shield, Users, ExternalLink, Search, Github } from "lucide-react";
+import {
+  BookOpen, ArrowLeft, Scale, FileText, Check, Brain,
+  AlertTriangle, Shield, Users, Search, Loader2,
+  Layers, Target, Gavel, BarChart3
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
+const GRADE_CONFIG = {
+  A: { color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/30" },
+  B: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30" },
+  C: { color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30" },
+  D: { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30" },
+  F: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" }
+};
+
 export default function Metodologia() {
+  const [methodology, setMethodology] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchMethodology();
+  }, []);
+
+  async function fetchMethodology() {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/metodologia');
+      if (!res.ok) throw new Error('Erro ao carregar metodologia');
+      const data = await res.json();
+      setMethodology(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const content = methodology?.content;
+  const formula = content?.formula;
+  const camada1 = content?.camada_1;
+  const camada2 = content?.camada_2;
+  const camada3 = content?.camada_3;
+  const verification = content?.verification;
+  const contestation = content?.contestation;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-12 pb-24 px-4 bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-neon-purple" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pt-12 pb-24 px-4 bg-background">
-      <div className="container mx-auto max-w-3xl">
+      <div className="container mx-auto max-w-4xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-8 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Voltar ao Início
@@ -18,174 +68,192 @@ export default function Metodologia() {
             </div>
             <h1 className="text-3xl md:text-4xl font-display font-bold">Metodologia</h1>
           </div>
-          <p className="text-gray-500 text-sm mb-12">Entenda como avaliamos e classificamos promessas políticas</p>
+          <p className="text-gray-500 text-sm mb-4">
+            Versão {methodology?.version || '1.0'} · Publicada em {methodology?.published_at ? new Date(methodology.published_at).toLocaleDateString('pt-BR') : '17/05/2026'}
+          </p>
+          <p className="text-gray-400 mb-12 leading-relaxed">
+            O Promessômetro avalia políticos com base em três camadas independentes que compõem a nota final.
+          </p>
 
-          <div className="space-y-12">
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Brain className="w-5 h-5 text-neon-purple" />
-                Como a IA Avalia uma Promessa
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Utilizamos um modelo de linguagem (llama-3.3-70b-versatile) para analisar evidências coletadas de fontes públicas. A IA não toma decisões políticas — apresenta dados de forma estruturada.
-              </p>
-              <div className="p-4 bg-dark-card border border-white/5 rounded-xl space-y-2">
-                <p className="text-sm text-gray-300 font-medium">O processo funciona assim:</p>
-                <ol className="text-sm text-gray-400 space-y-1 list-decimal list-inside">
-                  <li>Coletamos evidências de fontes públicas e verificáveis</li>
-                  <li>A IA analisa cada evidência e a compara com a promessa original</li>
-                  <li>O sistema classifica o status com base em critérios objetivos</li>
-                  <li>Um score de confiança indica a certeza da avaliação</li>
-                  <li>Avaliações com baixa confiança vão para revisão humana</li>
-                </ol>
-              </div>
-            </section>
+          {error && (
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-8 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Scale className="w-5 h-5 text-neon-cyan" />
-                Critérios de Classificação
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Cada promessa é classificada em uma das seguintes categorias, com base em evidências concretas:
-              </p>
-              <div className="space-y-4">
-                {[
-                  { status: "cumprida", label: "Cumprida", color: "text-green-400", border: "border-green-500/30", bg: "bg-green-500/10", desc: "A promessa apresenta evidências verificáveis de implementação (lei aprovada, programa lançado, obra entregue, decreto publicado)." },
-                  { status: "parcial", label: "Parcialmente Cumprida", color: "text-yellow-400", border: "border-yellow-500/30", bg: "bg-yellow-500/10", desc: "A promessa apresenta evidências parciais de execução ou está em andamento com ações iniciadas (licitação, tramitação legislativa). Uma porção foi realizada ou está em progresso." },
-                  { status: "nao_iniciada", label: "Pendente", color: "text-gray-400", border: "border-gray-500/30", bg: "bg-gray-500/10", desc: "Não foram encontradas evidências de ações relacionadas à promessa. Aguardando classificação ou início de ações." },
-                  { status: "descumprida", label: "Descumprida", color: "text-red-400", border: "border-red-500/30", bg: "bg-red-500/10", desc: "A promessa apresenta evidências de ação contrária ao compromisso, ou o prazo expirou sem avanços significativos." }
-                ].map(item => (
-                  <div key={item.status} className={`border ${item.border} ${item.bg} rounded-xl p-5`}>
-                    <h3 className={`font-bold mb-2 ${item.color}`}>{item.label}</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+          {!content ? (
+            <div className="text-center py-12 text-gray-500">
+              Documento de metodologia não disponível.
+            </div>
+          ) : (
+            <div className="space-y-12">
+
+              {/* Formula Summary */}
+              <section className="p-6 bg-gradient-to-br from-neon-purple/10 to-neon-cyan/5 border border-white/10 rounded-2xl">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-neon-cyan" />
+                  Fórmula da Nota Final
+                </h2>
+                <div className="text-center py-4">
+                  <div className="text-2xl font-display font-bold text-neon-cyan mb-2">
+                    {formula?.nota_final || "C1 × 0.40 + C2 × 0.35 + C3 × 0.25"}
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div className="flex flex-wrap justify-center gap-6 mt-4 text-sm">
+                    {formula?.grade_scale?.map((g: any) => {
+                      const cfg = GRADE_CONFIG[g.grade as keyof typeof GRADE_CONFIG] || GRADE_CONFIG.C;
+                      return (
+                        <div key={g.grade} className={`px-3 py-1.5 rounded-lg border ${cfg.border} ${cfg.bg}`}>
+                          <span className={`font-bold ${cfg.color}`}>{g.grade}</span>
+                          <span className="text-gray-500 ml-1">{g.range}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
 
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-neon-cyan" />
-                Como o Score é Calculado
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                O score de 0 a 100 reflete o grau de cumprimento com base na análise de evidências:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-dark-card border border-green-500/20 rounded-xl">
-                  <p className="text-green-400 font-bold mb-1">80-100: Cumprida</p>
-                  <p className="text-gray-400 text-sm">Evidências concretas de implementação completa</p>
+              {/* Camada 1 */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-green-500/20 rounded-xl">
+                    <Target className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Camada 1 — {camada1?.name || 'Cumprimento de Promessas'}</h2>
+                    <p className="text-gray-500 text-sm">Peso: {(camada1?.weight || 0.40) * 100}% da nota final</p>
+                  </div>
                 </div>
-                <div className="p-4 bg-dark-card border border-yellow-500/20 rounded-xl">
-                  <p className="text-yellow-400 font-bold mb-1">20-79: Parcialmente Cumprida</p>
-                  <p className="text-gray-400 text-sm">Ações iniciadas ou execução parcial verificável</p>
+                <p className="text-gray-400 leading-relaxed mb-4">{camada1?.description}</p>
+                <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl mb-4">
+                  <code className="text-sm text-green-300">{camada1?.calculation}</code>
                 </div>
-                <div className="p-4 bg-dark-card border border-red-500/20 rounded-xl">
-                  <p className="text-red-400 font-bold mb-1">0-19: Pendente</p>
-                  <p className="text-gray-400 text-sm">Nenhuma evidência de execução encontrada ainda</p>
-                </div>
-                <div className="p-4 bg-dark-card border border-red-500/40 rounded-xl">
-                  <p className="text-red-600 font-bold mb-1">0: Descumprida</p>
-                  <p className="text-gray-400 text-sm">Ações contrárias ou prazo expirado com abandono</p>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-neon-cyan" />
-                Fontes Confiáveis
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Validamos cada avaliação cruzando com fontes de diferentes categorias:
-              </p>
-              <div className="space-y-3">
-                {[
-                  { label: "Fontes Governamentais", desc: "Diário Oficial da União, Presidência, Câmara, Senado, TCU, Agências", examples: "GOV, IBGE, IPEA" },
-                  { label: "Veículos de Comunicação", desc: "G1, Folha, UOL, CNN Brasil, Estadão, Valor, Metropoles", examples: "JORNAL" },
-                  { label: "Organizações de Fact-Checking", desc: "Agência Lupa, Aos Fatos, Estadão Verifica", examples: "FACT" },
-                  { label: "Dados Abertos", desc: "Portal da Transparência, Dados governamentais abertos", examples: "DATA" }
-                ].map((src, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 bg-dark-card border border-white/5 rounded-xl">
-                    <Check className="w-5 h-5 text-neon-cyan mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-white font-medium text-sm">{src.label}</p>
-                      <p className="text-gray-400 text-sm">{src.desc}</p>
-                      <p className="text-gray-600 text-xs mt-1">{src.examples}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {camada1?.status && Object.entries(camada1.status).map(([key, val]: any) => (
+                    <div key={key} className="p-3 bg-dark-card border border-white/5 rounded-xl text-center">
+                      <div className="text-lg font-bold font-display">{val.score}</div>
+                      <div className="text-xs text-gray-400">{val.label}</div>
                     </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-dark-card border border-white/5 rounded-xl text-xs text-gray-500">
+                  <strong className="text-gray-400">Fontes primárias:</strong> {camada1?.sources?.primary}
+                  <br />
+                  <strong className="text-gray-400">Secundárias:</strong> {camada1?.sources?.secondary}
+                </div>
+              </section>
+
+              {/* Camada 2 */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-blue-500/20 rounded-xl">
+                    <BarChart3 className="w-5 h-5 text-blue-400" />
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div>
+                    <h2 className="text-xl font-bold">Camada 2 — {camada2?.name || 'Indicadores Objetivos'}</h2>
+                    <p className="text-gray-500 text-sm">Peso: {(camada2?.weight || 0.35) * 100}% da nota final</p>
+                  </div>
+                </div>
+                <p className="text-gray-400 leading-relaxed mb-4">{camada2?.description}</p>
+                <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl mb-4">
+                  <code className="text-sm text-blue-300">{camada2?.calculation}</code>
+                </div>
+                <div className="space-y-3">
+                  {camada2?.categories?.map((cat: any, i: number) => (
+                    <div key={i} className="p-4 bg-dark-card border border-white/5 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold capitalize text-sm">{cat.name}</span>
+                        <span className="text-xs text-gray-500">Peso: {(cat.weight * 100)}%</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {cat.indicators?.map((ind: string, j: number) => (
+                          <span key={j} className="px-2 py-1 bg-white/5 rounded text-xs text-gray-400">{ind}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-neon-purple" />
-                Revisão Humana
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Nem tudo pode ser decidido por IA. Nosso sistema inclui revisão humana:
-              </p>
-              <ul className="space-y-2">
-                {[
-                  "Avaliações com confiança abaixo de 40% exigem revisão antes de publicação",
-                  "Qualquer pessoa pode contestar uma avaliação via formulário público",
-                  "Contestações são analisadas pela equipe em até 7 dias",
-                  "Histórico completo de alterações fica visível publicamente"
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
-                    <Check className="w-4 h-4 text-neon-cyan mt-0.5 shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </section>
+              {/* Camada 3 */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-red-500/20 rounded-xl">
+                    <Gavel className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Camada 3 — {camada3?.name || 'Fatos Jurídicos'}</h2>
+                    <p className="text-gray-500 text-sm">Peso: {(camada3?.weight || 0.25) * 100}% da nota final</p>
+                  </div>
+                </div>
+                <p className="text-gray-400 leading-relaxed mb-4">{camada3?.description}</p>
+                <div className="p-4 bg-dark-card border border-white/5 rounded-xl mb-4">
+                  <p className="text-sm text-gray-300">
+                    <strong>Score inicial:</strong> {camada3?.initial_score || 100} pontos.
+                  </p>
+                  <p className="text-sm text-yellow-400 mt-1">
+                    ⚠ {camada3?.rule}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {camada3?.penalties?.map((pen: any, i: number) => (
+                    <div key={i} className="p-3 bg-dark-card border border-red-500/20 rounded-xl">
+                      <div className="text-lg font-bold font-display text-red-400">-{pen.points}</div>
+                      <div className="text-xs text-gray-400">{pen.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                Como Contestar uma Avaliação
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Se você discorda de uma avaliação, pode contestá-la:
-              </p>
-              <ol className="space-y-3">
-                {[
-                  "Clique em 'Contestar Esta Avaliação' na página da promessa",
-                  "Informe seu nome e motive por que a avaliação está incorreta",
-                  "Anexe links de evidências que comprovem sua contestação",
-                  "Nossa equipe analisa e pode solicitar nova avaliação da IA",
-                  "O resultado fica visível no histórico da promessa"
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-400 text-sm">
-                    <span className="w-6 h-6 rounded-full bg-neon-cyan/20 text-neon-cyan text-xs flex items-center justify-center shrink-0 mt-0.5 font-bold">{i + 1}</span>
-                    {item}
-                  </li>
-                ))}
-              </ol>
-            </section>
+              {/* Verification */}
+              <section>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-neon-cyan" />
+                  Verificação de Evidências
+                </h2>
+                <p className="text-gray-400 leading-relaxed mb-4">{verification?.description}</p>
+                <div className="space-y-2">
+                  {verification?.source_hierarchy?.map((src: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-dark-card border border-white/5 rounded-xl">
+                      <span className="w-6 h-6 rounded-full bg-neon-cyan/20 text-neon-cyan text-xs flex items-center justify-center shrink-0 mt-0.5 font-bold">{src.level}</span>
+                      <div>
+                        <p className="text-sm text-gray-300 font-medium">Nível {src.level}</p>
+                        <p className="text-xs text-gray-500">{src.type}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Search className="w-5 h-5 text-neon-cyan" />
-                Código Aberto
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-4">
-                Todo o nosso código é aberto. Você pode auditar, contribuir ou adaptar:
-              </p>
-              <a
-                href="https://github.com/ademilsonls81-oss/promessometro"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-colors"
-              >
-                <Github className="w-4 h-4" />
-                Ver no GitHub
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </section>
-          </div>
+              {/* Contestation */}
+              <section>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                  Contestação
+                </h2>
+                <p className="text-gray-400 leading-relaxed mb-4">{contestation?.description}</p>
+                <div className="p-4 bg-dark-card border border-yellow-500/20 rounded-xl">
+                  <p className="text-sm text-gray-300">
+                    Prazo para contestação: <strong>{contestation?.deadline_days || 15} dias</strong> antes da publicação.
+                  </p>
+                </div>
+              </section>
+
+              {/* Transparency */}
+              <section>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <Search className="w-5 h-5 text-neon-cyan" />
+                  Transparência e Reprodutibilidade
+                </h2>
+                <p className="text-gray-400 leading-relaxed">
+                  {content?.transparency?.reproducibility || 'Qualquer cidadão pode reproduzir a nota final de qualquer político usando apenas os dados publicados no site.'}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Metodologia v{methodology?.version || '1.0'} — publicada em {methodology?.published_at ? new Date(methodology.published_at).toLocaleDateString('pt-BR') : '17/05/2026'}
+                </p>
+              </section>
+
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
