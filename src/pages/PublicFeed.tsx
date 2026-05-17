@@ -260,25 +260,29 @@ export default function PublicFeed() {
                           <span className="text-gray-600 text-xs">• {promise.state}</span>
                         )}
                       </div>
-                      {promise.evidence || promise.source_link ? (
-                          <>
-                            {(promise.source_link?.includes('tse.jus.br') || promise.source_link?.includes('divulgacand') || !promise.source_link) ? (
-                              <div className="inline-flex items-center gap-2 mt-3">
-                                <ExternalLink className="w-3 h-3 text-gray-500" />
-                                <span className="text-xs text-gray-500">Fonte: TSE (temporariamente indisponível)</span>
-                              </div>
-                            ) : (
-                              <a
-                                href={promise.source_link || promise.source_doc_url || ''}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-neon-cyan hover:underline mt-3"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                Ver Fonte Oficial
-                              </a>
-                            )}
-                          </>
+                      {promise.evidences_used && promise.evidences_used.length > 0 ? (
+                          <div className="mt-3 inline-flex items-center gap-2">
+                            <LinkIcon className="w-3 h-3 text-neon-cyan" />
+                            <span className="text-xs text-neon-cyan">{promise.evidence_count || promise.evidences_used.length} evidências encontradas</span>
+                            <a
+                              href={promise.evidences_used[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-gray-400 hover:text-neon-cyan transition-colors"
+                            >
+                              Ver evidências <ExternalLink className="w-3 h-3 inline" />
+                            </a>
+                          </div>
+                        ) : promise.source_link ? (
+                          <a
+                            href={promise.source_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-neon-cyan hover:underline mt-3"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver Fonte Oficial
+                          </a>
                         ) : (
                           <div className="mt-3 flex items-center gap-2">
                             <AlertCircle className="w-3 h-3 text-yellow-500" />
