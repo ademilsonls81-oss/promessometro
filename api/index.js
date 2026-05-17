@@ -238,24 +238,31 @@ export default async function handler(req, res) {
           c2WeightSum += w;
         }
       }
-      c2 = c2WeightSum > 0 ? parseFloat((c2ScoreSum / c2WeightSum).toFixed(1)) : 0;
+      c2 = c2WeightSum > 0 ? parseFloat((c2ScoreSum / c2WeightSum).toFixed(1)) : null;
 
       // Calculate C3
-      let c3 = 100;
-      const penaltyMap = { 'condemnation': 50, 'investigation': 20, 'alert': 10, 'irregularity': 5 };
-      (legalFacts || []).forEach(fact => {
-        if (fact.is_active !== false) {
-          const pts = penaltyMap[fact.fact_type] || 0;
-          if (pts > 0) c3 -= pts;
-        }
-      });
-      c3 = Math.max(0, c3);
+      let c3 = null;
+      if (legalFacts && legalFacts.length > 0) {
+        c3 = 100;
+        const penaltyMap = { 'condemnation': 50, 'investigation': 20, 'alert': 10, 'irregularity': 5 };
+        (legalFacts || []).forEach(fact => {
+          if (fact.is_active !== false) {
+            const pts = penaltyMap[fact.fact_type] || 0;
+            if (pts > 0) c3 -= pts;
+          }
+        });
+        c3 = Math.max(0, c3);
+      }
 
       // Calculate final score
       const w1 = 0.40, w2 = 0.35, w3 = 0.25;
-      let finalScore = (c1 * w1) + (c2 * w2) + (c3 * w3);
+      let pesoTotal = w1;
+      let scorePonderado = c1 * w1;
+      if (c2 != null) { scorePonderado += c2 * w2; pesoTotal += w2; }
+      if (c3 != null) { scorePonderado += c3 * w3; pesoTotal += w3; }
+      let finalScore = pesoTotal > 0 ? parseFloat((scorePonderado / pesoTotal).toFixed(1)) : 0;
       let grade;
-      if (c3 < 20) { finalScore = Math.min(finalScore, 59); }
+      if (c3 != null && c3 < 20) { finalScore = Math.min(finalScore, 59); }
       if (finalScore >= 80) grade = 'A';
       else if (finalScore >= 60) grade = 'B';
       else if (finalScore >= 40) grade = 'C';

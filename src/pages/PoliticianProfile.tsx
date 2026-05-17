@@ -423,14 +423,14 @@ export default function PoliticianProfile() {
                 <button onClick={() => setExpandedLayer(expandedLayer === 'c2' ? null : 'c2')}
                   className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'c2' ? 'border-blue-400 ring-1 ring-blue-400/50' : 'border-blue-500/20'}`}>
                   <BarChart3 className="w-5 h-5 text-blue-400 mb-2 mx-auto" />
-                  <div className="text-2xl font-bold font-display text-blue-400">{politician.methodology.c2_score}</div>
+                  <div className="text-2xl font-bold font-display text-blue-400">{politician.methodology.c2_score != null ? politician.methodology.c2_score : <span className="text-gray-500 text-lg">Sem dados</span>}</div>
                   <div className="text-xs text-gray-500 uppercase tracking-wider">C2 · Indicadores</div>
                   <div className="text-[10px] text-gray-600">Peso 35%</div>
                 </button>
                 <button onClick={() => setExpandedLayer(expandedLayer === 'c3' ? null : 'c3')}
                   className={`p-5 bg-dark-card border rounded-2xl text-center transition-all hover:scale-[1.02] ${expandedLayer === 'c3' ? 'border-red-400 ring-1 ring-red-400/50' : 'border-red-500/20'}`}>
                   <Gavel className="w-5 h-5 text-red-400 mb-2 mx-auto" />
-                  <div className="text-2xl font-bold font-display text-red-400">{politician.methodology.c3_score}</div>
+                  <div className="text-2xl font-bold font-display text-red-400">{politician.methodology.c3_score != null ? politician.methodology.c3_score : <span className="text-gray-500 text-lg">Sem dados</span>}</div>
                   <div className="text-xs text-gray-500 uppercase tracking-wider">C3 · Fatos Jurídicos</div>
                   <div className="text-[10px] text-gray-600">Peso 25%</div>
                 </button>
@@ -582,11 +582,11 @@ export default function PoliticianProfile() {
                         </div>
                         <div className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
                           <span className="text-sm text-gray-300">C2 · Indicadores</span>
-                          <span className="text-sm font-bold text-blue-400">{politician.methodology.c2_score} × 0.35 = {(politician.methodology.c2_score * 0.35).toFixed(1)}</span>
+                          <span className="text-sm font-bold text-blue-400">{politician.methodology.c2_score != null ? `${politician.methodology.c2_score} × 0.35 = ${(politician.methodology.c2_score * 0.35).toFixed(1)}` : <span className="text-gray-500">Sem dados</span>}</span>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
                           <span className="text-sm text-gray-300">C3 · Fatos Jurídicos</span>
-                          <span className="text-sm font-bold text-red-400">{politician.methodology.c3_score} × 0.25 = {(politician.methodology.c3_score * 0.25).toFixed(1)}</span>
+                          <span className="text-sm font-bold text-red-400">{politician.methodology.c3_score != null ? `${politician.methodology.c3_score} × 0.25 = ${(politician.methodology.c3_score * 0.25).toFixed(1)}` : <span className="text-gray-500">Sem dados</span>}</span>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2 bg-white/10 rounded-lg border border-neon-cyan/30">
                           <span className="text-sm font-bold text-white">Nota Final</span>

@@ -346,7 +346,7 @@ export default function Ranking() {
                             <h3 className="text-lg font-bold group-hover:text-neon-cyan transition-colors">
                               {politician.name}
                             </h3>
-                            {politician.grade && (politician.c2_score != null || (politician.c3_score ?? 100) < 100) ? (
+                            {politician.grade && (politician.c2_score != null || politician.c3_score != null) ? (
                               <span className={`px-2 py-0.5 rounded text-xs font-bold border ${GRADE_STYLES[politician.grade] || 'text-gray-400 bg-white/5 border-white/10'}`}>
                                 {politician.grade}
                               </span>
@@ -386,7 +386,7 @@ export default function Ranking() {
                         <div className="w-full md:w-48">
                           <div className="flex justify-between text-xs font-bold mb-2">
                             <span className="text-gray-500 uppercase tracking-wider">
-                              {politician.final_score != null && (politician.c2_score != null || politician.c3_score < 100) ? "Score Final" : "C1 Promessas"}
+                              {politician.final_score != null && (politician.c2_score != null || politician.c3_score != null) ? "Score Final" : "C1 Promessas"}
                             </span>
                             <span className="text-neon-cyan">{politician.final_score ?? politician.percentage}%</span>
                           </div>
