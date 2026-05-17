@@ -106,9 +106,9 @@ export default function PublicFeed() {
   };
 
   const fulfilledCount = promises.filter(p => p.status === "cumprida").length;
-  const partialCount = promises.filter(p => p.status === "parcialmente_cumprida").length;
-  const brokenCount = promises.filter(p => p.status === "descumprida").length;
-  const pendingCount = promises.filter(p => p.status === "pendente" || p.status === "nao_iniciada" || p.status === "nao_classificada" || p.status === "em_andamento").length;
+  const partialCount = promises.filter(p => p.status === "parcial").length;
+  const brokenCount = promises.filter(p => p.status === "quebrada").length;
+  const pendingCount = promises.filter(p => p.status === "pendente").length;
   const totalEvidences = promises.reduce((acc, p) => acc + (p.evidence_count || 0), 0);
 
   if (loading) {
