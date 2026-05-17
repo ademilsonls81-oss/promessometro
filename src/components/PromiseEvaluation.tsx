@@ -283,7 +283,7 @@ export default function PromiseEvaluation({ evaluation, loading, onRefresh, expa
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
-                      {ev.fonte || "Fonte não especificada"}
+                      {ev.fonte || (ev.url ? new URL(ev.url).hostname.replace('www.', '') : "Fonte não especificada")}
                     </span>
                     {ev.data && (
                       <span className="flex items-center gap-1">
