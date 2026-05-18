@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ShieldCheck, ArrowLeft, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download, RefreshCw } from "lucide-react";
-import { Button } from "../components/ui";
 
 interface CriterioFalha { id: string; descricao: string }
 interface PoliticoQualidade {
@@ -10,9 +9,16 @@ interface PoliticoQualidade {
   stats: { total_criterios: number; ok: number; falhos: number }
 }
 
-interface CriterioDetalhe {
-  id: string; bloco: string; descricao: string;
-  passou: boolean;
+function getToken() {
+  return localStorage.getItem("admin_token") || "";
+}
+
+async function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers, Authorization: `Bearer ${token}` };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) { localStorage.removeItem("admin_token"); window.location.href = "/admin"; return null; }
+  return res;
 }
 
 const ALL_CRITERIA_META: { id: string; bloco: string; descricao: string }[] = [
@@ -32,8 +38,8 @@ const ALL_CRITERIA_META: { id: string; bloco: string; descricao: string }[] = [
   { id: 'B8', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Cumprida' },
   { id: 'B9', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Parcial' },
   { id: 'B10', bloco: 'B', descricao: 'Mínimo 1 evidência por promessa Pendente' },
-  { id: 'B11', bloco: 'B', descricao: 'Pelo menos 1 fonte não-rede social por promessa' },
-  { id: 'B12', bloco: 'B', descricao: 'Pelo menos 2 domínios diferentes por promessa' },
+  { id: 'B11', bloco: 'B', descricao: 'Nenhuma evidência pode ser de rede social' },
+  { id: 'B12', bloco: 'B', descricao: 'Domínios únicos por promessa' },
   { id: 'B13', bloco: 'B', descricao: 'Critério não é herança automática' },
   { id: 'B14', bloco: 'B', descricao: 'C1 calculado corretamente' },
   { id: 'C1', bloco: 'C', descricao: 'Todas as 3 categorias de indicadores populadas' },
@@ -62,14 +68,9 @@ const BLOCO_COLORS: Record<string, string> = {
   E: "border-cyan-500/30 text-cyan-400"
 };
 
-function getSenha() {
-  return new URLSearchParams(window.location.search).get("password") || localStorage.getItem("admin_token") || "";
-}
-
 export default function AdminDetail() {
   const navigate = useNavigate();
   const { slug } = useParams();
-  const [senha] = useState(getSenha());
   const [dado, setDado] = useState<PoliticoQualidade | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -82,9 +83,9 @@ export default function AdminDetail() {
   async function fetchDado() {
     setCarregando(true); setErro("");
     try {
-      const res = await fetch(`/api/admin/qualidade/${slug}?password=${encodeURIComponent(senha)}`);
-      if (res.status === 401) { setErro("Não autorizado"); return; }
-      if (res.status === 404) { setErro("Político não encontrado"); return; }
+      const res = await authFetch(`/api/admin/qualidade/${slug}`);
+      if (!res) return;
+      if (res.status === 404) { setErro("Político não encontrado"); setCarregando(false); return; }
       const json = await res.json();
       setDado(json.politico);
     } catch (e: any) { setErro(e.message); }
@@ -105,7 +106,7 @@ export default function AdminDetail() {
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <p className="text-red-400 mb-4">{erro || "Dados não encontrados"}</p>
-          <Button variant="secondary" onClick={() => navigate("/admin")}>Voltar</Button>
+          <button onClick={() => navigate("/admin")} className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 transition-colors text-sm">Voltar</button>
         </div>
       </div>
     );
@@ -158,11 +159,16 @@ export default function AdminDetail() {
             <span className="text-sm text-gray-400">{dado.stats.ok}/{dado.stats.total_criterios} critérios</span>
           </div>
 
-          <a href={`/api/admin/qualidade/export?password=${encodeURIComponent(senha)}&format=csv`}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-400 hover:text-white transition-colors"
-            target="_blank" rel="noreferrer">
+          <button onClick={async () => {
+            const res = await authFetch("/api/admin/qualidade/export?format=csv");
+            if (!res) return;
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "qualidade-promessometro.csv";
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+          }} className="flex items-center gap-1.5 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-400 hover:text-white transition-colors">
             <Download className="w-4 h-4" /> CSV
-          </a>
+          </button>
         </div>
 
         {["A", "B", "C", "D", "E"].map(bloco => {

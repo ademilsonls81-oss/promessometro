@@ -1,11 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const JWT_SECRET = process.env.NEXTAUTH_SECRET;
 
-function getAdminPwd() {
-  return (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+function signJwt(email) {
+  return jwt.sign({ email, exp: Math.floor(Date.now() / 1000) + 86400 }, JWT_SECRET);
+}
+
+function verifyJwt(token) {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const allowedEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (allowedEmails.length > 0 && !allowedEmails.includes(payload.email.toLowerCase())) return null;
+    return payload;
+  } catch { return null; }
+}
+
+function requireAdmin(req) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!token) return null;
+  return verifyJwt(token);
 }
 
 async function exchangeGithubCode(code) {
@@ -618,32 +636,27 @@ Responda SOMENTE JSON array:
         if (!code) return res.status(400).json({ error: 'Código de autorização ausente' });
         const user = await exchangeGithubCode(code);
         if (!user) return res.status(401).json({ error: 'Falha na autenticação GitHub ou email não autorizado' });
-        const adminPwd = getAdminPwd();
-        return res.json({ success: true, email: user.email, name: user.name, token: adminPwd });
+        const adminJwt = signJwt(user.email);
+        return res.json({ success: true, email: user.email, name: user.name, token: adminJwt });
       } catch { return res.status(400).json({ error: 'Requisição inválida' }); }
     }
 
-    if (path === '/api/admin/qualidade/run' && method === 'POST') {
-      const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = getAdminPwd();
-      if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
-      const auditResult = await runAudit({ autoFix: true });
-      const qualidade = await runQualidadeAudit();
-      return res.json({ audit: auditResult, qualidade: { metodologia_versao: '1.0', politicos: qualidade } });
-    }
+    if (path.startsWith('/api/admin/qualidade')) {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
 
-    if (path === '/api/admin/qualidade') {
-      const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = getAdminPwd();
-      if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
-      const report = await runQualidadeAudit();
-      return res.json({ metodologia_versao: '1.0', politicos: report });
-    }
+      if (path === '/api/admin/qualidade/run' && method === 'POST') {
+        const auditResult = await runAudit({ autoFix: true });
+        const qualidade = await runQualidadeAudit();
+        return res.json({ audit: auditResult, qualidade: { metodologia_versao: '1.0', politicos: qualidade } });
+      }
 
-    if (path.startsWith('/api/admin/qualidade/') && method === 'GET') {
-      const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = getAdminPwd();
-      if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
+      if (path === '/api/admin/qualidade') {
+        const report = await runQualidadeAudit();
+        return res.json({ metodologia_versao: '1.0', politicos: report });
+      }
+
+      if (method === 'GET') {
 
       const parts = path.split('/');
       const slug = parts[parts.length - 1];
@@ -676,6 +689,7 @@ Responda SOMENTE JSON array:
       if (!politico) return res.status(404).json({ error: 'Político não encontrado' });
 
       return res.json({ metodologia_versao: '1.0', politico });
+      }
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });

@@ -1,7 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download, Play, Github } from "lucide-react";
-import { Button } from "../components/ui";
 
 interface CriterioFalha { id: string; descricao: string }
 interface PoliticoQualidade {
@@ -21,13 +20,24 @@ const BLOCO_COLORS: Record<string, string> = {
   E: "border-cyan-500/30 text-cyan-400"
 };
 
-function getSenha() {
-  return new URLSearchParams(window.location.search).get("password") || localStorage.getItem("admin_token") || "";
+function getToken() {
+  return localStorage.getItem("admin_token") || "";
+}
+
+async function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers, Authorization: `Bearer ${token}` };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem("admin_token");
+    window.location.href = "/admin";
+    return null;
+  }
+  return res;
 }
 
 export default function Admin() {
   const navigate = useNavigate();
-  const [senha, setSenha] = useState(getSenha());
   const [autenticado, setAutenticado] = useState(false);
   const [dados, setDados] = useState<PoliticoQualidade[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -41,17 +51,16 @@ export default function Admin() {
     if (code) {
       window.history.replaceState({}, "", "/admin");
       loginGithub(code);
-    } else if (senha) {
-      localStorage.setItem("admin_token", senha);
+    } else if (getToken()) {
       fetchDados();
     }
-  }, [senha]);
+  }, []);
 
   async function fetchDados() {
     setCarregando(true); setErro("");
     try {
-      const res = await fetch("/api/admin/qualidade?password=" + encodeURIComponent(senha));
-      if (res.status === 401) { setAutenticado(false); localStorage.removeItem("admin_token"); setErro("Senha inválida"); return; }
+      const res = await authFetch("/api/admin/qualidade");
+      if (!res) return;
       const json = await res.json();
       setDados(json.politicos || []);
       setAutenticado(true);
@@ -70,7 +79,6 @@ export default function Admin() {
       if (res.status === 401) { setErro("Email não autorizado"); setCarregando(false); return; }
       if (!res.ok) { setErro("Erro na autenticação"); setCarregando(false); return; }
       const json = await res.json();
-      setSenha(json.token);
       localStorage.setItem("admin_token", json.token);
       fetchDados();
     } catch (e: any) { setErro(e.message); setCarregando(false); }
@@ -79,8 +87,8 @@ export default function Admin() {
   async function rodarAuditoria() {
     setAuditando(true); setErro("");
     try {
-      const res = await fetch("/api/admin/qualidade/run?password=" + encodeURIComponent(senha), { method: "POST" });
-      if (res.status === 401) { setErro("Não autorizado"); return; }
+      const res = await authFetch("/api/admin/qualidade/run", { method: "POST" });
+      if (!res) return;
       const json = await res.json();
       alert(`Auditoria concluída!\n\nVerificados: ${json.audit?.politicians_checked || 0} políticos\nIssues encontradas: ${json.audit?.total_issues || 0}\nCorrigidos automaticamente: ${json.audit?.fixed || 0}\nPulados (revisão humana): ${json.audit?.skipped_human_reviewed || 0}`);
       fetchDados();
@@ -88,7 +96,7 @@ export default function Admin() {
     setAuditando(false);
   }
 
-  function sair() { localStorage.removeItem("admin_token"); setAutenticado(false); setSenha(""); setDados([]); navigate("/"); }
+  function sair() { localStorage.removeItem("admin_token"); setAutenticado(false); setDados([]); navigate("/admin"); }
 
   if (!autenticado) {
     return (
@@ -101,16 +109,9 @@ export default function Admin() {
             const redirectUri = window.location.origin + "/admin";
             const githubUrl = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_ID || ''}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user,user:email`;
             window.location.href = githubUrl;
-          }} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white font-medium hover:bg-white/20 transition-colors mb-6">
+          }} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white font-medium hover:bg-white/20 transition-colors">
             <Github className="w-5 h-5" /> Entrar com GitHub
           </button>
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-            <div className="relative flex justify-center"><span className="px-3 bg-dark-card text-xs text-gray-500">ou senha</span></div>
-          </div>
-          <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
-            placeholder="Senha de administrador" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-center mb-4 focus:outline-none focus:border-neon-cyan" />
-          <Button variant="primary" onClick={fetchDados} disabled={!senha} className="w-full">Acessar</Button>
           {erro && <p className="text-red-400 text-xs mt-3">{erro}</p>}
         </div>
       </div>
@@ -135,11 +136,16 @@ export default function Admin() {
               <Play className={`w-3.5 h-3.5 ${auditando ? "animate-pulse" : ""}`} />
               {auditando ? "Auditando..." : "Auditar"}
             </button>
-            <a href={`/api/admin/qualidade/export?password=${encodeURIComponent(senha)}&format=csv`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-colors"
-              target="_blank" rel="noreferrer">
+            <button onClick={async () => {
+              const res = await authFetch("/api/admin/qualidade/export?format=csv");
+              if (!res) return;
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = "qualidade-promessometro.csv";
+              document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+            }} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-colors">
               <Download className="w-3.5 h-3.5" /> CSV
-            </a>
+            </button>
             <button onClick={fetchDados} disabled={carregando} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
               <RefreshCw className={`w-4 h-4 text-gray-400 ${carregando ? "animate-spin" : ""}`} />
             </button>

@@ -150,7 +150,7 @@ SERPER_API_KEY (recomendado)
 CRON_SECRET (opcional em produção)
 SLACK_WEBHOOK_URL (opcional)
 NODE_ENV
-ADMIN_PASSWORD — senha fallback do /admin
+NEXTAUTH_SECRET — chave para assinar JWT do admin (qualquer string segura)
 ADMIN_EMAILS — emails autorizados no login GitHub (separados por vírgula)
 GITHUB_ID — GitHub OAuth App client ID (para login no /admin)
 GITHUB_SECRET — GitHub OAuth App client secret
