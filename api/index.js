@@ -380,6 +380,12 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
       let inserted = 0;
       const errors = [];
       const CAT_MAP = { seguranca: 'seguranca', segurança: 'seguranca', financas: 'financas', finanças: 'financas', funcionalismo: 'funcionalismo' };
+      function parseNum(v) {
+        if (v == null) return null;
+        const s = String(v).replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.').trim();
+        const m = s.match(/-?\d+\.?\d*/);
+        return m ? parseFloat(m[0]) : null;
+      }
       for (const ind of indicadores) {
         const rawCat = (ind.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const name = ind.name || 'indicador_' + inserted;
@@ -388,7 +394,7 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
           politician_id, mandate_id: mandate?.id || null,
           name, category: CAT_MAP[rawCat] || rawCat,
           score, weight: 50,
-          result_value: ind.valor, source_url: ind.fonte, result_year: ind.ano || 2023,
+          result_value: parseNum(ind.valor), source_url: ind.fonte, result_year: ind.ano || 2023,
           description: `Gerado via IA para ${nome} (${regiao})`
         });
         if (error) { errors.push(error.message || error); console.error('[seed-indicators] insert error:', error); }
