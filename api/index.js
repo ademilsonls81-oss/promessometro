@@ -319,7 +319,7 @@ export default async function handler(req, res) {
       let { data: mandate } = await db().from('mandates').select('id').eq('politician_id', politician_id).eq('is_active', true).maybeSingle();
       if (!mandate) {
         const { data: newMandate } = await dbAdmin().from('mandates').insert({
-          politician_id, title: role || 'Cargo Público', start_date: '2023-01-01',
+          politician_id, position: role || 'Cargo Público', start_date: '2023-01-01',
           end_date: '2026-12-31', is_active: true
         }).select().single();
         mandate = newMandate;
@@ -526,7 +526,9 @@ Resposta SOMENTE JSON:
 
       // Fetch mandate + layers
       const { data: mandate } = await db().from('mandates').select('*').eq('politician_id', pol.id).eq('is_active', true).maybeSingle();
-      const { data: indicators } = mandate?.id ? await db().from('indicators').select('*').eq('mandate_id', mandate.id) : { data: [] };
+      const { data: indicators } = mandate?.id
+        ? await db().from('indicators').select('*').eq('mandate_id', mandate.id)
+        : await db().from('indicators').select('*').eq('politician_id', pol.id);
       const { data: legalFacts } = mandate?.id ? await db().from('legal_facts').select('*').eq('politician_id', pol.id) : { data: [] };
 
       // Calculate C1
