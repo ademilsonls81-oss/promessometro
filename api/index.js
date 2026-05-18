@@ -368,7 +368,7 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
       const gr = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({ model: 'minimax-2.5', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2048 })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2048 })
       });
       if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
       const gd = await gr.json();
@@ -898,7 +898,7 @@ Responda SOMENTE JSON array:
       for (const cat of categories) {
         try {
           const prompt = `Atue como um analista isento avaliando os resultados objetivos de mandato de ${politician_name} (${role || ''} - ${state || ''}) na área de ${cat}. Estime um score de 0 a 100 baseado em fatos públicos notórios. Responda estritamente em JSON: {"category":"${cat}","subcategory":"Indicador Geral","score": NUM, "description": "curta justificativa explicativa"}`;
-          const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'minimax-2.5', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 500 }) });
+          const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 500 }) });
           if (!gr.ok) { failed++; continue; }
           const gd = await gr.json();
           const parsed = JSON.parse(gd.choices[0].message.content);
