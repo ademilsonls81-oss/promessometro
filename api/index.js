@@ -585,12 +585,59 @@ Responda SOMENTE JSON array:
       return res.json(report);
     }
 
+    if (path === '/api/admin/qualidade/run' && method === 'POST') {
+      const sentPwd = req.headers['x-admin-password'] || '';
+      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+      if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
+      const auditResult = await runAudit({ autoFix: true });
+      const qualidade = await runQualidadeAudit();
+      return res.json({ audit: auditResult, qualidade: { metodologia_versao: '1.0', politicos: qualidade } });
+    }
+
     if (path === '/api/admin/qualidade') {
       const sentPwd = req.headers['x-admin-password'] || '';
       const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
       if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
       const report = await runQualidadeAudit();
       return res.json({ metodologia_versao: '1.0', politicos: report });
+    }
+
+    if (path.startsWith('/api/admin/qualidade/') && method === 'GET') {
+      const sentPwd = req.headers['x-admin-password'] || '';
+      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+      if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
+
+      const parts = path.split('/');
+      const slug = parts[parts.length - 1];
+
+      if (slug === 'export') {
+        const report = await runQualidadeAudit();
+        const format = req.query?.format || 'json';
+
+        if (format === 'csv') {
+          res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+          res.setHeader('Content-Disposition', 'attachment; filename=qualidade-promessometro.csv');
+          let csv = 'Nome,Status,Score,Bloco A,Bloco B,Bloco C,Bloco D,Bloco E,Falhas\n';
+          (report || []).forEach(p => {
+            const falhas = (p.criterios_falhos || []).map(f => `${f.id}: ${f.descricao}`).join('; ');
+            const aOk = (p.criterios_ok || []).filter(id => id.startsWith('A')).length;
+            const bOk = (p.criterios_ok || []).filter(id => id.startsWith('B')).length;
+            const cOk = (p.criterios_ok || []).filter(id => id.startsWith('C')).length;
+            const dOk = (p.criterios_ok || []).filter(id => id.startsWith('D')).length;
+            const eOk = (p.criterios_ok || []).filter(id => id.startsWith('E')).length;
+            csv += `"${p.nome}","${p.status}",${p.score_qualidade},${aOk}/${5},${bOk}/${14},${cOk}/${4},${dOk}/${6},${eOk}/${3},"${falhas}"\n`;
+          });
+          return res.status(200).send(csv);
+        }
+
+        return res.json({ metodologia_versao: '1.0', exportado_em: new Date().toISOString(), politicos: report });
+      }
+
+      const fullReport = await runQualidadeAudit();
+      const politico = (fullReport || []).find(p => p.id === slug);
+      if (!politico) return res.status(404).json({ error: 'Político não encontrado' });
+
+      return res.json({ metodologia_versao: '1.0', politico });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });

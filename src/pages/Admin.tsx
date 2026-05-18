@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, MapPin, Briefcase, Camera, Star, Clock, Download } from "lucide-react";
+import { ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download, Play } from "lucide-react";
 import { Button } from "../components/ui";
 
 interface CriterioFalha { id: string; descricao: string }
@@ -12,13 +12,13 @@ interface PoliticoQualidade {
 
 const BLOCO_LABELS: Record<string, string> = {
   A: "Dados Cadastrais", B: "Promessas (C1)", C: "Indicadores (C2)",
-  D: "Fatos Jurídicos (C3)", E: "Nota Final", F: "Panorama"
+  D: "Fatos Jurídicos (C3)", E: "Nota Final"
 };
-const BLOCO_ICONS: Record<string, any> = { A: Users, B: FileText, C: BarChart3, D: Gavel, E: Star, F: Clock };
+const BLOCO_ICONS: Record<string, any> = { A: Users, B: FileText, C: BarChart3, D: Gavel, E: Star };
 const BLOCO_COLORS: Record<string, string> = {
   A: "border-gray-500/30 text-gray-400", B: "border-green-500/30 text-green-400",
   C: "border-blue-500/30 text-blue-400", D: "border-red-500/30 text-red-400",
-  E: "border-cyan-500/30 text-cyan-400", F: "border-purple-500/30 text-purple-400"
+  E: "border-cyan-500/30 text-cyan-400"
 };
 
 function getSenha() {
@@ -31,6 +31,7 @@ export default function Admin() {
   const [autenticado, setAutenticado] = useState(false);
   const [dados, setDados] = useState<PoliticoQualidade[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [auditando, setAuditando] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [erro, setErro] = useState("");
 
@@ -46,6 +47,18 @@ export default function Admin() {
       setAutenticado(true);
     } catch (e: any) { setErro(e.message); }
     setCarregando(false);
+  }
+
+  async function rodarAuditoria() {
+    setAuditando(true); setErro("");
+    try {
+      const res = await fetch("/api/admin/qualidade/run?password=" + encodeURIComponent(senha), { method: "POST" });
+      if (res.status === 401) { setErro("Não autorizado"); return; }
+      const json = await res.json();
+      alert(`Auditoria concluída!\n\nVerificados: ${json.audit?.politicians_checked || 0} políticos\nIssues encontradas: ${json.audit?.total_issues || 0}\nCorrigidos automaticamente: ${json.audit?.fixed || 0}\nPulados (revisão humana): ${json.audit?.skipped_human_reviewed || 0}`);
+      fetchDados();
+    } catch (e: any) { setErro(e.message); }
+    setAuditando(false);
   }
 
   function sair() { localStorage.removeItem("admin_token"); setAutenticado(false); setSenha(""); setDados([]); navigate("/"); }
@@ -79,6 +92,16 @@ export default function Admin() {
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30">v1.0</span>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={rodarAuditoria} disabled={auditando}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50">
+              <Play className={`w-3.5 h-3.5 ${auditando ? "animate-pulse" : ""}`} />
+              {auditando ? "Auditando..." : "Auditar"}
+            </button>
+            <a href={`/api/admin/qualidade/export?password=${encodeURIComponent(senha)}&format=csv`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-colors"
+              target="_blank" rel="noreferrer">
+              <Download className="w-3.5 h-3.5" /> CSV
+            </a>
             <button onClick={fetchDados} disabled={carregando} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
               <RefreshCw className={`w-4 h-4 text-gray-400 ${carregando ? "animate-spin" : ""}`} />
             </button>
@@ -99,6 +122,7 @@ export default function Admin() {
             <span className="text-sm font-bold text-red-400">{vermelhos} político(s) vermelho</span>
           </div>
           <div className="text-xs text-gray-500">Referência: Cláudio Castro (100%)</div>
+          {erro && <p className="text-xs text-red-400">{erro}</p>}
         </div>
         {carregando && <div className="text-center py-12"><RefreshCw className="w-8 h-8 text-gray-500 animate-spin mx-auto" /></div>}
         {!carregando && dados.length === 0 && (<div className="text-center py-12 text-gray-500">Nenhum político encontrado</div>)}
@@ -107,32 +131,37 @@ export default function Admin() {
             const isExpanded = expanded === p.id;
             return (
               <div key={p.id} className={`rounded-2xl border ${p.status === "verde" ? "border-green-500/30 bg-green-500/5" : "border-red-500/20 bg-red-500/5"} overflow-hidden transition-all`}>
-                <button onClick={() => setExpanded(isExpanded ? null : p.id)}
-                  className="w-full p-4 md:p-5 flex items-center gap-4 hover:bg-white/5 transition-colors text-left">
+                <div className="w-full p-4 md:p-5 flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${p.status === "verde" ? "bg-green-500/20" : "bg-red-500/20"}`}>
                     {p.status === "verde" ? <CheckCircle className="w-5 h-5 text-green-400" /> : <XCircle className="w-5 h-5 text-red-400" />}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <button onClick={() => setExpanded(isExpanded ? null : p.id)} className="flex-1 min-w-0 text-left hover:bg-white/5 rounded-lg -mx-2 px-2 py-1 transition-colors">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white">{p.nome}</span>
                       {p.nome === "Cláudio Castro" && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">REFERÊNCIA</span>}
                     </div>
                     <div className="text-xs text-gray-500">{p.stats.ok}/{p.stats.total_criterios} critérios · {p.stats.falhos} falha(s)</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${p.status === "verde" ? "bg-green-400" : "bg-red-400"}`} style={{ width: p.score_qualidade + "%" }} />
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(`/admin/politico/${p.id}`)}
+                      className="text-xs text-neon-cyan hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-white/5">
+                      Detalhes
+                    </button>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${p.status === "verde" ? "bg-green-400" : "bg-red-400"}`} style={{ width: p.score_qualidade + "%" }} />
+                        </div>
+                        <span className={`text-sm font-bold ${p.status === "verde" ? "text-green-400" : "text-red-400"}`}>{p.score_qualidade}%</span>
                       </div>
-                      <span className={`text-sm font-bold ${p.status === "verde" ? "text-green-400" : "text-red-400"}`}>{p.score_qualidade}%</span>
+                      <span className={`text-xs font-bold ${p.status === "verde" ? "text-green-400" : "text-red-400"}`}>{p.status === "verde" ? "VERDE" : "VERMELHO"}</span>
                     </div>
-                    <span className={`text-xs font-bold ${p.status === "verde" ? "text-green-400" : "text-red-400"}`}>{p.status === "verde" ? "VERDE" : "VERMELHO"}</span>
+                    <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                   </div>
-                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                </button>
+                </div>
                 {isExpanded && (
                   <div className="px-4 md:px-5 pb-5 space-y-4">
-                    {["A", "B", "C", "D", "E", "F"].map(bloco => {
+                    {["A", "B", "C", "D", "E"].map(bloco => {
                       const falhas = p.criterios_falhos.filter(f => f.id.startsWith(bloco));
                       const Icon = BLOCO_ICONS[bloco] || FileText;
                       return (
