@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download, Play } from "lucide-react";
+import { ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle, AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download, Play, Github } from "lucide-react";
 import { Button } from "../components/ui";
 
 interface CriterioFalha { id: string; descricao: string }
@@ -35,7 +35,17 @@ export default function Admin() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [erro, setErro] = useState("");
 
-  useEffect(() => { if (senha) { localStorage.setItem("admin_token", senha); fetchDados(); } }, [senha]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+      window.history.replaceState({}, "", "/admin");
+      loginGithub(code);
+    } else if (senha) {
+      localStorage.setItem("admin_token", senha);
+      fetchDados();
+    }
+  }, [senha]);
 
   async function fetchDados() {
     setCarregando(true); setErro("");
@@ -47,6 +57,23 @@ export default function Admin() {
       setAutenticado(true);
     } catch (e: any) { setErro(e.message); }
     setCarregando(false);
+  }
+
+  async function loginGithub(code: string) {
+    setCarregando(true); setErro("");
+    try {
+      const res = await fetch("/api/admin/auth/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      if (res.status === 401) { setErro("Email não autorizado"); setCarregando(false); return; }
+      if (!res.ok) { setErro("Erro na autenticação"); setCarregando(false); return; }
+      const json = await res.json();
+      setSenha(json.token);
+      localStorage.setItem("admin_token", json.token);
+      fetchDados();
+    } catch (e: any) { setErro(e.message); setCarregando(false); }
   }
 
   async function rodarAuditoria() {
@@ -70,6 +97,17 @@ export default function Admin() {
           <ShieldCheck className="w-12 h-12 text-neon-cyan mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Admin</h1>
           <p className="text-sm text-gray-500 mb-6">Promessômetro — Painel de Qualidade</p>
+          <button onClick={() => {
+            const redirectUri = window.location.origin + "/admin";
+            const githubUrl = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_ID || ''}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user,user:email`;
+            window.location.href = githubUrl;
+          }} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white font-medium hover:bg-white/20 transition-colors mb-6">
+            <Github className="w-5 h-5" /> Entrar com GitHub
+          </button>
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+            <div className="relative flex justify-center"><span className="px-3 bg-dark-card text-xs text-gray-500">ou senha</span></div>
+          </div>
           <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
             placeholder="Senha de administrador" className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-center mb-4 focus:outline-none focus:border-neon-cyan" />
           <Button variant="primary" onClick={fetchDados} disabled={!senha} className="w-full">Acessar</Button>

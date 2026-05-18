@@ -3,6 +3,32 @@ import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+
+function getAdminPwd() {
+  return (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+}
+
+async function exchangeGithubCode(code) {
+  try {
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ client_id: process.env.GITHUB_ID, client_secret: process.env.GITHUB_SECRET, code })
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) return null;
+    const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'User-Agent': 'Promessometro/1.0' } });
+    const user = await userRes.json();
+    const emailsRes = await fetch('https://api.github.com/user/emails', { headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'User-Agent': 'Promessometro/1.0' } });
+    const emails = await emailsRes.json();
+    const primary = (emails || []).find(e => e.primary && e.verified);
+    const email = primary?.email || user.email;
+    if (!email) return null;
+    const allowedEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (allowedEmails.length > 0 && !allowedEmails.includes(email.toLowerCase())) return null;
+    return { email, name: user.name || user.login };
+  } catch { return null; }
+}
 const SUPABASE_ANON_KEY = process.env.VITE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 
@@ -585,9 +611,21 @@ Responda SOMENTE JSON array:
       return res.json(report);
     }
 
+    if (path === '/api/admin/auth/github' && method === 'POST') {
+      try {
+        let raw = ''; req.on('data', c => raw += c); await new Promise(r => req.on('end', r));
+        const { code } = JSON.parse(raw || '{}');
+        if (!code) return res.status(400).json({ error: 'Código de autorização ausente' });
+        const user = await exchangeGithubCode(code);
+        if (!user) return res.status(401).json({ error: 'Falha na autenticação GitHub ou email não autorizado' });
+        const adminPwd = getAdminPwd();
+        return res.json({ success: true, email: user.email, name: user.name, token: adminPwd });
+      } catch { return res.status(400).json({ error: 'Requisição inválida' }); }
+    }
+
     if (path === '/api/admin/qualidade/run' && method === 'POST') {
       const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+      const adminPwd = getAdminPwd();
       if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
       const auditResult = await runAudit({ autoFix: true });
       const qualidade = await runQualidadeAudit();
@@ -596,7 +634,7 @@ Responda SOMENTE JSON array:
 
     if (path === '/api/admin/qualidade') {
       const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+      const adminPwd = getAdminPwd();
       if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
       const report = await runQualidadeAudit();
       return res.json({ metodologia_versao: '1.0', politicos: report });
@@ -604,7 +642,7 @@ Responda SOMENTE JSON array:
 
     if (path.startsWith('/api/admin/qualidade/') && method === 'GET') {
       const sentPwd = req.headers['x-admin-password'] || '';
-      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
+      const adminPwd = getAdminPwd();
       if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado' });
 
       const parts = path.split('/');
