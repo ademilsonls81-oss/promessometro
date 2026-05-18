@@ -4,7 +4,7 @@ import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const JWT_SECRET = process.env.NEXTAUTH_SECRET;
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || process.env.ADMIN_SECRET_KEY;
 
 function signJwt(email) {
   return jwt.sign({ email, exp: Math.floor(Date.now() / 1000) + 86400 }, JWT_SECRET);
