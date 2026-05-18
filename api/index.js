@@ -589,7 +589,7 @@ Responda SOMENTE JSON array:
       const authHeader = req.headers['x-admin-password'] || req.headers['x-admin-password'] || '';
       const queryPwd = typeof req.query === 'object' && req.query ? req.query.password : '';
       const sentPwd = authHeader || queryPwd || '';
-      const adminPwd = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e';
+      const adminPwd = (process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET_KEY || 'a1f3c8b2d4e6f0a2c9d8e7f6a4b2c0d8e').trim();
       if (sentPwd !== adminPwd) return res.status(401).json({ error: 'Não autorizado', sent: sentPwd ? '***' + sentPwd.slice(-4) : 'vazio', esperado: adminPwd.slice(-4) });
       const report = await runQualidadeAudit();
       return res.json({ metodologia_versao: '1.0', politicos: report });
