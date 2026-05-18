@@ -368,7 +368,7 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
       const gr = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2048 })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2048 })
       });
       if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
       const gd = await gr.json();
