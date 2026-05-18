@@ -378,6 +378,7 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
       // Deleta indicadores antigos e insere novos
       await dbAdmin().from('indicators').delete().eq('politician_id', politician_id);
       let inserted = 0;
+      const errors = [];
       const CAT_MAP = { seguranca: 'seguranca', segurança: 'seguranca', financas: 'financas', finanças: 'financas', funcionalismo: 'funcionalismo' };
       for (const ind of indicadores) {
         const rawCat = (ind.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -390,11 +391,11 @@ SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados
           result_value: ind.valor, source_url: ind.fonte, result_year: ind.ano || 2023,
           description: `Gerado via IA para ${nome} (${regiao})`
         });
-        if (error) console.error('[seed-indicators] insert error:', error);
+        if (error) { errors.push(error.message || error); console.error('[seed-indicators] insert error:', error); }
         else inserted++;
       }
 
-      return res.json({ inserted, total: indicadores.length, mandate_id: mandate?.id });
+      return res.json({ inserted, total: indicadores.length, errors, mandate_id: mandate?.id });
     }
 
     // Busca e importa promessas de político via Serper+Groq
