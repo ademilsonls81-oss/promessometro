@@ -68,15 +68,13 @@ const ALL_CRITERIA = [
   { id: 'B8', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Cumprida', check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'cumprida').every(e => (e.evidencias_usadas || []).length >= 2) },
   { id: 'B9', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Parcial', check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'parcial').every(e => (e.evidencias_usadas || []).length >= 2) },
   { id: 'B10', bloco: 'B', descricao: 'Mínimo 1 evidência por promessa Pendente', check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'pendente').every(e => (e.evidencias_usadas || []).length >= 1) },
-  { id: 'B11', bloco: 'B', descricao: 'Pelo menos 1 fonte não-rede social por promessa', check: (p, ctx) => (ctx.explanations || []).every(e => {
-    const evs = e.evidencias_usadas || [];
-    if (evs.length === 0) return false;
-    const social = new Set(['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com']);
-    return evs.some(ev => !ev.url || !social.has(getUrlDomain(ev.url)));
-  })},
-  { id: 'B12', bloco: 'B', descricao: 'Pelo menos 2 domínios diferentes por promessa', check: (p, ctx) => (ctx.explanations || []).every(e => {
+  { id: 'B11', bloco: 'B', descricao: 'Nenhuma evidência pode ser de rede social (Instagram, Facebook, TikTok, Twitter/X)', check: (p, ctx) => (ctx.explanations || []).every(e => (e.evidencias_usadas || []).every(ev => {
+    const domain = getUrlDomain(ev.url);
+    return !domain || !['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'].includes(domain);
+  }))},
+  { id: 'B12', bloco: 'B', descricao: 'Domínios únicos por promessa (cada domínio no máximo 1×)', check: (p, ctx) => (ctx.explanations || []).every(e => {
     const dominios = (e.evidencias_usadas || []).map(ev => getUrlDomain(ev.url)).filter(Boolean);
-    return dominios.length === 0 || new Set(dominios).size >= 2;
+    return new Set(dominios).size === dominios.length;
   })},
   { id: 'B13', bloco: 'B', descricao: 'Critério não é herança automática', check: (p, ctx) => (ctx.explanations || []).every(e => !e.criterio_aplicado || e.criterio_aplicado.includes('human_reviewed') || (!e.criterio_aplicado.includes('batch-heranca') && !e.criterio_aplicado.includes('autonomous_seed'))) },
   { id: 'B14', bloco: 'B', descricao: 'C1 calculado corretamente', check: (p, ctx) => {
