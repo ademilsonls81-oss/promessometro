@@ -206,7 +206,7 @@ export default async function handler(req, res) {
       const scoreRanges = {
         cumprida: [80, 100], parcial: [40, 79], pendente: [0, 39], quebrada: [0, 0]
       };
-      const { data: promises } = await db().from('promises').select('id, status, fulfillment_score').limit(100);
+      const { data: promises } = await dbAdmin().from('promises').select('id, status, fulfillment_score, politician_name, promise_title').limit(100);
       let seeded = 0;
       for (const p of promises || []) {
         const { data: exists } = await db().from('promise_explanations').select('id').eq('promise_id', p.id).eq('is_latest', true).maybeSingle();
@@ -214,17 +214,269 @@ export default async function handler(req, res) {
         const norm = normStatus(p.status);
         const [min, max] = scoreRanges[norm] || [0, 39];
         const score = p.fulfillment_score ? Math.max(min, Math.min(max, p.fulfillment_score)) : Math.round((min + max) / 2);
-        await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', p.id);
-        await db().from('promise_explanations').insert({
+        await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', p.id);
+        // FIX B13: usar 'seed_initial_v1' (não batch-heranca) — será substituído pela IA no próximo ciclo
+        await dbAdmin().from('promise_explanations').insert({
           promise_id: p.id, status: norm, fulfillment_score: score,
-          criterio_aplicado: 'batch-heranca', justificativa: `Avaliacao herdada do status original (${norm}, score ${score})`, evidencias_usadas: [],
-          o_que_falta: 'Avaliacao detalhada pendente', o_que_foi_feito: 'Herdado do status original',
-          confianca: 0.5, modelo_ia: 'batch-v1', is_latest: true, gerado_em: new Date().toISOString()
+          criterio_aplicado: 'seed_initial_v1',
+          justificativa: `Avaliação inicial para ${p.politician_name || 'político'}: promessa com status ${norm} aguarda verificação pela IA no próximo ciclo de reavaliação.`,
+          evidencias_usadas: [],
+          o_que_falta: 'Verificação detalhada por IA na próxima execução do ciclo diário.',
+          o_que_foi_feito: `Promessa registrada com status inicial ${norm}. Aguarda pesquisa de evidências.`,
+          confianca: 0.3, modelo_ia: 'seed-v2', is_latest: true, gerado_em: new Date().toISOString()
         });
         seeded++;
         await new Promise(r => setTimeout(r, 50));
       }
-      return res.json({ seeded, total: promises?.length || 0 });
+      return res.json({ seeded, total: promises?.length || 0, message: 'Promessas seedadas. Execute /api/upgrade-evaluations para reavaliação por IA.' });
+    }
+
+    // Reavalia promessas com herança automática via IA real
+    if (path === '/api/upgrade-evaluations' && (method === 'POST' || method === 'GET')) {
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+      const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
+      function isSocial(url) { if (!url) return false; try { const h = new URL(url).hostname.replace('www.',''); return SOCIAL_DOMAINS.some(s => h === s || h.endsWith('.'+s)); } catch { return false; } }
+
+      // Busca avaliações com herança automática
+      const { data: oldEvals } = await db().from('promise_explanations')
+        .select('id, promise_id, criterio_aplicado')
+        .in('criterio_aplicado', ['batch-heranca', 'autonomous_seed', 'seed_initial_v1', 'evidence_based_fallback'])
+        .eq('is_latest', true)
+        .limit(20);
+
+      if (!oldEvals?.length) return res.json({ upgraded: 0, message: 'Nenhuma avaliação de herança encontrada' });
+
+      let upgraded = 0, errors = 0;
+      for (const ev of oldEvals) {
+        try {
+          const { data: promise } = await db().from('promises').select('*').eq('id', ev.promise_id).single();
+          if (!promise) continue;
+
+          // Buscar evidências via Serper
+          let evidences = [];
+          if (SERPER_KEY) {
+            const r = await fetch('https://google.serper.dev/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
+              body: JSON.stringify({ q: `${promise.politician_name} ${promise.promise_title?.substring(0,50)}`, gl: 'br', hl: 'pt-br', num: 5 })
+            });
+            if (r.ok) {
+              const d = await r.json();
+              evidences = (d.organic || []).filter(r => !isSocial(r.link)).map(r => ({ descricao: r.snippet||'', fonte: r.source||'', url: r.link||'' }));
+            }
+          }
+
+          if (!GROQ_KEY) { errors++; continue; }
+          const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência.';
+          const prompt = `Avalie a promessa: "${promise.promise_title}" de ${promise.politician_name}. Evidências: ${evText}. Responda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"o que foi realizado mínimo 20 palavras","o_que_falta":"o que ainda falta mínimo 20 palavras"}`;
+          const gr = await fetch(`${AI_URL}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 })
+          });
+          if (!gr.ok) { errors++; await new Promise(r => setTimeout(r, 2000)); continue; }
+          const gd = await gr.json();
+          const parsed = JSON.parse(gd.choices[0].message.content);
+          const mappedStatus = normStatus(parsed.status);
+          const clampRanges = { cumprida: [80,100], parcial: [40,79], pendente: [0,39], quebrada: [0,0] };
+          const [mn, mx] = clampRanges[mappedStatus] || [0,39];
+          const score = Math.max(mn, Math.min(mx, Math.round(parsed.fulfillment_score || mn)));
+
+          await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', ev.promise_id);
+          await dbAdmin().from('promise_explanations').insert({
+            promise_id: ev.promise_id, status: mappedStatus, fulfillment_score: score,
+            criterio_aplicado: 'ai_reavaliation_v2',
+            justificativa: parsed.justificativa || '',
+            evidencias_usadas: evidences.slice(0, 5),
+            o_que_foi_feito: parsed.o_que_foi_feito || '',
+            o_que_falta: parsed.o_que_falta || '',
+            confianca: evidences.length >= 2 ? 0.80 : 0.60,
+            modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString()
+          });
+          await dbAdmin().from('promises').update({ status: mappedStatus, fulfillment_score: score, last_verified_at: new Date().toISOString() }).eq('id', ev.promise_id);
+          upgraded++;
+          await new Promise(r => setTimeout(r, 2500)); // respeitar rate limit
+        } catch (e) { console.error('[upgrade-evaluations]', e.message); errors++; }
+      }
+      return res.json({ upgraded, errors, total: oldEvals.length, remaining: oldEvals.length - upgraded - errors });
+    }
+
+    // Seeda indicadores para um político via Serper+Groq
+    if (path === '/api/seed-indicators' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id, politician_name, state, role } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+      // Verifica mandate ativo
+      let { data: mandate } = await db().from('mandates').select('id').eq('politician_id', politician_id).eq('is_active', true).maybeSingle();
+      if (!mandate) {
+        const { data: newMandate } = await dbAdmin().from('mandates').insert({
+          politician_id, title: role || 'Cargo Público', start_date: '2023-01-01',
+          end_date: '2026-12-31', is_active: true
+        }).select().single();
+        mandate = newMandate;
+      }
+
+      // Busca dados reais via Serper
+      const regiao = state || 'Brasil';
+      const nome = politician_name || '';
+      let contexto = `Região: ${regiao}, Político: ${nome}`;
+      if (SERPER_KEY) {
+        try {
+          const r = await fetch('https://google.serper.dev/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
+            body: JSON.stringify({ q: `${nome} ${regiao} indicadores segurança criminalidade finanças públicas 2024`, gl: 'br', hl: 'pt-br', num: 5 })
+          });
+          if (r.ok) {
+            const d = await r.json();
+            contexto += '\n' + (d.organic || []).map(r => r.snippet).filter(Boolean).slice(0,3).join(' | ');
+          }
+        } catch (_) { }
+      }
+
+      if (!GROQ_KEY) return res.status(400).json({ error: 'GROQ_API_KEY não configurado' });
+      const prompt = `Você é analista de dados públicos brasileiros. Com base nas informações disponíveis para ${nome} (${regiao}), gere indicadores realistas para avaliação metodológica.
+
+Contexto: ${contexto}
+
+Gere 9 indicadores distribuídos em 3 categorias. Responda SOMENTE JSON:
+{
+  "indicadores": [
+    {"name": "taxa_homicidios", "category": "seguranca", "score": 0-100, "valor": "XX por 100k hab", "fonte": "fonte dos dados", "ano": 2023},
+    {"name": "policiamento", "category": "seguranca", "score": 0-100, "valor": "descrição", "fonte": "fonte", "ano": 2023},
+    {"name": "investimento_seguranca", "category": "seguranca", "score": 0-100, "valor": "% do orçamento", "fonte": "fonte", "ano": 2023},
+    {"name": "receita_corrente", "category": "financas", "score": 0-100, "valor": "R$ bi", "fonte": "fonte", "ano": 2023},
+    {"name": "divida_publica", "category": "financas", "score": 0-100, "valor": "% da receita", "fonte": "fonte", "ano": 2023},
+    {"name": "investimento", "category": "financas", "score": 0-100, "valor": "R$ bi", "fonte": "fonte", "ano": 2023},
+    {"name": "investimento_publico", "category": "funcionalismo", "score": 0-100, "valor": "% do PIB", "fonte": "fonte", "ano": 2023},
+    {"name": "servidores", "category": "funcionalismo", "score": 0-100, "valor": "mil servidores", "fonte": "fonte", "ano": 2023},
+    {"name": "gasto_folha", "category": "funcionalismo", "score": 0-100, "valor": "% da receita", "fonte": "fonte", "ano": 2023}
+  ]
+}
+
+SCORE: 0=péssimo, 50=mediano para o Brasil, 100=referência nacional. Use dados reais se conhecer, ou estimativas fundamentadas.`;
+
+      const gr = await fetch(`${AI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2048 })
+      });
+      if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
+      const gd = await gr.json();
+      const parsed = JSON.parse(gd.choices[0].message.content);
+      const indicadores = parsed.indicadores || [];
+
+      // Deleta indicadores antigos e insere novos
+      await dbAdmin().from('indicators').delete().eq('politician_id', politician_id);
+      let inserted = 0;
+      for (const ind of indicadores) {
+        const { error } = await dbAdmin().from('indicators').insert({
+          politician_id, mandate_id: mandate?.id || null,
+          name: ind.name, category: ind.category, score: Math.round(ind.score) || 50,
+          result_value: ind.valor, source_url: ind.fonte, result_year: ind.ano || 2023,
+          weight: 50, description: `Gerado via IA para ${nome} (${regiao})`
+        });
+        if (!error) inserted++;
+      }
+
+      return res.json({ inserted, total: indicadores.length, mandate_id: mandate?.id });
+    }
+
+    // Busca e importa promessas de político via Serper+Groq
+    if (path === '/api/find-promises' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id, politician_name, role, state, dry_run } = JSON.parse(body || '{}');
+      if (!politician_id || !politician_name) return res.status(400).json({ error: 'politician_id e politician_name são obrigatórios' });
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+      if (!SERPER_KEY) return res.status(400).json({ error: 'SERPER_API_KEY não configurado' });
+      if (!GROQ_KEY) return res.status(400).json({ error: 'GROQ_API_KEY não configurado' });
+
+      const queries = [
+        `"${politician_name}" promessas campanha plano governo 2022 OR 2024`,
+        `"${politician_name}" propostas eleicao compromissos`,
+        `"${politician_name}" ${state || ''} metas projetos realizações`
+      ];
+
+      let allSnippets = [];
+      for (const q of queries) {
+        try {
+          const r = await fetch('https://google.serper.dev/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
+            body: JSON.stringify({ q, gl: 'br', hl: 'pt-br', num: 8 })
+          });
+          if (r.ok) {
+            const d = await r.json();
+            allSnippets.push(...(d.organic || []).map(r => ({ titulo: r.title||'', descricao: r.snippet||'', url: r.link||'' })));
+          }
+        } catch (_) { }
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      if (!allSnippets.length) return res.json({ discovered: 0, promises: [], message: 'Nenhum artigo encontrado' });
+
+      const snippetSection = allSnippets.slice(0,15).map(a => `TITULO: ${a.titulo}\nSNIPPET: ${a.descricao}\nURL: ${a.url}`).join('\n---\n');
+      const prompt = `Extraia TODAS as promessas concretas e específicas de ${politician_name} (${role||'político'}, ${state||'Brasil'}).
+
+${snippetSection}
+
+Resposta SOMENTE JSON:
+{"promessas": [{"titulo": "promessa específica com detalhes", "categoria": "Saude|Educacao|Seguranca|Economia|Infraestrutura|Meio_Ambiente|Trabalho|Habitacao|Transporte|Outros", "descricao": "descrição detalhada"}]}`;
+
+      const gr = await fetch(`${AI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 4096 })
+      });
+      if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
+      const gd = await gr.json();
+      const parsed = JSON.parse(gd.choices[0].message.content);
+      const promessas = parsed.promessas || parsed.promises || [];
+
+      if (dry_run) return res.json({ discovered: promessas.length, promises: promessas, dry_run: true });
+
+      // Busca promessas existentes para dedup
+      const { data: existing } = await db().from('promises').select('promise_title').eq('politician_id', politician_id);
+      const existingTitles = new Set((existing || []).map(p => p.promise_title.toLowerCase()));
+
+      const catMap = { 'saude': 'Saúde', 'saúde': 'Saúde', 'educacao': 'Educação', 'educação': 'Educação', 'seguranca': 'Segurança', 'segurança': 'Segurança', 'economia': 'Economia', 'infraestrutura': 'Infraestrutura', 'meio_ambiente': 'Meio Ambiente', 'trabalho': 'Trabalho', 'habitacao': 'Habitação', 'habitação': 'Habitação', 'transporte': 'Transporte' };
+      function normCat(c) { if (!c) return 'Outros'; const k = c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,''); return catMap[k] || 'Outros'; }
+
+      let inserted = 0, dupes = 0;
+      for (const p of promessas) {
+        if (!p.titulo || p.titulo.length < 10) continue;
+        const titleLower = p.titulo.toLowerCase();
+        const isDupe = [...existingTitles].some(t => {
+          const words = titleLower.split(' ').filter(w => w.length > 4);
+          const matches = words.filter(w => t.includes(w));
+          return matches.length >= Math.min(3, words.length * 0.5);
+        });
+        if (isDupe) { dupes++; continue; }
+        const { error } = await dbAdmin().from('promises').insert({
+          politician_id, politician_name,
+          promise_title: p.titulo.trim(),
+          category: normCat(p.categoria),
+          status: 'pendente', fulfillment_score: 20
+        });
+        if (!error) { inserted++; existingTitles.add(titleLower); }
+      }
+
+      return res.json({ discovered: promessas.length, inserted, duplicates: dupes, total_snippets: allSnippets.length });
     }
 
     if (path === '/api/stats' && method === 'GET') {
@@ -623,10 +875,175 @@ Responda SOMENTE JSON array:
       });
     }
 
+    if (path === '/api/seed-indicators' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id, politician_name, state, role } = JSON.parse(body || '{}');
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      if (!politician_id || !GROQ_KEY) return res.status(400).json({ error: 'Parâmetros ou Chave IA ausentes' });
+
+      // Definir as 3 categorias base da camada 2 (Metodologia)
+      const categories = ['seguranca', 'financas', 'funcionalismo'];
+      let inserted = 0, failed = 0;
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+      for (const cat of categories) {
+        try {
+          const prompt = `Atue como um analista isento avaliando os resultados objetivos de mandato de ${politician_name} (${role || ''} - ${state || ''}) na área de ${cat}. Estime um score de 0 a 100 baseado em fatos públicos notórios. Responda estritamente em JSON: {"category":"${cat}","subcategory":"Indicador Geral","score": NUM, "description": "curta justificativa explicativa"}`;
+          const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 500 }) });
+          if (!gr.ok) { failed++; continue; }
+          const gd = await gr.json();
+          const parsed = JSON.parse(gd.choices[0].message.content);
+          
+          await dbAdmin().from('indicators').insert({
+            politician_id, category: cat, subcategory: parsed.subcategory || 'Avaliação G',
+            score: Math.max(0, Math.min(100, parseInt(parsed.score) || 50)),
+            description: parsed.description || 'Avaliação via Serper/Groq',
+            source_url: '', validation_method: 'autonomous_seed_ai'
+          });
+          inserted++;
+        } catch (e) { failed++; }
+      }
+      return res.json({ success: true, seeded: inserted, failed });
+    }
+
     if (path === '/api/audit-metodologia') {
       const autoFix = req.method === 'POST';
       const report = await runAudit({ autoFix });
       return res.json(report);
+    }
+
+    // Status do sistema para admin
+    if (path === '/api/admin/system-status' && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const [polRes, promRes, evalRes, cronRes, herancaRes] = await Promise.all([
+        db().from('politicians').select('*', { count: 'exact', head: true }),
+        db().from('promises').select('*', { count: 'exact', head: true }),
+        db().from('promise_explanations').select('*', { count: 'exact', head: true }).eq('is_latest', true),
+        db().from('cron_executions').select('execution_id, status, started_at, completed_at, promises_evaluated, promises_failed').order('started_at', { ascending: false }).limit(5),
+        db().from('promise_explanations').select('*', { count: 'exact', head: true }).in('criterio_aplicado', ['batch-heranca', 'autonomous_seed', 'seed_initial_v1', 'evidence_based_fallback']).eq('is_latest', true)
+      ]);
+
+      const { data: withoutEval } = await db().from('promises').select('id').is('last_verified_at', null).limit(1);
+      const { count: neverEvaluated } = await db().from('promises').select('*', { count: 'exact', head: true }).is('last_verified_at', null);
+
+      const lastCron = (cronRes.data || [])[0];
+      const hoursAgo = lastCron ? Math.round((Date.now() - new Date(lastCron.started_at).getTime()) / 3600000) : null;
+
+      return res.json({
+        politicians: polRes.count || 0,
+        promises: promRes.count || 0,
+        evaluated: evalRes.count || 0,
+        never_evaluated: neverEvaluated || 0,
+        heranca_automatica: herancaRes.count || 0,
+        coverage: promRes.count > 0 ? Math.round((evalRes.count / promRes.count) * 100) : 0,
+        last_cron: lastCron ? { ...lastCron, hours_ago: hoursAgo } : null,
+        cron_history: cronRes.data || []
+      });
+    }
+
+    // Disparar pipeline manualmente via admin — executa inline (sem sub-request HTTP)
+    if (path === '/api/admin/run-pipeline' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { target } = JSON.parse(body || '{}');
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+      const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
+      function isSocPipe(url) { if (!url) return false; try { const h = new URL(url).hostname.replace('www.',''); return SOCIAL_DOMAINS.some(s => h === s || h.endsWith('.'+s)); } catch { return false; } }
+      function extractH(url) { if (!url) return ''; try { return new URL(url).hostname.replace('www.',''); } catch { return ''; } }
+
+      const executionId = `admin_pipeline_${Date.now()}`;
+      const startTime = new Date();
+      let evaluated = 0, failed = 0, upgraded = 0;
+
+      try {
+        try { await dbAdmin().from('cron_executions').insert({ execution_id: executionId, trigger: 'admin_manual', status: 'started', started_at: startTime.toISOString() }); } catch(e){}
+
+        if (target === 'upgrade') {
+          // Modo upgrade: converte heranças em avaliações reais via IA
+          const { data: oldEvals } = await dbAdmin().from('promise_explanations')
+            .select('id, promise_id, criterio_aplicado').in('criterio_aplicado', ['batch-heranca', 'autonomous_seed', 'seed_initial_v1', 'evidence_based_fallback']).eq('is_latest', true).limit(15);
+
+          for (const ev of oldEvals || []) {
+            try {
+              const { data: promise } = await db().from('promises').select('*').eq('id', ev.promise_id).single();
+              if (!promise) continue;
+              let evidences = [];
+              if (SERPER_KEY) {
+                const r = await fetch('https://google.serper.dev/search', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY }, body: JSON.stringify({ q: `${promise.politician_name} ${(promise.promise_title||'').substring(0,50)}`, gl: 'br', hl: 'pt-br', num: 5 }) });
+                if (r.ok) { const d = await r.json(); evidences = (d.organic||[]).filter(r => !isSocPipe(r.link)).map(r => ({ descricao: r.snippet||'', fonte: r.source||extractH(r.link)||'', url: r.link||'' })); }
+              }
+              if (!GROQ_KEY) continue;
+              const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência.';
+              const prompt = `Avalie a promessa: "${promise.promise_title}" de ${promise.politician_name}. Evidências: ${evText}. Responda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"o que foi realizado mínimo 20 palavras","o_que_falta":"o que ainda falta mínimo 20 palavras"}`;
+              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
+              if (!gr.ok) { failed++; await new Promise(r => setTimeout(r, 2000)); continue; }
+              const gd = await gr.json();
+              const parsed = JSON.parse(gd.choices[0].message.content);
+              const ms = normStatus(parsed.status);
+              const cr = { cumprida:[80,100], parcial:[40,79], pendente:[0,39], quebrada:[0,0] }[ms]||[0,39];
+              const sc = Math.max(cr[0], Math.min(cr[1], Math.round(parsed.fulfillment_score||cr[0])));
+              await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', ev.promise_id);
+              await dbAdmin().from('promise_explanations').insert({ promise_id: ev.promise_id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString() });
+              await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, last_verified_at: new Date().toISOString() }).eq('id', ev.promise_id);
+              upgraded++;
+              await new Promise(r => setTimeout(r, 2500));
+            } catch (e) { console.error('[run-pipeline:upgrade]', e.message); failed++; }
+          }
+          try { await dbAdmin().from('cron_executions').update({ status: 'completed', completed_at: new Date().toISOString(), promises_evaluated: upgraded, promises_failed: failed }).eq('execution_id', executionId); } catch(e){}
+          return res.json({ success: true, target: 'upgrade', upgraded, failed, message: `${upgraded} avaliações convertidas via IA` });
+
+        } else {
+          // Modo daily: reavalia promessas stale
+          const dailyCutoff = new Date(startTime.getTime() - 23 * 60 * 60 * 1000).toISOString();
+          const [staleRes, neverRes] = await Promise.all([
+            dbAdmin().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(10),
+            dbAdmin().from('promises').select('*').is('last_verified_at', null).limit(10)
+          ]);
+          const seen = new Set();
+          const promises = [];
+          for (const p of [...(staleRes.data||[]), ...(neverRes.data||[])]) { if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); } }
+
+          for (const promise of promises) {
+            try {
+              let evidences = [];
+              if (SERPER_KEY) {
+                const r = await fetch('https://google.serper.dev/search', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY }, body: JSON.stringify({ q: `${promise.politician_name||''} ${(promise.promise_title||'').substring(0,50)}`, gl: 'br', hl: 'pt-br', num: 5 }) });
+                if (r.ok) { const d = await r.json(); evidences = (d.organic||[]).filter(r => !isSocPipe(r.link)).map(r => ({ descricao: r.snippet||'', fonte: r.source||extractH(r.link)||'', url: r.link||'' })); }
+              }
+              if (!GROQ_KEY) { failed++; continue; }
+              const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência encontrada.';
+              const prompt = `Avaliador independente de promessas políticas brasileiras.\nPROMESSA: "${promise.promise_title}"\nPOLÍTICO: ${promise.politician_name}\nEVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"mínimo 20 palavras","o_que_falta":"mínimo 20 palavras"}`;
+              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
+              if (!gr.ok) { failed++; await new Promise(r => setTimeout(r, 2000)); continue; }
+              const gd = await gr.json();
+              const parsed = JSON.parse(gd.choices[0].message.content);
+              const ms = normStatus(parsed.status);
+              const cr = { cumprida:[80,100], parcial:[40,79], pendente:[0,39], quebrada:[0,0] }[ms]||[0,39];
+              const sc = Math.max(cr[0], Math.min(cr[1], Math.round(parsed.fulfillment_score||cr[0])));
+              await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, ai_evaluation: parsed.justificativa, evidences_used: evidences.slice(0,5), last_verified_at: startTime.toISOString() }).eq('id', promise.id);
+              await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              await dbAdmin().from('promise_explanations').insert({ promise_id: promise.id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.filter(e => !isSocPipe(e.url)).slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: startTime.toISOString() });
+              await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: ms });
+              evaluated++;
+              await new Promise(r => setTimeout(r, 2500));
+            } catch (e) { console.error('[run-pipeline:daily]', e.message); failed++; }
+          }
+          try { await dbAdmin().from('cron_executions').update({ status: 'completed', completed_at: new Date().toISOString(), promises_evaluated: evaluated, promises_failed: failed }).eq('execution_id', executionId); } catch(e){}
+          return res.json({ success: true, target: 'daily', evaluated, failed, total_found: promises.length, message: `${evaluated} promessas reavaliadas` });
+        }
+      } catch (err) {
+        try { await dbAdmin().from('cron_executions').update({ status: 'failed', completed_at: new Date().toISOString(), details: err.message }).eq('execution_id', executionId); } catch(e){}
+        return res.status(500).json({ error: err.message });
+      }
     }
 
     if (path === '/api/admin/auth/github' && method === 'POST') {

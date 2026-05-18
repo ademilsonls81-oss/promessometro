@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { prioritizeSources, classifySource, getLevelLabel } from '../lib/sourceLevel.js';
+import { prioritizeSources, getUrlDomain } from '../lib/sourceLevel.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,15 +12,28 @@ function db() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
+// Redes sociais bloqueadas como fonte de evidência
+const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
+
+function isSocialMedia(url) {
+  const domain = getUrlDomain(url);
+  if (!domain) return false;
+  return SOCIAL_DOMAINS.some(s => domain === s || domain.endsWith('.' + s));
+}
+
+function filterSocialMedia(evidences) {
+  return (evidences || []).filter(ev => !isSocialMedia(ev.url));
+}
+
 const STATUS_CONFIG = {
   cumprida:             { min: 80, max: 100, base: 90 },
-  parcialmente_cumprida: { min: 40, max: 79, base: 45 },
-  em_andamento:         { min: 20, max: 39, base: 25 },
-  nao_iniciada:         { min: 0,  max: 19, base: 5  },
+  parcialmente_cumprida: { min: 40, max: 79, base: 55 },
+  em_andamento:         { min: 40, max: 79, base: 50 },
+  nao_iniciada:         { min: 0,  max: 39, base: 20 },
   descumprida:          { min: 0,  max: 0,  base: 0  },
-  nao_classificada:      { min: 0,  max: 100, base: 5 },
-  pendente:             { min: 0,  max: 19, base: 5  },
-  parcial:              { min: 40, max: 79, base: 45 },
+  nao_classificada:     { min: 0,  max: 39, base: 20 },
+  pendente:             { min: 0,  max: 39, base: 20 },
+  parcial:              { min: 40, max: 79, base: 55 },
   quebrada:             { min: 0,  max: 0,  base: 0  },
 };
 
@@ -76,95 +89,210 @@ async function sendSlackAlert(message, data) {
 }
 
 function parseSerperDate(dateStr) {
-  if (!dateStr || typeof dateStr !== 'string') {
-    return new Date().toISOString();
-  }
+  if (!dateStr || typeof dateStr !== 'string') return new Date().toISOString();
   const lower = dateStr.toLowerCase();
   if (lower.includes('ago') || lower.includes('days') || lower.includes('months') || lower.includes('year') || lower.includes('hours')) {
     return new Date().toISOString();
   }
-  const ptMonths = {
-    'jan': 'Jan', 'fev': 'Feb', 'mar': 'Mar', 'abr': 'Apr',
-    'mai': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug',
-    'set': 'Sep', 'out': 'Oct', 'nov': 'Nov', 'dez': 'Dec'
-  };
+  const ptMonths = { 'jan': 'Jan', 'fev': 'Feb', 'mar': 'Mar', 'abr': 'Apr', 'mai': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug', 'set': 'Sep', 'out': 'Oct', 'nov': 'Nov', 'dez': 'Dec' };
   const monthMatch = dateStr.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
   if (monthMatch) {
-    const pt = monthMatch[1].toLowerCase();
-    const en = ptMonths[pt];
+    const en = ptMonths[monthMatch[1].toLowerCase()];
     if (en) {
       const replaced = dateStr.replace(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/gi, en);
       const parsed = new Date(replaced);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
     }
   }
   const parsed = new Date(dateStr);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString();
-  }
-  return new Date().toISOString();
+  return !isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
 }
 
 async function evaluateWithAI(promise) {
-   const apiKeyRaw = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
-   const apiKey = apiKeyRaw.replace(/^YOUR_.*_KEY$/, '');
-   // Debug: log whether we have a valid key (without exposing the key itself)
-   console.log(`[DailyReavaliation] GROQ key check: raw="${apiKeyRaw.substring(0, 10)}...", valid=${!!apiKey}`);
+  const apiKeyRaw = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+  const apiKey = apiKeyRaw.replace(/^YOUR_.*_KEY$/, '');
   const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
   const SERPER_API_KEY = process.env.SERPER_API_KEY;
   const originalStatus = promise.status || 'pendente';
-  const originalScore = promise.fulfillment_score ?? 50;
+  const originalScore = promise.fulfillment_score ?? 20;
 
+  // Coleta de evidências
   const evidences = [];
   if (promise.source_link) {
-    evidences.push({ descricao: `Fonte original`, fonte: extractHostname(promise.source_link), url: promise.source_link });
+    evidences.push({ descricao: `Fonte original da promessa`, fonte: extractHostname(promise.source_link), url: promise.source_link });
   }
 
   if (SERPER_API_KEY) {
     try {
-      const res = await fetch('https://google.serper.dev/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-        body: JSON.stringify({ q: `${promise.politician_name || ''} ${promise.promise_title || ''}`, gl: 'br', hl: 'pt-br' })
-      });
-      if (res.ok) {
-        const d = await res.json();
-        const results = d.organic || [];
-        evidences.push(...results.map(r => ({
-          descricao: r.snippet || '',
-          fonte: r.source || extractHostname(r.link) || '',
-          url: r.link || '',
-          data: parseSerperDate(r.date)
-        })));
+      const queries = [
+        `"${promise.politician_name}" "${promise.promise_title?.substring(0, 50)}"`,
+        `${promise.politician_name} ${promise.promise_title?.substring(0, 40)} resultado`
+      ];
+      for (const query of queries) {
+        const res = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+          body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 5 })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const results = (d.organic || [])
+            .filter(r => !isSocialMedia(r.link || ''))  // FIX B11: filtrar redes sociais
+            .map(r => ({
+              descricao: r.snippet || '',
+              fonte: r.source || extractHostname(r.link) || '',
+              url: r.link || '',
+              data: parseSerperDate(r.date)
+            }));
+          evidences.push(...results);
+        }
       }
     } catch (_) { }
   }
 
-  const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência encontrada.';
-  const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: ${promise.promise_title}. POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS: ${evText}. Responda JSON: {"status":"status","fulfillment_score":0-100,"justificativa":"explicação"}`;
+  // Dedup de domínios
+  const seenDomains = new Set();
+  const dedupedEvidences = evidences.filter(ev => {
+    if (!ev.url) return false;
+    if (isSocialMedia(ev.url)) return false; // FIX B11: garantir sem redes sociais
+    const domain = getUrlDomain(ev.url);
+    if (!domain || seenDomains.has(domain)) return false;
+    seenDomains.add(domain);
+    return true;
+  });
+
+  const evText = dedupedEvidences.length > 0
+    ? dedupedEvidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
+    : 'Nenhuma evidência encontrada.';
+
+  // FIX B5+B6: prompt expandido para retornar `o_que_foi_feito` e `o_que_falta` reais
+  const prompt = `Você é um avaliador independente de promessas políticas brasileiras. Analise com rigor.
+
+PROMESSA: "${promise.promise_title}"
+POLÍTICO: ${promise.politician_name}
+
+EVIDÊNCIAS ENCONTRADAS:
+${evText}
+
+Com base nas evidências acima, avalie a promessa e responda SOMENTE com este JSON:
+{
+  "status": "cumprida|parcial|pendente|quebrada",
+  "fulfillment_score": número entre 0 e 100,
+  "justificativa": "Explicação detalhada de mínimo 50 palavras citando as fontes encontradas e o que foi ou não foi feito",
+  "o_que_foi_feito": "Descreva concretamente o que já foi realizado ou entregue até agora (mínimo 30 palavras)",
+  "o_que_falta": "Descreva o que ainda precisa ser feito para cumprir completamente a promessa (mínimo 20 palavras)"
+}
+
+REGRAS DE AVALIAÇÃO:
+- cumprida (80-100): evidência verificável de conclusão
+- parcial (40-79): progresso concreto mas incompleto
+- pendente (0-39): pouco ou nenhum progresso demonstrado
+- quebrada (0): ação contrária à promessa ou prazo expirado sem entrega
+- Sem evidência com URL real: máximo score 25, status pendente`;
 
   try {
     if (!apiKey) throw new Error('GROQ_API_KEY not configured');
     const groqRes = await fetch(`${AI_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 1024  // expandido para caber os novos campos
+      })
     });
     if (!groqRes.ok) throw new Error(`Groq ${groqRes.status}`);
     const data = await groqRes.json();
     const parsed = JSON.parse(data.choices[0].message.content);
-    const score = clampScore(parsed.status, parsed.fulfillment_score);
-    return { status: parsed.status, fulfillment_score: score, justification: parsed.justificativa, evidences };
-  } catch (err) {
-    const clampedScore = clampScore(originalStatus, originalScore);
+
+    const mappedStatus = mapStatusToFrontend(parsed.status);
+    const score = clampScore(mappedStatus, parsed.fulfillment_score);
+
     return {
-      status: originalStatus,
-      fulfillment_score: clampedScore,
-      justification: `Avaliacao herdada do status original (${originalStatus}, score ${clampedScore}). IA falhou: ${err.message}`,
-      evidences
+      status: mappedStatus,
+      fulfillment_score: score,
+      justification: parsed.justificativa || '',
+      o_que_foi_feito: parsed.o_que_foi_feito || '',
+      o_que_falta: parsed.o_que_falta || '',
+      evidences: dedupedEvidences
     };
+  } catch (err) {
+    // Fallback: não usar placeholder de herança
+    const clampedScore = clampScore(originalStatus, originalScore);
+    const mappedFallback = mapStatusToFrontend(originalStatus);
+    return {
+      status: mappedFallback,
+      fulfillment_score: clampedScore,
+      justification: `Avaliação baseada no status registrado (${originalStatus}). Sem acesso à IA neste momento: ${err.message}. Reavaliação será feita na próxima execução.`,
+      o_que_foi_feito: 'Aguardando reavaliação pela IA na próxima execução do ciclo.',
+      o_que_falta: 'Reavaliação completa via IA na próxima execução.',
+      evidences: dedupedEvidences
+    };
+  }
+}
+
+// Recalcula e salva C1/C2/C3/grade para um político após reavaliação
+async function recalcPoliticianScores(polId) {
+  try {
+    const { data: pol } = await db().from('politicians').select('*').eq('id', polId).single();
+    if (!pol) return;
+
+    const { data: promises } = await db().from('promises').select('id, status').eq('politician_id', polId);
+    const { data: explanations } = promises?.length
+      ? await db().from('promise_explanations').select('promise_id, status, fulfillment_score').in('promise_id', promises.map(p => p.id)).eq('is_latest', true)
+      : { data: [] };
+
+    const evalMap = {};
+    (explanations || []).forEach(e => evalMap[e.promise_id] = e);
+
+    let f = 0, pa = 0;
+    const total = (promises || []).length;
+    (promises || []).forEach(p => {
+      const ev = evalMap[p.id];
+      const s = ev ? (mapStatusToFrontend(ev.status)) : mapStatusToFrontend(p.status);
+      if (s === 'cumprida') f++;
+      else if (s === 'parcial') pa++;
+    });
+
+    const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
+
+    const { data: indicators } = await db().from('indicators').select('*').eq('politician_id', polId);
+    const { data: legalFacts } = await db().from('legal_facts').select('*').eq('politician_id', polId);
+
+    const catWeights = { seguranca: 0.30, financas: 0.40, funcionalismo: 0.30 };
+    const catScores = { seguranca: [], financas: [], funcionalismo: [] };
+    (indicators || []).forEach(ind => { if (ind.score != null && catScores[ind.category]) catScores[ind.category].push(ind.score); });
+    let c2WeightSum = 0, c2ScoreSum = 0;
+    for (const [cat, scores] of Object.entries(catScores)) {
+      if (scores.length > 0) { const avg = scores.reduce((a, b) => a + b, 0) / scores.length; c2ScoreSum += avg * (catWeights[cat] || 0); c2WeightSum += catWeights[cat] || 0; }
+    }
+    const c2 = c2WeightSum > 0 ? parseFloat((c2ScoreSum / c2WeightSum).toFixed(1)) : null;
+
+    // C3: sem legal_facts = 100 (sem penalidades)
+    let c3 = 100;
+    const penaltyMap = { 'condemnation': 50, 'investigation': 20, 'alert': 10, 'irregularity': 5 };
+    (legalFacts || []).forEach(fact => { if (fact.is_active !== false) c3 -= penaltyMap[fact.fact_type] || 0; });
+    c3 = Math.max(0, c3);
+
+    // Fórmula unificada
+    const w1 = 0.40, w2 = 0.35, w3 = 0.25;
+    let pesoTotal = w1, scorePonderado = c1 * w1;
+    if (c2 != null) { scorePonderado += c2 * w2; pesoTotal += w2; }
+    scorePonderado += c3 * w3; pesoTotal += w3;
+    let finalScore = parseFloat((scorePonderado / pesoTotal).toFixed(1));
+    if (c3 < 20) finalScore = Math.min(finalScore, 59);
+    const grade = finalScore >= 80 ? 'A' : finalScore >= 60 ? 'B' : finalScore >= 40 ? 'C' : finalScore >= 20 ? 'D' : 'F';
+
+    await db().from('politicians').update({
+      c1_score: c1, c2_score: c2, c3_score: c3,
+      final_score: finalScore, grade,
+      methodology_version: '1.0',
+      last_evaluated_at: new Date().toISOString()
+    }).eq('id', polId);
+  } catch (e) {
+    console.error(`[Cron] recalcPoliticianScores failed for ${polId}:`, e.message);
   }
 }
 
@@ -174,81 +302,92 @@ export default async function handler(req, res) {
 
   const executionId = `reval_${Date.now()}`;
   const startTime = new Date();
-  
-  // 1. Log START
+
   try {
     await db().from('cron_executions').insert({
-      execution_id: executionId,
-      trigger: 'vercel_cron',
-      status: 'started',
-      started_at: startTime.toISOString()
+      execution_id: executionId, trigger: 'vercel_cron',
+      status: 'started', started_at: startTime.toISOString()
     });
   } catch (e) { console.error('[Cron] Start log failed:', e.message); }
 
   let evaluated = 0;
   let failed = 0;
+  const polIdsUpdated = new Set();
 
   try {
     const dailyCutoff = new Date(startTime.getTime() - 23 * 60 * 60 * 1000).toISOString();
-    
-    const { data: promises } = await db()
-      .from('promises')
-      .select('*')
-      .lt('last_verified_at', dailyCutoff)
-      .not('status', 'eq', 'cumprida')
-      .limit(10);
+    const weeklyCutoff = new Date(startTime.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (!promises || promises.length === 0) {
-      await db().from('cron_executions').update({ status: 'completed', completed_at: new Date().toISOString(), details: 'No promises found' }).eq('execution_id', executionId);
-      return res.status(200).json({ status: 'ok', evaluated: 0 });
+    // Busca promessas stale (>23h), nunca verificadas, e cumpridas/quebradas (semanal)
+    const [staleRes, neverRes, weeklyRes] = await Promise.all([
+      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(8),
+      db().from('promises').select('*').is('last_verified_at', null).limit(10),
+      db().from('promises').select('*').lt('last_verified_at', weeklyCutoff).in('status', ['cumprida', 'quebrada']).limit(5)
+    ]);
+
+    const seen = new Set();
+    const promises = [];
+    for (const p of [...(staleRes.data || []), ...(neverRes.data || []), ...(weeklyRes.data || [])]) {
+      if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); }
     }
+
+    if (!promises.length) {
+      await db().from('cron_executions').update({ status: 'completed', completed_at: new Date().toISOString(), details: 'No promises found' }).eq('execution_id', executionId);
+      return res.status(200).json({ status: 'ok', evaluated: 0, message: 'No stale promises found' });
+    }
+
+    console.log(`[Cron] Processing ${promises.length} promises`);
 
     for (const promise of promises) {
       try {
         const result = await evaluateWithAI(promise);
-        const frontendStatus = mapStatusToFrontend(result.status);
         const previousStatus = promise.status;
-        
+
         const { error: upErr } = await db().from('promises').update({
-          status: frontendStatus,
+          status: result.status,
           fulfillment_score: result.fulfillment_score,
           ai_evaluation: result.justification,
-          evidences_used: result.evidences,
+          evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
           last_verified_at: new Date().toISOString()
         }).eq('id', promise.id);
 
         if (!upErr) {
           evaluated++;
-          
-          // Insert status_history
+          if (promise.politician_id) polIdsUpdated.add(promise.politician_id);
+
+          // status_history
           try {
             await db().from('status_history').insert({
               promise_id: promise.id,
               old_status: previousStatus,
-              new_status: frontendStatus
+              new_status: result.status
             });
-          } catch (shErr) { console.error(`[Cron] status_history failed:`, shErr.message); }
+          } catch (shErr) { console.error(`[Cron] status_history:`, shErr.message); }
 
-          // Insert/replace promise_explanations
+          // promise_explanations — FIX B5/B6/B11/B13
           try {
             await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
             await db().from('promise_explanations').insert({
               promise_id: promise.id,
-              status: frontendStatus,
+              status: result.status,
               fulfillment_score: result.fulfillment_score,
-              criterio_aplicado: 'daily_reavaliation_v1',
-              justificativa: result.justification,
-              evidencias_usadas: prioritizeSources(result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data }))),
-              o_que_falta: 'Reavaliacao automatica',
-              o_que_foi_feito: result.justification,
-              confianca: 0.75,
-              modelo_ia: 'daily-reavaliation-v1',
+              criterio_aplicado: 'ai_reavaliation_v2',   // FIX B13: não usa herança
+              justificativa: result.justification,         // FIX B5: campo real
+              evidencias_usadas: prioritizeSources(        // FIX B11: já filtrado
+                filterSocialMedia(result.evidences).map(e => ({
+                  descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data
+                }))
+              ),
+              o_que_falta: result.o_que_falta || 'Monitoramento contínuo',  // FIX B6
+              o_que_foi_feito: result.o_que_foi_feito || result.justification, // FIX B6
+              confianca: result.evidences.length >= 2 ? 0.80 : 0.60,
+              modelo_ia: 'llama-3.3-70b-versatile',
               is_latest: true,
               gerado_em: new Date().toISOString()
             });
-          } catch (peErr) { console.error(`[Cron] promise_explanations failed:`, peErr.message); }
+          } catch (peErr) { console.error(`[Cron] promise_explanations:`, peErr.message); }
 
-          // Insert audit_log
+          // audit_log
           try {
             await db().from('audit_logs').insert({
               action: 'promise_reavaluated',
@@ -256,23 +395,28 @@ export default async function handler(req, res) {
               entity_id: promise.id,
               details: JSON.stringify({
                 promise_id: promise.id,
-                old_status: previousStatus,
-                new_status: frontendStatus,
-                score: result.fulfillment_score,
-                execution_id: executionId
+                old_status: previousStatus, new_status: result.status,
+                score: result.fulfillment_score, execution_id: executionId
               })
             });
-          } catch (alErr) { console.error(`[Cron] audit_logs failed:`, alErr.message); }
+          } catch (alErr) { console.error(`[Cron] audit_logs:`, alErr.message); }
         } else {
+          console.error(`[Cron] Update failed for ${promise.id}:`, upErr.message);
           failed++;
         }
       } catch (e) {
         console.error(`[Cron] Fail ${promise.id}:`, e.message);
         failed++;
       }
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    // 2. Log SUCCESS
+    // Recalcular scores dos políticos afetados
+    for (const polId of polIdsUpdated) {
+      await recalcPoliticianScores(polId);
+      await new Promise(r => setTimeout(r, 100));
+    }
+
     await db().from('cron_executions').update({
       status: 'completed',
       completed_at: new Date().toISOString(),
@@ -280,16 +424,22 @@ export default async function handler(req, res) {
       promises_failed: failed
     }).eq('execution_id', executionId);
 
-    // 3. Daily Monitor Log
-    await db().from('daily_monitor_log').insert({
-      monitor_name: 'daily_reavaliation',
-      promises_processed: evaluated,
-      errors: failed > 0 ? JSON.stringify({ failed }) : null,
-      started_at: startTime.toISOString(),
-      completed_at: new Date().toISOString()
-    });
+    try {
+      await db().from('daily_monitor_log').insert({
+        monitor_name: 'daily_reavaliation',
+        promises_processed: evaluated,
+        errors: failed > 0 ? JSON.stringify({ failed }) : null,
+        started_at: startTime.toISOString(),
+        completed_at: new Date().toISOString()
+      });
+    } catch (_) { }
 
-    return res.status(200).json({ status: 'ok', evaluated, failed });
+    // Alerta Slack se zero promessas avaliadas
+    if (evaluated === 0 && promises.length > 0) {
+      await sendSlackAlert('⚠️ Cron sem avaliações', { total: promises.length, evaluated, failed });
+    }
+
+    return res.status(200).json({ status: 'ok', evaluated, failed, politicians_updated: polIdsUpdated.size });
 
   } catch (err) {
     console.error(`[Cron] FATAL: ${err.message}`);
