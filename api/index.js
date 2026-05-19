@@ -822,20 +822,20 @@ Responda SOMENTE JSON array:
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
             body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
+              model: 'llama-3.1-8b-instant',
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' },
-              temperature: 0.1, max_tokens: 8192
+              temperature: 0.1, max_tokens: 4096
             })
           });
           if (!r.ok) {
             console.error('GROQ API error', r.status, await r.text().catch(()=>''));
-            // Fallback: tenta com modelo menor (rate limit mais generoso)
+            // Fallback: tenta 70b se 8b falhar
             const r2 = await fetch(`${AI_URL}/chat/completions`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
               body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
+                model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
                 response_format: { type: 'json_object' },
                 temperature: 0.1, max_tokens: 4096
@@ -918,18 +918,25 @@ Responda SOMENTE JSON array:
           continue;
         }
 
-        // Limita snippets para nao estourar contexto do Groq
-        const topSnippets = allArticles.slice(0, 40);
+        // Limita snippets
+        const topSnippets = allArticles.slice(0, 15);
 
         const extracted = await extractPromisesViaAI(pol, topSnippets, []);
+
+        // Se falhou com 70b, tenta com 8b e menos snippets
+        let finalExtracted = extracted;
+        if (extracted.length === 0 && allArticles.length > 15) {
+          const fewerSnippets = allArticles.slice(0, 10);
+          finalExtracted = await extractPromisesViaAI(pol, fewerSnippets, []);
+        }
 
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
 
-        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets_count: topSnippets.length, extracted_count: extracted.length };
+        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets_count_1: topSnippets.length, extracted_1: extracted.length, snippets_count_2: allArticles.length > 15 ? 10 : 0, extracted_2: finalExtracted.length > extracted.length ? finalExtracted.length - extracted.length : 0 };
 
         let inserted = 0;
-        for (const p of extracted) {
+        for (const p of finalExtracted) {
           if (!skipInsert) {
             const { error } = await dbAdmin().from('promises').insert({
               politician_id: pol.id,
