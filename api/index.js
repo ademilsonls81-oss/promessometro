@@ -524,12 +524,12 @@ Resposta SOMENTE JSON:
       const total = promisesWith.length;
       const pct = total > 0 ? Math.round(((f + pa * 0.5) / total) * 100) : 0;
 
-      // Fetch mandate + layers
-      const { data: mandate } = await db().from('mandates').select('*').eq('politician_id', pol.id).eq('is_active', true).maybeSingle();
+      // Fetch mandate + layers (usa dbAdmin para evitar RLS que bloqueia SELECT nas novas tabelas)
+      const { data: mandate } = await dbAdmin().from('mandates').select('*').eq('politician_id', pol.id).eq('is_active', true).maybeSingle();
       const { data: indicators } = mandate?.id
-        ? await db().from('indicators').select('*').eq('mandate_id', mandate.id)
-        : await db().from('indicators').select('*').eq('politician_id', pol.id);
-      const { data: legalFacts } = mandate?.id ? await db().from('legal_facts').select('*').eq('politician_id', pol.id) : { data: [] };
+        ? await dbAdmin().from('indicators').select('*').eq('mandate_id', mandate.id)
+        : await dbAdmin().from('indicators').select('*').eq('politician_id', pol.id);
+      const { data: legalFacts } = mandate?.id ? await dbAdmin().from('legal_facts').select('*').eq('politician_id', pol.id) : { data: [] };
 
       // Calculate C1
       const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
