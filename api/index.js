@@ -716,8 +716,8 @@ Resposta SOMENTE JSON:
       const SERPER_KEY = process.env.SERPER_API_KEY || '';
       const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
 
-      const queryIdx = path.indexOf('?');
-      const qs = queryIdx >= 0 ? new URLSearchParams(path.slice(queryIdx)) : new URLSearchParams();
+      const queryIdx = (req.url || '').indexOf('?');
+      const qs = queryIdx >= 0 ? new URLSearchParams((req.url || '').slice(queryIdx)) : new URLSearchParams();
       const targetName = qs.get('politician') ? decodeURIComponent(qs.get('politician')) : null;
       const limit = parseInt(qs.get('limit')) || 15;
       const skipInsert = qs.get('dryrun') === 'true';
