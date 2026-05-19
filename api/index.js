@@ -1533,7 +1533,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT now()
       ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
-      const { data, error } = await db().rpc('exec_sql', { sql });
+      const { data, error } = await dbAdmin().rpc('exec_sql', { sql });
       if (error) return res.status(500).json({ error: error.message });
       return res.json({ success: true, message: 'Tabela discovery_jobs criada' });
     }
@@ -1555,7 +1555,10 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT now()
       ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
-      await db().rpc('exec_sql', { sql }).catch(() => {});
+      try {
+        await dbAdmin().rpc('exec_sql', { sql });
+      } catch (e) { console.error('migrate error:', e); }
+      await new Promise(r => setTimeout(r, 500));
 
       const { data: job, error } = await dbAdmin().from('discovery_jobs').insert({
         politician_id, politician_name, role, state, party,
