@@ -794,7 +794,7 @@ Resposta SOMENTE JSON:
           `TITULO: ${a.titulo}\nSNIPPET: ${a.descricao}\nURL: ${a.url}`
         ).join('\n---\n');
         const fullTextSection = fullTexts.map(a =>
-          `=== CONTEUDO COMPLETO: ${a.titulo} ===\n${a.fullText.substring(0, 3000)}\n=== FIM ===`
+          `=== CONTEUDO COMPLETO: ${a.titulo} ===\n${a.fullText.substring(0, 2000)}\n=== FIM ===`
         ).join('\n\n');
 
         const prompt = `Você é analista politico brasileiro especializado em extrair promessas de campanha.
@@ -906,7 +906,10 @@ Responda SOMENTE JSON array:
         }));
         const validFullTexts = fullTexts.filter(Boolean);
 
-        const extracted = await extractPromisesViaAI(pol, allArticles, validFullTexts);
+        // Limita snippets para nao estourar contexto do Groq
+        const topSnippets = allArticles.slice(0, 40);
+
+        const extracted = await extractPromisesViaAI(pol, topSnippets, validFullTexts);
 
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
