@@ -1347,6 +1347,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       await dbAdmin().from('legal_facts').delete().eq('politician_id', politician_id);
 
       const TYPE_MAP = { condemnation:'condemnation', condenação:'condemnation', investigation:'investigation', investigação:'investigation', alert:'alert', alerta:'alert', irregularity:'irregularity', irregularidade:'irregularity' };
+      const PENALTY_POINTS = { condemnation: 50, investigation: 20, alert: 10, irregularity: 5 };
       let inserted = 0, errors = 0;
       for (const f of facts) {
         if (!f.fact_type || !f.description) continue;
@@ -1354,9 +1355,12 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         const ft = TYPE_MAP[rawType] || 'alert';
         const { error } = await dbAdmin().from('legal_facts').insert({
           politician_id, mandate_id: mandate?.id || null,
-          fact_type: ft, title: f.title || `${ft} - ${nome}`,
-          description: f.description, source: f.source || '',
+          fact_type: ft,
+          description: f.description,
+          authority: f.authority || f.fonte || f.source || 'Fonte pública',
           date: f.date || new Date().toISOString().split('T')[0],
+          penalty_points: PENALTY_POINTS[ft] || 10,
+          source_url: f.source_url || f.source || f.url || '',
           is_active: true
         });
         if (error) { errors++; console.error('[seed-legal-facts] insert error:', error); }
