@@ -769,7 +769,7 @@ Resposta SOMENTE JSON:
           const r = await fetch('https://google.serper.dev/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
-            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 10 })
+            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 20 })
           });
           if (!r.ok) return [];
           const d = await r.json();
@@ -786,15 +786,17 @@ Resposta SOMENTE JSON:
           `=== CONTEUDO COMPLETO: ${a.titulo} ===\n${a.fullText.substring(0, 3000)}\n=== FIM ===`
         ).join('\n\n');
 
-        const prompt = `Você é analista politico especializado em extrair promessas de campanha de politicos brasileiros.
+        const prompt = `Você é analista politico brasileiro especializado em extrair promessas de campanha.
 
-TAREFA: Extraia TODAS as promessas de campanha ESPECIFICAS feitas por ${politician.name} (${politician.role || 'politico'} - ${politician.party || ''} - ${politician.state || 'BR'}).
+TAREFA: Extraia TODAS as promessas de campanha feitas por ${politician.name} (${politician.role || 'politico'} - ${politician.party || ''} - ${politician.state || 'BR'}).
 
 REGRAS:
-1. Extraia APENAS promessas EXPLICITAMENTE atribuidas a ${politician.name}
-2. Seja ESPECIFICO: inclua numeros, locais, prazos, valores
-3. Separe promessas distintas mesmo que do mesmo tema
-4. Ex: "construir 10 hospitais e 50 UPAs" = DUAS promessas
+1. Extraia QUALQUER promessa, compromisso ou proposta atribuida a ${politician.name}
+2. Nao filtre por especificidade — promessas vagas tambem contam
+3. Ex: "vou melhorar a educacao" EH uma promessa valida
+4. Ex: "construir 10 hospitais e 50 UPAs" = DUAS promessas separadas
+5. Extraia TODAS que encontrar, sem limite maximo
+6. Inclua promessas de campanha, plano de governo, entrevistas e discursos
 
 SNIPPETS:
 ${snippetSection}
@@ -802,7 +804,7 @@ ${snippetSection}
 ${fullTextSection ? 'CONTEUDO COMPLETO:\n' + fullTextSection : ''}
 
 Responda SOMENTE JSON array:
-[{"titulo":"promessa especifica","descricao":"descricao detalhada","categoria":"Categoria"}]`;
+[{"titulo":"promessa","descricao":"descricao","categoria":"Categoria"}]`;
 
         try {
           const r = await fetch(`${AI_URL}/chat/completions`, {
@@ -812,7 +814,7 @@ Responda SOMENTE JSON array:
               model: 'llama-3.3-70b-versatile',
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' },
-              temperature: 0.1, max_tokens: 4096
+              temperature: 0.1, max_tokens: 8192
             })
           });
           if (!r.ok) { console.error('GROQ API error', r.status, await r.text().catch(()=>'')); return []; }
@@ -840,12 +842,40 @@ Responda SOMENTE JSON array:
       const results = [];
 
       for (const pol of polList) {
-        const queries = [
-          `"plano de governo" "${pol.name}" promessas OR propostas site:g1.globo.com OR site:oglobo.globo.com`,
-          `"promessas de campanha" "${pol.name}" "${pol.role || ''}"`,
-          `"${pol.name}" propostas "${pol.role || 'governo'}" eleicoes`,
-          `"${pol.name}" "plano de governo" OR promessas OR propostas`
-        ];
+        // Variações de nome para busca (ex: "Tarcísio" + "Tarcísio de Freitas")
+        const nameParts = pol.name.split(' ');
+        const firstName = nameParts[0];
+        const fullName = pol.name;
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+        const nameVars = [fullName, firstName];
+        if (lastName && lastName !== firstName) nameVars.push(`${firstName} ${lastName}`);
+        if (nameParts.length > 2) nameVars.push(nameParts.slice(0, 2).join(' '));
+        const uniqueNames = [...new Set(nameVars)];
+
+        const roleLabels = pol.role === 'governador' ? ['governador', 'governo'] :
+          pol.role === 'prefeito' ? ['prefeito', 'administração'] :
+          ['parlamentar', 'mandato'];
+
+        const queries = [];
+        const stateDomain = pol.state ? pol.state.toLowerCase() : '';
+        for (const n of uniqueNames) {
+          queries.push(
+            `"${n}" "plano de governo" promessas OR propostas "${roleLabels[0]}"`,
+            `"${n}" promessas de campanha "${roleLabels[0]}"`,
+            `"${n}" propostas "${roleLabels[1]}" eleicoes OR mandato`,
+            `site:g1.globo.com "${n}" promessas OR plano de governo`,
+            `site:uol.com.br "${n}" promessas OR propostas`,
+            `site:folha.uol.com.br "${n}" promessas OR propostas`,
+            `site:estadao.com.br "${n}" promessas OR propostas`,
+            `site:carta capital "${n}" promessas OR plano de governo`,
+            `site:metropoles.com "${n}" promessas OR propostas`,
+            `site:correiobraziliense.com.br "${n}" promessas OR propostas`,
+            `"${n}" promessas OR propostas OR compromissos "${roleLabels[0]}" "${roleLabels[1]}"`,
+            `"${n}" "plano de governo" divulgacandcontas.tse.jus.br OR tse.jus.br`,
+            `"${n}" "programa de governo" "${roleLabels[0]}" "${pol.state || ''}"`,
+            `"${n}" "diario oficial" decreto OR lei OR medida ${roleLabels[1]}`
+          );
+        }
 
         // Run Serper searches in parallel
         const resultsArrays = await Promise.all(queries.map(q => searchSerper(q)));
@@ -863,7 +893,15 @@ Responda SOMENTE JSON array:
           continue;
         }
 
-        const extracted = await extractPromisesViaAI(pol, allArticles, []);
+        // Fetch full text from top articles for richer AI extraction
+        const topArticles = allArticles.slice(0, 8);
+        const fullTexts = await Promise.all(topArticles.map(async a => {
+          const text = await fetchArticle(a.url);
+          return text ? { titulo: a.titulo, fullText: text } : null;
+        }));
+        const validFullTexts = fullTexts.filter(Boolean);
+
+        const extracted = await extractPromisesViaAI(pol, allArticles, validFullTexts);
 
         let inserted = 0;
         for (const p of extracted) {
