@@ -822,22 +822,22 @@ Responda SOMENTE JSON array:
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
             body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
+              model: 'llama-3.1-8b-instant',
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' },
-              temperature: 0.1, max_tokens: 8192
+              temperature: 0.1, max_tokens: 4096
             })
           });
           if (!r.ok) {
             console.error('GROQ API error', r.status, await r.text().catch(()=>''));
-            // Fallback: 8b nao suporta json_mode, entao usa sem response_format e extrai do texto
+            // Fallback: tenta 70b sem json_mode
             const r2 = await fetch(`${AI_URL}/chat/completions`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
               body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
+                model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
-                temperature: 0.1, max_tokens: 8192
+                temperature: 0.1, max_tokens: 4096
               })
             });
             if (!r2.ok) { console.error('GROQ fallback error', r2.status, await r2.text().catch(()=>'')); return []; }
