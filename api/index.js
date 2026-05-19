@@ -769,7 +769,7 @@ Resposta SOMENTE JSON:
           const r = await fetch('https://google.serper.dev/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
-            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 20 })
+            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 10 })
           });
           if (!r.ok) return [];
           const d = await r.json();
@@ -856,24 +856,18 @@ Responda SOMENTE JSON array:
           pol.role === 'prefeito' ? ['prefeito', 'administração'] :
           ['parlamentar', 'mandato'];
 
+        // Usa no maximo 2 variacoes de nome para evitar estourar rate limit do Serper
+        const searchNames = uniqueNames.slice(0, 2);
         const queries = [];
-        const stateDomain = pol.state ? pol.state.toLowerCase() : '';
-        for (const n of uniqueNames) {
+        for (const n of searchNames) {
           queries.push(
-            `"${n}" "plano de governo" promessas OR propostas "${roleLabels[0]}"`,
+            `"${n}" "plano de governo" propostas "${roleLabels[0]}"`,
             `"${n}" promessas de campanha "${roleLabels[0]}"`,
             `"${n}" propostas "${roleLabels[1]}" eleicoes OR mandato`,
-            `site:g1.globo.com "${n}" promessas OR plano de governo`,
-            `site:uol.com.br "${n}" promessas OR propostas`,
-            `site:folha.uol.com.br "${n}" promessas OR propostas`,
-            `site:estadao.com.br "${n}" promessas OR propostas`,
-            `site:carta capital "${n}" promessas OR plano de governo`,
-            `site:metropoles.com "${n}" promessas OR propostas`,
-            `site:correiobraziliense.com.br "${n}" promessas OR propostas`,
-            `"${n}" promessas OR propostas OR compromissos "${roleLabels[0]}" "${roleLabels[1]}"`,
-            `"${n}" "plano de governo" divulgacandcontas.tse.jus.br OR tse.jus.br`,
-            `"${n}" "programa de governo" "${roleLabels[0]}" "${pol.state || ''}"`,
-            `"${n}" "diario oficial" decreto OR lei OR medida ${roleLabels[1]}`
+            `"${n}" (promessas OR propostas) "${roleLabels[0]}" "${roleLabels[1]}"`,
+            `site:g1.globo.com OR site:folha.uol.com.br "${n}" promessas OR plano OR propostas`,
+            `site:uol.com.br OR site:estadao.com.br "${n}" promessas OR propostas`,
+            `"${n}" "programa de governo" OR "diario oficial" "${pol.state || ''}" "${roleLabels[0]}"`
           );
         }
 
@@ -894,7 +888,7 @@ Responda SOMENTE JSON array:
         }
 
         // Fetch full text from top articles for richer AI extraction
-        const topArticles = allArticles.slice(0, 8);
+        const topArticles = allArticles.slice(0, 5);
         const fullTexts = await Promise.all(topArticles.map(async a => {
           const text = await fetchArticle(a.url);
           return text ? { titulo: a.titulo, fullText: text } : null;
@@ -902,6 +896,9 @@ Responda SOMENTE JSON array:
         const validFullTexts = fullTexts.filter(Boolean);
 
         const extracted = await extractPromisesViaAI(pol, allArticles, validFullTexts);
+
+        // Pausa entre politicos para evitar rate limit do Groq
+        if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
 
         let inserted = 0;
         for (const p of extracted) {
