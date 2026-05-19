@@ -851,9 +851,18 @@ Responda SOMENTE JSON array:
           const d = await r.json();
           if (d.error) { console.error('GROQ response error', d.error); return []; }
           let text = (d.choices?.[0]?.message?.content || '[]').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-          const parsed = JSON.parse(text);
-          const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
-          return arr.filter(p => p.titulo && p.titulo.length > 5);
+          // Debug: retorna o texto bruto se array vazio
+          try {
+            const parsed = JSON.parse(text);
+            const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
+            const filtered = arr.filter(p => p.titulo && p.titulo.length > 5);
+            (process as any).__groq_raw = text.substring(0, 500);
+            return filtered;
+          } catch (pe) {
+            (process as any).__groq_raw = '(parse error) ' + text.substring(0, 300);
+            console.error('JSON parse error', pe, text.substring(0, 300));
+            return [];
+          }
         } catch (e) { console.error('GROQ extraction error', e); return []; }
       }
 
@@ -961,9 +970,23 @@ Responda SOMENTE JSON array:
         });
       }
 
+      // Teste simples da API Groq
+      let groqTest = null;
+      if (GROQ_KEY && !GROQ_KEY.startsWith('YOUR_')) {
+        try {
+          const tr = await fetch(`${AI_URL}/chat/completions`, {
+            method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},
+            body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:'Responda exatamente este JSON: {"ok":true}'}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:100 })
+          });
+          if (tr.ok) { const td = await tr.json(); groqTest = td.choices?.[0]?.message?.content?.substring(0,200); }
+          else groqTest = 'HTTP_' + tr.status;
+        } catch(e) { groqTest = 'ERR_' + String(e).substring(0,100); }
+      }
+
       return res.json({
         discovered: totalDiscovered,
         dry_run: skipInsert,
+        groq_test: groqTest,
         details: results
       });
     }
