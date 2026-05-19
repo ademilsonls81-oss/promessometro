@@ -1132,8 +1132,9 @@ Responda SOMENTE JSON array:
           const badEvidence = evidencias.length === 0 ||
             (normStatus(ev.status) === 'cumprida' && evidencias.length < 2) ||
             (normStatus(ev.status) === 'parcial' && evidencias.length < 2);
+          const badCriterio = ['batch-heranca', 'autonomous_seed', 'evidence_based_fallback'].some(p => (ev.criterio_aplicado||'').includes(p));
 
-          if (badJust || badFeito || badFalta || badEvidence) {
+          if (badJust || badFeito || badFalta || badEvidence || badCriterio) {
             // Try to get fresh evidence
             if (SERPER_KEY && evidencias.length < 3) {
               try {

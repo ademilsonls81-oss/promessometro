@@ -637,7 +637,7 @@ export default function Admin() {
                       const needsIndicators = p.stats.total_indicators === 0 || falhasSet.has("C1") || falhasSet.has("C2");
                       const needsPromises = p.stats.total_promises < 5 || falhasSet.has("B1");
                       const needsCadastro = ["A1","A2","A3","A4","A5"].some(id => falhasSet.has(id));
-                      const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12"].some(id => falhasSet.has(id));
+                      const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12","B13"].some(id => falhasSet.has(id));
                       const needsLegalFacts = ["D1","D2","D3","D4","D5"].some(id => falhasSet.has(id));
                       const needsRecalculate = ["B14","C3","D1","E1","E2","E3"].some(id => falhasSet.has(id));
 
