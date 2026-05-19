@@ -1520,6 +1520,24 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
     }
 
     // Discovery job endpoints
+
+    if (path === '/api/admin/migrate-discovery' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'N�o autorizado' });
+      const sql = `CREATE TABLE IF NOT EXISTS discovery_jobs (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        politician_id UUID, politician_name TEXT, cargo TEXT, role TEXT,
+        state TEXT, party TEXT, status TEXT DEFAULT 'pending',
+        pdf_url TEXT, pdf_text TEXT, total_extraidas INT DEFAULT 0,
+        total_inseridas INT DEFAULT 0, erro TEXT,
+        started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now()
+      ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
+      const { data, error } = await db().rpc('exec_sql', { sql });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true, message: 'Tabela discovery_jobs criada' });
+    }
+
     if (path === '/api/admin/start-discovery-job' && method === 'POST') {
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
@@ -1527,30 +1545,17 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const { politician_id, politician_name, role, state, party } = JSON.parse(body || '{}');
       if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
 
-      // Ensure table exists
-      try {
-        const { error: migErr } = await db().rpc('exec_sql', {
-          sql: `CREATE TABLE IF NOT EXISTS discovery_jobs (
-            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-            politician_id UUID REFERENCES politicians(id),
-            politician_name TEXT, cargo TEXT, role TEXT, state TEXT, party TEXT,
-            status TEXT DEFAULT 'pending',
-            pdf_url TEXT, pdf_text TEXT, total_extraidas INT DEFAULT 0, total_inseridas INT DEFAULT 0,
-            erro TEXT, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now()
-          ); NOTIFY pgrst, 'reload schema';`
-        });
-        if (migErr) console.error('Migration warning:', migErr);
-      } catch (e) { console.error('Migration error:', e); }
-
       const { data: job, error } = await dbAdmin().from('discovery_jobs').insert({
         politician_id, politician_name, role, state, party,
-        cargo: (role === 'governador' || role === 'presidente' || role === 'prefeito' || role === 'senador') ? 'majoritario' : 'proporcional',
+        cargo: ['governador','presidente','prefeito','senador'].includes((role||'').toLowerCase()) ? 'majoritario' : 'proporcional',
         status: 'pending'
       }).select().single();
 
-      if (error) return res.status(500).json({ error: error.message });
-      return res.json({ job_id: job.id, status: 'pending', message: 'Job de descoberta criado. O processamento leva ~1-3 minutos.' });
-    }
+      if (error) return res.status(500).json({
+        error: error.message,
+        detail: 'Tabela discovery_jobs nao existe. Acesse /api/admin/migrate-discovery primeiro.'
+      });
+      return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento ~1-3 min.' });
 
     if (path.startsWith('/api/admin/discovery-status/') && method === 'GET') {
       const admin = requireAdmin(req);

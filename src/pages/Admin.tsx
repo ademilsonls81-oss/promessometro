@@ -209,6 +209,11 @@ export default function Admin() {
       });
       if (!res) return;
       const json = await res.json();
+      if (!json.job_id) {
+        setDiscoveryStatus(s => ({ ...s, [pol.id]: { status: "error", erro: json.error || json.detail || "Falha ao criar job" } }));
+        setDiscoveringJob(null);
+        return;
+      }
       setToolResults(r => ({ ...r, [`promises_${pol.id}`]: json }));
       if (!dryRun) fetchAll();
     } catch (e: any) { setErro(e.message); }
@@ -225,6 +230,11 @@ export default function Admin() {
       });
       if (!res) return;
       const json = await res.json();
+      if (!json.job_id) {
+        setDiscoveryStatus(s => ({ ...s, [pol.id]: { status: "error", erro: json.error || json.detail || "Falha ao criar job" } }));
+        setDiscoveringJob(null);
+        return;
+      }
       setDiscoveryStatus(s => ({ ...s, [pol.id]: { job_id: json.job_id, status: "pending", message: "Job criado! Aguardando processamento..." } }));
 
       // Poll for completion

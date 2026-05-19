@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS discovery_jobs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  politician_id UUID REFERENCES politicians(id),
+  politician_id UUID,
   politician_name TEXT,
   cargo TEXT,
   role TEXT,
@@ -16,3 +16,5 @@ CREATE TABLE IF NOT EXISTS discovery_jobs (
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
 ); SELECT 1;
+
+NOTIFY pgrst, 'reload schema'; SELECT 1;
