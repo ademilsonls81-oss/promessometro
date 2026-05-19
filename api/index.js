@@ -905,7 +905,8 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         }
 
         // Limita snippets
-        const topSnippets = allArticles.slice(0, 3);
+        // Groq trava com muitos snippets (contexto). Usa apenas os top 7.
+        const topSnippets = allArticles.slice(0, 7);
 
         const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
@@ -944,23 +945,9 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         });
       }
 
-      // Teste simples da API Groq
-      let groqTest = null;
-      if (GROQ_KEY && !GROQ_KEY.startsWith('YOUR_')) {
-        try {
-          const tr = await fetch(`${AI_URL}/chat/completions`, {
-            method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},
-            body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:'Responda exatamente este JSON: {"ok":true}'}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:100 })
-          });
-          if (tr.ok) { const td = await tr.json(); groqTest = td.choices?.[0]?.message?.content?.substring(0,200); }
-          else groqTest = 'HTTP_' + tr.status;
-        } catch(e) { groqTest = 'ERR_' + String(e).substring(0,100); }
-      }
-
       return res.json({
         discovered: totalDiscovered,
         dry_run: skipInsert,
-        groq_test: groqTest,
         details: results
       });
     }
