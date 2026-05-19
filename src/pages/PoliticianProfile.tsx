@@ -526,44 +526,58 @@ export default function PoliticianProfile() {
               </AnimatePresence>
 
               <AnimatePresence>
-                {expandedLayer === 'c3' && politician.legal_facts.length > 0 && (
+                {expandedLayer === 'c3' && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden mb-6">
                     <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-2xl">
                       <h3 className="text-sm font-bold text-red-400 mb-4">C3 · Fatos Jurídicos</h3>
-                      <div className="space-y-3 mb-4">
-                        {politician.legal_facts.map((fact, i) => {
-                          const colors: Record<string, string> = {
-                            condemnation: 'bg-red-500/20 text-red-400 border-red-500/30',
-                            investigation: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-                            alert: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-                            irregularity: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                          };
-                          const labels: Record<string, string> = {
-                            condemnation: 'Condenação',
-                            investigation: 'Investigação',
-                            alert: 'Alerta',
-                            irregularity: 'Irregularidade'
-                          };
-                          const color = colors[fact.fact_type] || colors.irregularity;
-                          const label = labels[fact.fact_type] || fact.fact_type;
-                          return (
-                            <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/5">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${color}`}>{label}</span>
-                                <span className="text-sm font-bold text-red-400">-{fact.penalty_points}</span>
-                              </div>
-                              <p className="text-xs text-gray-400 leading-relaxed">{fact.description}</p>
-                              <p className="text-[10px] text-gray-600 mt-1">{fact.authority} · {fact.date?.substring(0, 7)}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        <code className="text-red-300">
-                          C3 = 100 - {politician.legal_facts.reduce((s: number, f: any) => s + f.penalty_points, 0)} = {politician.methodology.c3_score}
-                        </code>
-                      </div>
+                      {politician.legal_facts && politician.legal_facts.length > 0 ? (
+                        <>
+                          <div className="space-y-3 mb-4">
+                            {politician.legal_facts.map((fact, i) => {
+                              const colors: Record<string, string> = {
+                                condemnation: 'bg-red-500/20 text-red-400 border-red-500/30',
+                                investigation: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                                alert: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                                irregularity: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                              };
+                              const labels: Record<string, string> = {
+                                condemnation: 'Condenação',
+                                investigation: 'Investigação',
+                                alert: 'Alerta',
+                                irregularity: 'Irregularidade'
+                              };
+                              const color = colors[fact.fact_type] || colors.irregularity;
+                              const label = labels[fact.fact_type] || fact.fact_type;
+                              return (
+                                <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/5">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold border ${color}`}>{label}</span>
+                                    <span className="text-sm font-bold text-red-400">-{fact.penalty_points}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 leading-relaxed">{fact.description}</p>
+                                  <p className="text-[10px] text-gray-600 mt-1">{fact.authority} · {fact.date?.substring(0, 7)}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            <code className="text-red-300">
+                              C3 = 100 - {politician.legal_facts.reduce((s: number, f: any) => s + f.penalty_points, 0)} = {politician.methodology.c3_score}
+                            </code>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-6">
+                          <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2 opacity-50" />
+                          <p className="text-gray-400 text-sm">Nenhum fato jurídico com dedução de pontos registrado.</p>
+                          <div className="text-xs text-gray-500 mt-4">
+                            <code className="text-green-300">
+                              C3 = 100 - 0 = 100
+                            </code>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}

@@ -529,7 +529,7 @@ Resposta SOMENTE JSON:
       const { data: indicators } = mandate?.id
         ? await dbAdmin().from('indicators').select('*').eq('mandate_id', mandate.id)
         : await dbAdmin().from('indicators').select('*').eq('politician_id', pol.id);
-      const { data: legalFacts } = mandate?.id ? await dbAdmin().from('legal_facts').select('*').eq('politician_id', pol.id) : { data: [] };
+      const { data: legalFacts } = await dbAdmin().from('legal_facts').select('*').eq('politician_id', pol.id);
 
       // Calculate C1
       const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
@@ -553,9 +553,8 @@ Resposta SOMENTE JSON:
       c2 = c2WeightSum > 0 ? parseFloat((c2ScoreSum / c2WeightSum).toFixed(1)) : null;
 
       // Calculate C3
-      let c3 = null;
+      let c3 = 100;
       if (legalFacts && legalFacts.length > 0) {
-        c3 = 100;
         const penaltyMap = { 'condemnation': 50, 'investigation': 20, 'alert': 10, 'irregularity': 5 };
         (legalFacts || []).forEach(fact => {
           if (fact.is_active !== false) {
