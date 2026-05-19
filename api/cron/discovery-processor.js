@@ -329,20 +329,23 @@ async function processJob(dbClient, job) {
 }
 
 export default async function handler(req, res) {
-  const cronSecret = req.headers['x-cron-secret'];
-  const expected = process.env.CRON_SECRET || 'promessometro-dev';
-  if (cronSecret !== expected) {
-    if (process.env.NODE_ENV !== 'production' && req.method === 'POST') {
-      // OK
-    } else {
-      return res.status(401).json({ error: 'Unauthorized' });
+  // Se veio com _specificJobId (chamado via start-discovery-job), pula auth
+  // Pois start-discovery-job já fez requireAdmin()
+  if (!req._specificJobId) {
+    const cronSecret = req.headers['x-cron-secret'];
+    const expected = process.env.CRON_SECRET || 'promessometro-dev';
+    if (cronSecret !== expected) {
+      if (process.env.NODE_ENV !== 'production' && req.method === 'POST') {
+        // OK
+      } else {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
   }
 
   const dbClient = db();
 
   try {
-    // Se veio com _specificJobId, processa apenas aquele job
     if (req._specificJobId) {
       const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', req._specificJobId).single();
       if (!job) return res.json({ processed: 0, error: 'Job nao encontrado' });

@@ -1575,12 +1575,15 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       });
 
       // Hybrid: try sync processing with 7s timeout, fallback to cron + polling
-      let processed = false;
       try {
         const { default: processor } = await import('./cron/discovery-processor.js');
         const specificReq = { ...req, _specificJobId: job.id };
         let processorDone = false;
-        processor(specificReq, { json: () => { processorDone = true; }, status: () => ({ json: () => { processorDone = true; } }) });
+        const fakeRes = {
+          json: () => { processorDone = true; },
+          status: () => ({ json: () => { processorDone = true; } })
+        };
+        processor(specificReq, fakeRes).catch(e => console.error('processor error:', e.message));
         await Promise.race([
           new Promise(resolve => {
             const check = () => { if (processorDone) resolve(); else setTimeout(check, 200); };
@@ -1588,9 +1591,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
         ]);
-        processed = true;
       } catch (e) {
-        // Timeout ou erro — cron assume
         console.error('Sync processing timeout/error:', e.message);
       }
 
