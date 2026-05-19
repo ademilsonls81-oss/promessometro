@@ -249,7 +249,7 @@ const ALL_CRITERIA = [
     tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.description && f.description.trim().length > 0) },
 
   { id: 'D4', bloco: 'D', descricao: 'Cada fato tem fonte',
-    tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.source && f.source.trim().length > 0) },
+    tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.source_url && f.source_url.trim().length > 0) },
 
   { id: 'D5', bloco: 'D', descricao: 'Cada fato tem data',
     tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.date && !isNaN(new Date(f.date).getTime())) },
