@@ -851,18 +851,9 @@ Responda SOMENTE JSON array:
           const d = await r.json();
           if (d.error) { console.error('GROQ response error', d.error); return []; }
           let text = (d.choices?.[0]?.message?.content || '[]').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-          // Debug: retorna o texto bruto se array vazio
-          try {
-            const parsed = JSON.parse(text);
-            const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
-            const filtered = arr.filter(p => p.titulo && p.titulo.length > 5);
-            (process as any).__groq_raw = text.substring(0, 500);
-            return filtered;
-          } catch (pe) {
-            (process as any).__groq_raw = '(parse error) ' + text.substring(0, 300);
-            console.error('JSON parse error', pe, text.substring(0, 300));
-            return [];
-          }
+          const parsed = JSON.parse(text);
+          const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
+          return arr.filter(p => p.titulo && p.titulo.length > 5);
         } catch (e) { console.error('GROQ extraction error', e); return []; }
       }
 
