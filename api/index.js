@@ -1367,8 +1367,8 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const parsed = JSON.parse(gd.choices[0].message.content);
       const facts = parsed.facts || parsed.legal_facts || [];
 
-      // Delete existing and insert new
-      await dbAdmin().from('legal_facts').delete().eq('politician_id', politician_id);
+      // Insere novos fatos (sem deletar existentes — evita perda de dados se reinsercao falhar)
+      // Duplicatas podem ser limpas manualmente depois
 
       const TYPE_MAP = { condemnation:'condemnation', condenação:'condemnation', investigation:'investigation', investigação:'investigation', alert:'alert', alerta:'alert', irregularity:'irregularity', irregularidade:'irregularity' };
       const PENALTY_POINTS = { condemnation: 50, investigation: 20, alert: 10, irregularity: 5 };
