@@ -788,6 +788,9 @@ Resposta SOMENTE JSON:
         } catch { return []; }
       }
 
+      // Variavel para debug do retorno Groq
+      let lastGroqRaw = '';
+
       async function extractPromisesViaAI(politician, snippets, fullTexts) {
         if (!GROQ_KEY || GROQ_KEY.startsWith('YOUR_')) return [];
         const snippetSection = snippets.map(a =>
@@ -814,7 +817,7 @@ ${snippetSection}
 
 ${fullTextSection ? 'CONTEUDO COMPLETO:\n' + fullTextSection : ''}
 
-Responda SOMENTE JSON array:
+Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 [{"titulo":"promessa","descricao":"descricao","categoria":"Categoria"}]`;
 
         try {
@@ -830,31 +833,16 @@ Responda SOMENTE JSON array:
           });
           if (!r.ok) {
             console.error('GROQ API error', r.status, await r.text().catch(()=>''));
-            // Fallback: tenta 70b sem json_mode
-            const r2 = await fetch(`${AI_URL}/chat/completions`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-              body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.1, max_tokens: 4096
-              })
-            });
-            if (!r2.ok) { console.error('GROQ fallback error', r2.status, await r2.text().catch(()=>'')); return []; }
-            const d2 = await r2.json();
-            if (d2.error) { console.error('GROQ fallback response error', d2.error); return []; }
-            let text2 = (d2.choices?.[0]?.message?.content || '[]').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-            const parsed2 = JSON.parse(text2);
-            const arr2 = Array.isArray(parsed2) ? parsed2 : (parsed2.promessas || parsed2.promises || []);
-            return arr2.filter(p => p.titulo && p.titulo.length > 5);
+            return [];
           }
           const d = await r.json();
           if (d.error) { console.error('GROQ response error', d.error); return []; }
-          let text = (d.choices?.[0]?.message?.content || '[]').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+          let text = (d.choices?.[0]?.message?.content || '[]').trim();
+          lastGroqRaw = text.substring(0, 300);
           const parsed = JSON.parse(text);
           const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
-          return arr.filter(p => p.titulo && p.titulo.length > 5);
-        } catch (e) { console.error('GROQ extraction error', e); return []; }
+          return arr.filter(p => p.titulo && p.titulo.length > 3);
+        } catch (e) { console.error('GROQ extraction error', e); lastGroqRaw = 'EXCEPTION: ' + String(e).substring(0,200); return []; }
       }
 
       function isDuplicate(politicianId, politicianName, title, existingMap) {
@@ -919,20 +907,9 @@ Responda SOMENTE JSON array:
         // Limita snippets
         const topSnippets = allArticles.slice(0, 40);
 
-        // Busca texto completo dos top 3 artigos para dar mais contexto ao Groq
-        const topArticles = allArticles.slice(0, 3);
-        const fullTexts = (await Promise.all(topArticles.map(async a => {
-          const text = await fetchArticle(a.url);
-          return text ? { titulo: a.titulo, fullText: text.substring(0, 3000) } : null;
-        }))).filter(x => x !== null);
+        const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
-        const extracted = await extractPromisesViaAI(pol, topSnippets, fullTexts);
-
-        // Se falhou, tenta com apenas textos completos (sem snippets)
         let finalExtracted = extracted;
-        if (extracted.length === 0 && fullTexts.length > 0) {
-          finalExtracted = await extractPromisesViaAI(pol, [], fullTexts);
-        }
 
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
@@ -962,7 +939,8 @@ Responda SOMENTE JSON array:
           politician: pol.name,
           discovered: inserted,
           total_articles: allArticles.length,
-          groq_debug: groqDebug
+          groq_debug: groqDebug,
+          groq_raw: lastGroqRaw
         });
       }
 
