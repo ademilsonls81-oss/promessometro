@@ -1073,6 +1073,338 @@ Responda SOMENTE JSON array:
       } catch { return res.status(400).json({ error: 'Requisição inválida' }); }
     }
 
+    // ─── FIX EXPLANATIONS (B4-B12) ────────────────────────────────────────────
+    // Corrige justificativas placeholder, evidências insuficientes, redes sociais,
+    // domínios duplicados, incompatibilidade score/status
+    if (path === '/api/admin/fix-explanations' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+      const SOCIAL_BLOCKED = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
+      function isSocial(url) { if (!url) return false; try { const h = new URL(url).hostname.replace('www.',''); return SOCIAL_BLOCKED.some(s => h === s || h.endsWith('.'+s)); } catch { return false; } }
+      function extractDomain(url) { if (!url) return ''; try { return new URL(url).hostname.replace('www.',''); } catch { return ''; } }
+      function dedupDomains(arr) { const best = new Map(); for (const e of arr) { const d = extractDomain(e.url)||'__'; if (!best.has(d)||(e.descricao||'').length>(best.get(d).descricao||'').length) best.set(d, e); } return Array.from(best.values()); }
+      const PROHIBITED = ['Aguardando dados','IA falhou','Avaliacao herdada','Nenhuma avaliação detalhada disponível','Reavaliacao automatica','Herdado do status original','Avaliação automática via pipeline','Avaliacao automatica','Análise IA.','batch-heranca','autonomous_seed','evidence_based_fallback','seed_initial_v1'];
+      function isPlaceholder(t) { return !t || t.trim().length < 20 || PROHIBITED.some(p => t.includes(p)); }
+      function clampScore(st, sc) { const r={cumprida:[80,100],parcial:[40,79],pendente:[0,39],quebrada:[0,0]}[normStatus(st)]||[0,39]; return Math.max(r[0],Math.min(r[1],Math.round(sc||r[0]))); }
+
+      const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
+      const { data: explanations } = await db().from('promise_explanations').select('*').eq('is_latest', true);
+      const relevant = (explanations||[]).filter(e => new Set((promises||[]).map(p => p.id)).has(e.promise_id));
+
+      let fixed = 0, errors = 0, details = [];
+
+      for (const ev of relevant) {
+        try {
+          const promise = (promises||[]).find(p => p.id === ev.promise_id);
+          if (!promise) continue;
+          let needsUpdate = false;
+          const updateData = {};
+          let evidencias = [...(ev.evidencias_usadas || [])];
+
+          // B11: Remove social media evidence
+          const antesSocial = evidencias.length;
+          evidencias = evidencias.filter(e => !isSocial(e.url));
+          if (evidencias.length < antesSocial) { needsUpdate = true; }
+
+          // B12: Dedup domains (keep best description per domain)
+          const deduped = dedupDomains(evidencias);
+          if (deduped.length < evidencias.length) { needsUpdate = true; evidencias = deduped; }
+
+          // B5-B7: Check if justificativa/o_que_foi_feito/o_que_falta are placeholders
+          const badJust = isPlaceholder(ev.justificativa);
+          const badFeito = isPlaceholder(ev.o_que_foi_feito);
+          const badFalta = isPlaceholder(ev.o_que_falta);
+          const badEvidence = evidencias.length === 0 ||
+            (normStatus(ev.status) === 'cumprida' && evidencias.length < 2) ||
+            (normStatus(ev.status) === 'parcial' && evidencias.length < 2);
+
+          if (badJust || badFeito || badFalta || badEvidence) {
+            // Try to get fresh evidence
+            if (SERPER_KEY && evidencias.length < 3) {
+              try {
+                const sr = await fetch('https://google.serper.dev/search', {
+                  method: 'POST', headers: { 'Content-Type':'application/json','X-API-KEY':SERPER_KEY },
+                  body: JSON.stringify({ q: `${promise.politician_name} ${(promise.promise_title||'').substring(0,60)}`, gl:'br', hl:'pt-br', num:5 })
+                });
+                if (sr.ok) { const sd = await sr.json(); const existingUrls = new Set(evidencias.map(e=>e.url)); for (const r of (sd.organic||[])) { if (!existingUrls.has(r.link) && !isSocial(r.link)) { evidencias.push({descricao:r.snippet||'',fonte:r.source||extractDomain(r.link),url:r.link||''}); existingUrls.add(r.link); } } }
+                await new Promise(r => setTimeout(r, 500));
+              } catch (_) {}
+            }
+
+            // Re-evaluate via AI
+            if (GROQ_KEY) {
+              const evText = evidencias.length > 0 ? evidencias.map(e => `[${e.fonte||'fonte'}]: ${e.descricao||''} (${e.url})`).join('\n') : 'Nenhuma evidência encontrada.';
+              const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;
+              const gr = await fetch(`${AI_URL}/chat/completions`, {
+                method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${GROQ_KEY}` },
+                body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
+              });
+              if (gr.ok) {
+                const gd = await gr.json();
+                const parsed = JSON.parse(gd.choices[0].message.content);
+                const ms = normStatus(parsed.status);
+                updateData.status = ms;
+                updateData.fulfillment_score = clampScore(ms, parsed.fulfillment_score);
+                updateData.justificativa = parsed.justificativa || ev.justificativa;
+                updateData.o_que_foi_feito = parsed.o_que_foi_feito || ev.o_que_foi_feito;
+                updateData.o_que_falta = parsed.o_que_falta || ev.o_que_falta;
+                updateData.evidencias_usadas = evidencias.slice(0, 5);
+                updateData.modelo_ia = 'llama-3.3-70b-versatile';
+                updateData.confianca = evidencias.length >= 2 ? 0.80 : 0.60;
+                needsUpdate = true;
+                await new Promise(r => setTimeout(r, 2000));
+              }
+            }
+          }
+
+          // B4: Fix score/status alignment
+          if (!updateData.status && ev.status && ev.fulfillment_score != null) {
+            const corrected = clampScore(ev.status, ev.fulfillment_score);
+            if (corrected !== ev.fulfillment_score) { updateData.fulfillment_score = corrected; needsUpdate = true; }
+          }
+
+          if (needsUpdate && Object.keys(updateData).length > 0) {
+            // Mark old as not latest and insert new explanation
+            const oldId = ev.id;
+            await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('id', oldId);
+            await dbAdmin().from('promise_explanations').insert({
+              promise_id: ev.promise_id,
+              status: updateData.status || ev.status,
+              fulfillment_score: updateData.fulfillment_score ?? ev.fulfillment_score,
+              criterio_aplicado: 'ai_fix_explanations_v1',
+              justificativa: updateData.justificativa || ev.justificativa || '',
+              evidencias_usadas: updateData.evidencias_usadas || ev.evidencias_usadas || [],
+              o_que_foi_feito: updateData.o_que_foi_feito || ev.o_que_foi_feito || '',
+              o_que_falta: updateData.o_que_falta || ev.o_que_falta || '',
+              confianca: updateData.confianca ?? ev.confianca ?? 0.5,
+              modelo_ia: updateData.modelo_ia || ev.modelo_ia || 'fix-v1',
+              is_latest: true, gerado_em: new Date().toISOString()
+            });
+            // Also update the promise itself
+            await dbAdmin().from('promises').update({
+              status: updateData.status || ev.status,
+              fulfillment_score: updateData.fulfillment_score ?? ev.fulfillment_score,
+              last_verified_at: new Date().toISOString()
+            }).eq('id', ev.promise_id);
+            fixed++;
+            details.push({ promise_id: ev.promise_id, title: promise.promise_title?.substring(0,40), issues: Object.keys(updateData).join(',') });
+          }
+        } catch (e) { errors++; console.error('[fix-explanations]', e.message); }
+      }
+
+      return res.json({ fixed, errors, total: relevant.length, details });
+    }
+
+    // ─── FIX CADASTRO (A1-A4) ───────────────────────────────────────────────────
+    // Busca dados faltantes de um político via Serper+Groq
+    if (path === '/api/admin/fix-cadastro' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      const { data: pol } = await db().from('politicians').select('*').eq('id', politician_id).single();
+      if (!pol) return res.status(404).json({ error: 'Político não encontrado' });
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+      // Buscar info na web
+      let snippets = '';
+      if (SERPER_KEY) {
+        try {
+          const q = `${pol.name} político cargo partido estado`;
+          const sr = await fetch('https://google.serper.dev/search', { method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER_KEY}, body: JSON.stringify({ q, gl:'br', hl:'pt-br', num:5 }) });
+          if (sr.ok) { const sd = await sr.json(); snippets = (sd.organic||[]).map(s=>s.snippet).filter(Boolean).join(' | '); }
+        } catch (_) {}
+      }
+
+      const updates = {};
+      if (!pol.name || pol.name.trim().length < 3) {
+        // Try Wikipedia
+        try {
+          const wikiRes = await fetch(`https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(politician_id)}&format=json&origin=*&srlimit=3`);
+          if (wikiRes.ok) { const wikiData = await wikiRes.json(); const first = wikiData?.query?.search?.[0]; if (first) updates.name = first.title; }
+        } catch (_) {}
+      }
+      if (!pol.role || !pol.state || !pol.party || pol.role === 'politico') {
+        if (GROQ_KEY && snippets) {
+          const prompt = `Extraia dados do político brasileiro. Contexto: ${snippets}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`;
+          try {
+            const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
+            if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
+              if (p.role && (!pol.role || pol.role === 'politico')) updates.role = p.role;
+              if (p.state && !pol.state) updates.state = p.state.toUpperCase().substring(0,2);
+              if (p.party && !pol.party) updates.party = p.party.toUpperCase();
+            }
+          } catch (_) {}
+        }
+      }
+      // A5: Try to fix photo
+      if (!pol.photo_url) {
+        try {
+          const photoUrl = await fetchWikipediaPhoto(pol.name);
+          if (photoUrl) updates.photo_url = photoUrl;
+        } catch (_) {}
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await dbAdmin().from('politicians').update(updates).eq('id', politician_id);
+      }
+
+      return res.json({ fixed: Object.keys(updates).length, updates, politician: pol.name });
+    }
+
+    // ─── SEED LEGAL FACTS (D1-D6) ────────────────────────────────────────────
+    // Busca fatos jurídicos de um político via Serper+Groq
+    if (path === '/api/admin/seed-legal-facts' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id, politician_name } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+
+      // Find or create mandate
+      let { data: mandate } = await db().from('mandates').select('id').eq('politician_id', politician_id).eq('is_active', true).maybeSingle();
+      if (!mandate) {
+        const { data: nm } = await dbAdmin().from('mandates').insert({ politician_id, position:'Cargo Público', start_date:'2023-01-01', end_date:'2026-12-31', is_active:true }).select().single();
+        mandate = nm;
+      }
+
+      const nome = politician_name || 'político';
+      let snippets = '';
+      if (SERPER_KEY) {
+        try {
+          const queries = [
+            `"${nome}" condenação processo judicial`,
+            `"${nome}" investigação STF MP`,
+            `"${nome}" irregularidade administrativa Tribunal Contas`
+          ];
+          for (const q of queries) {
+            const sr = await fetch('https://google.serper.dev/search', { method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER_KEY}, body:JSON.stringify({ q, gl:'br', hl:'pt-br', num:5 }) });
+            if (sr.ok) { const sd = await sr.json(); snippets += (sd.organic||[]).map(s=>`TÍTULO:${s.title}\nSNIPPET:${s.snippet}\nURL:${s.link}`).join('\n---\n') + '\n'; }
+            await new Promise(r => setTimeout(r, 500));
+          }
+        } catch (_) {}
+      }
+
+      if (!GROQ_KEY) return res.status(400).json({ error: 'GROQ_API_KEY não configurado' });
+
+      const prompt = `Extraia FATOS JURÍDICOS reais sobre ${nome}. Inclua apenas condenações, investigações formais, alertas ou irregularidades com respaldo em fontes confiáveis.
+${snippets}
+Responda JSON. Se não houver fatos concretos, retorne array vazio:
+{"facts": [{"fact_type":"condemnation|investigation|alert|irregularity","description":"descrição detalhada","source":"URL da fonte","date":"AAAA-MM-DD","title":"título curto"}]}`;
+
+      const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:2048 }) });
+      if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
+      const gd = await gr.json();
+      const parsed = JSON.parse(gd.choices[0].message.content);
+      const facts = parsed.facts || parsed.legal_facts || [];
+
+      // Delete existing and insert new
+      await dbAdmin().from('legal_facts').delete().eq('politician_id', politician_id);
+
+      const TYPE_MAP = { condemnation:'condemnation', condenação:'condemnation', investigation:'investigation', investigação:'investigation', alert:'alert', alerta:'alert', irregularity:'irregularity', irregularidade:'irregularity' };
+      let inserted = 0, errors = 0;
+      for (const f of facts) {
+        if (!f.fact_type || !f.description) continue;
+        const rawType = (f.fact_type||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const ft = TYPE_MAP[rawType] || 'alert';
+        const { error } = await dbAdmin().from('legal_facts').insert({
+          politician_id, mandate_id: mandate?.id || null,
+          fact_type: ft, title: f.title || `${ft} - ${nome}`,
+          description: f.description, source: f.source || '',
+          date: f.date || new Date().toISOString().split('T')[0],
+          is_active: true
+        });
+        if (error) { errors++; console.error('[seed-legal-facts] insert error:', error); }
+        else inserted++;
+      }
+
+      return res.json({ inserted, total: facts.length, errors, politician: nome });
+    }
+
+    // ─── RECALCULATE SCORES (B14, C3, D1, E1-E3) ──────────────────────────────
+    // Recalcula C1, C2, C3, final_score e grade
+    if (path === '/api/admin/recalculate-scores' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      const { data: pol } = await db().from('politicians').select('*').eq('id', politician_id).single();
+      if (!pol) return res.status(404).json({ error: 'Político não encontrado' });
+
+      const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
+      const { data: explanations } = await db().from('promise_explanations').select('*').eq('is_latest', true);
+      const { data: indicators } = await db().from('indicators').select('*').eq('politician_id', politician_id);
+      const { data: legalFacts } = await db().from('legal_facts').select('*').eq('politician_id', politician_id);
+
+      // C1 calculation
+      const evalMap = {};
+      (explanations||[]).forEach(e => evalMap[e.promise_id] = e);
+      let f = 0, pa = 0;
+      (promises||[]).forEach(p => {
+        const ev = evalMap[p.id]; const s = ev ? normStatus(ev.status) : normStatus(p.status);
+        if (s === 'cumprida') f++; else if (s === 'parcial') pa++;
+      });
+      const total = (promises||[]).length;
+      const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
+
+      // C2 calculation
+      const CAT_WEIGHTS = { seguranca: 0.30, financas: 0.40, funcionalismo: 0.30 };
+      const catScores = { seguranca: [], financas: [], funcionalismo: [] };
+      (indicators||[]).forEach(i => { if (i.score != null && catScores[i.category]) catScores[i.category].push(i.score); });
+      let wSum = 0, sSum = 0;
+      for (const [cat, scores] of Object.entries(catScores)) {
+        if (scores.length > 0) { const avg = scores.reduce((a,b) => a+b, 0)/scores.length; sSum += avg * (CAT_WEIGHTS[cat]||0); wSum += CAT_WEIGHTS[cat]||0; }
+      }
+      const c2 = wSum > 0 ? parseFloat((sSum / wSum).toFixed(1)) : null;
+
+      // C3 calculation
+      const PENALTY_MAP = { condemnation: 50, investigation: 20, alert: 10, irregularity: 5 };
+      let c3 = 100;
+      (legalFacts||[]).forEach(fact => { if (fact.is_active !== false) c3 -= PENALTY_MAP[fact.fact_type] || 0; });
+      c3 = Math.max(0, c3);
+
+      // Final score
+      const w1 = 0.40, w2 = 0.35, w3 = 0.25;
+      let pesoTotal = w1, scorePonderado = c1 * w1;
+      if (c2 != null) { scorePonderado += c2 * w2; pesoTotal += w2; }
+      if (c3 != null) { scorePonderado += c3 * w3; pesoTotal += w3; }
+      let finalScore = pesoTotal > 0 ? parseFloat((scorePonderado / pesoTotal).toFixed(1)) : 0;
+      if (c3 < 20) finalScore = Math.min(finalScore, 59);
+
+      const grade = finalScore >= 80 ? 'A' : finalScore >= 60 ? 'B' : finalScore >= 40 ? 'C' : finalScore >= 20 ? 'D' : 'F';
+      const cappedGrade = c3 < 20 ? (finalScore >= 40 ? 'C' : finalScore >= 20 ? 'D' : 'F') : grade;
+
+      await dbAdmin().from('politicians').update({
+        c1_score: c1, c2_score: c2, c3_score: c3,
+        final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade,
+        methodology_version: '1.0', last_evaluated_at: new Date().toISOString()
+      }).eq('id', politician_id);
+
+      return res.json({
+        success: true, politician: pol.name,
+        scores: { c1, c2, c3, final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade },
+        breakdown: { promises_total: total, cumpridas: f, parciais: pa, indicators: (indicators||[]).length, legal_facts: (legalFacts||[]).length }
+      });
+    }
+
     if (path.startsWith('/api/admin/qualidade')) {
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });

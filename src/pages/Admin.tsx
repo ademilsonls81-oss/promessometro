@@ -4,7 +4,8 @@ import {
   ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle,
   AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download,
   Play, Github, Zap, Search, Database, Clock, TrendingUp, Activity,
-  ChevronDown, Loader2, AlertCircle, ArrowRight, Package, Bot, Globe
+  ChevronDown, Loader2, AlertCircle, ArrowRight, Package, Bot, Globe,
+  UserCheck, Scale, SlidersHorizontal
 } from "lucide-react";
 
 interface CriterioFalha { id: string; descricao: string }
@@ -103,6 +104,10 @@ export default function Admin() {
   const [upgrading, setUpgrading] = useState(false);
   const [seedingIndicators, setSeedingIndicators] = useState<string | null>(null);
   const [findingPromises, setFindingPromises] = useState<string | null>(null);
+  const [fixingExplanations, setFixingExplanations] = useState<string | null>(null);
+  const [fixingCadastro, setFixingCadastro] = useState<string | null>(null);
+  const [seedingLegalFacts, setSeedingLegalFacts] = useState<string | null>(null);
+  const [recalculatingScores, setRecalculatingScores] = useState<string | null>(null);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [toolResults, setToolResults] = useState<Record<string, any>>({});
 
@@ -205,6 +210,70 @@ export default function Admin() {
       if (!dryRun) fetchAll();
     } catch (e: any) { setErro(e.message); }
     setFindingPromises(null);
+  }
+
+  async function fixExplanations(pol: Politician) {
+    setFixingExplanations(pol.id); setErro("");
+    try {
+      const res = await authFetch("/api/admin/fix-explanations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politician_id: pol.id })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, [`fix_explanations_${pol.id}`]: json }));
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setFixingExplanations(null);
+  }
+
+  async function fixCadastro(pol: Politician) {
+    setFixingCadastro(pol.id); setErro("");
+    try {
+      const res = await authFetch("/api/admin/fix-cadastro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politician_id: pol.id })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, [`fix_cadastro_${pol.id}`]: json }));
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setFixingCadastro(null);
+  }
+
+  async function seedLegalFacts(pol: Politician) {
+    setSeedingLegalFacts(pol.id); setErro("");
+    try {
+      const res = await authFetch("/api/admin/seed-legal-facts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politician_id: pol.id, politician_name: pol.name })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, [`legal_facts_${pol.id}`]: json }));
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setSeedingLegalFacts(null);
+  }
+
+  async function recalculateScores(pol: Politician) {
+    setRecalculatingScores(pol.id); setErro("");
+    try {
+      const res = await authFetch("/api/admin/recalculate-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politician_id: pol.id })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, [`scores_${pol.id}`]: json }));
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setRecalculatingScores(null);
   }
 
   async function runPipeline(target: string) {
@@ -563,14 +632,34 @@ export default function Admin() {
                     {(() => {
                       const pol = politicians.find(p2 => p2.name === p.nome);
                       if (!pol) return null;
-                      const needsIndicators = p.stats.total_indicators === 0;
-                      const needsPromises = p.stats.total_promises < 5;
-                      const hasHeranca = p.criterios_falhos.some(f => f.id === "B13");
-                      if (!needsIndicators && !needsPromises && !hasHeranca) return null;
+                      const falhasSet = new Set(p.criterios_falhos.map(f => f.id));
+                      const needsIndicators = p.stats.total_indicators === 0 || falhasSet.has("C1") || falhasSet.has("C2");
+                      const needsPromises = p.stats.total_promises < 5 || falhasSet.has("B1");
+                      const needsCadastro = ["A1","A2","A3","A4","A5"].some(id => falhasSet.has(id));
+                      const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12"].some(id => falhasSet.has(id));
+                      const needsLegalFacts = ["D1","D2","D3","D4","D5"].some(id => falhasSet.has(id));
+                      const needsRecalculate = ["B14","C3","D1","E1","E2","E3"].some(id => falhasSet.has(id));
+
+                      const qualquer = needsIndicators || needsPromises || needsCadastro || needsExplanations || needsLegalFacts || needsRecalculate;
+                      if (!qualquer) return null;
                       return (
                         <div className="mt-2 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
-                          <div className="text-xs font-bold text-yellow-400 mb-2">⚡ Ações rápidas</div>
+                          <div className="text-xs font-bold text-yellow-400 mb-2">⚡ Ações rápidas — IA Corretiva</div>
                           <div className="flex flex-wrap gap-2">
+                            {needsCadastro && (
+                              <button onClick={() => fixCadastro(pol)} disabled={fixingCadastro === pol.id}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-gray-500/10 border border-gray-500/30 rounded-lg text-gray-300 hover:bg-gray-500/20 transition-colors disabled:opacity-50">
+                                {fixingCadastro === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserCheck className="w-3 h-3" />}
+                                Corrigir Cadastro
+                              </button>
+                            )}
+                            {needsExplanations && (
+                              <button onClick={() => fixExplanations(pol)} disabled={fixingExplanations === pol.id}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-orange-500/10 border border-orange-500/30 rounded-lg text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50">
+                                {fixingExplanations === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                                Corrigir Avaliações
+                              </button>
+                            )}
                             {needsIndicators && (
                               <button onClick={() => seedIndicators(pol)} disabled={seedingIndicators === pol.id}
                                 className="flex items-center gap-1 px-2.5 py-1 text-xs bg-neon-cyan/10 border border-neon-cyan/30 rounded-lg text-neon-cyan hover:bg-neon-cyan/20 transition-colors disabled:opacity-50">
@@ -585,12 +674,38 @@ export default function Admin() {
                                 Buscar Promessas
                               </button>
                             )}
+                            {needsLegalFacts && (
+                              <button onClick={() => seedLegalFacts(pol)} disabled={seedingLegalFacts === pol.id}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50">
+                                {seedingLegalFacts === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Scale className="w-3 h-3" />}
+                                Seed Fatos Jurídicos
+                              </button>
+                            )}
+                            {needsRecalculate && (
+                              <button onClick={() => recalculateScores(pol)} disabled={recalculatingScores === pol.id}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50">
+                                {recalculatingScores === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SlidersHorizontal className="w-3 h-3" />}
+                                Recalcular Notas
+                              </button>
+                            )}
                           </div>
+                          {toolResults[`fix_explanations_${pol.id}`] && (
+                            <div className="text-xs text-orange-400 mt-2">✅ Avaliações: {toolResults[`fix_explanations_${pol.id}`].fixed} corrigidas</div>
+                          )}
+                          {toolResults[`fix_cadastro_${pol.id}`] && (
+                            <div className="text-xs text-gray-300 mt-1">✅ Cadastro: {toolResults[`fix_cadastro_${pol.id}`].fixed} campo(s) atualizado(s)</div>
+                          )}
                           {toolResults[`indicators_${pol.id}`] && (
-                            <div className="text-xs text-cyan-400 mt-2">✅ Indicadores: {toolResults[`indicators_${pol.id}`].inserted} inseridos</div>
+                            <div className="text-xs text-cyan-400 mt-1">✅ Indicadores: {toolResults[`indicators_${pol.id}`].inserted} inseridos</div>
                           )}
                           {toolResults[`promises_${pol.id}`] && (
                             <div className="text-xs text-purple-400 mt-1">✅ Promessas: {toolResults[`promises_${pol.id}`].inserted} inseridas</div>
+                          )}
+                          {toolResults[`legal_facts_${pol.id}`] && (
+                            <div className="text-xs text-red-400 mt-1">✅ Fatos Jurídicos: {toolResults[`legal_facts_${pol.id}`].inserted} inseridos</div>
+                          )}
+                          {toolResults[`scores_${pol.id}`] && (
+                            <div className="text-xs text-green-400 mt-1">✅ Notas recalculadas: C1={toolResults[`scores_${pol.id}`].scores?.c1} C2={toolResults[`scores_${pol.id}`].scores?.c2} C3={toolResults[`scores_${pol.id}`].scores?.c3} Final={toolResults[`scores_${pol.id}`].scores?.final_score} Grade={toolResults[`scores_${pol.id}`].scores?.grade}</div>
                           )}
                         </div>
                       );
