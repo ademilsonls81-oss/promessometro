@@ -723,14 +723,20 @@ Resposta SOMENTE JSON:
       const skipInsert = qs.get('dryrun') === 'true';
 
       function normalizeSearch(s) {
-        return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/-/g, ' ');
+        return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/-/g, ' ').trim();
       }
 
       let polList;
       if (targetName) {
         const q = normalizeSearch(targetName);
+        const qWords = q.split(/\s+/).filter(Boolean);
         const { data: all } = await db().from('politicians').select('id, name, role, state, party');
-        polList = (all || []).filter(p => normalizeSearch(p.name).includes(q) || q.includes(normalizeSearch(p.name)));
+        polList = (all || []).filter(p => {
+          const n = normalizeSearch(p.name);
+          const nWords = n.split(/\s+/).filter(Boolean);
+          // Match: se politico contem OU o search contem todas as palavras do outro
+          return qWords.every(w => n.includes(w)) || nWords.every(w => q.includes(w));
+        });
       } else {
         const { data } = await db().from('politicians').select('id, name, role, state, party');
         polList = data || [];
