@@ -1570,7 +1570,15 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         error: error.message,
         detail: 'Tabela discovery_jobs nao existe mesmo apos auto-migration. Execute /api/admin/migrate-discovery manualmente.'
       });
-      return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento ~1-3 min.' });
+
+      // Fire-and-forget: trigger processor in background
+      import('./cron/discovery-processor.js').then(mod => {
+        const processor = mod.default;
+        const fakeRes = { json: () => {}, status: () => fakeRes };
+        processor(req, fakeRes).catch(e => console.error('processor error:', e));
+      }).catch(e => console.error('processor import error:', e));
+
+      return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento acionado.' });
     }
 
     if (path.startsWith('/api/admin/discovery-status/') && method === 'GET') {
