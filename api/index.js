@@ -1170,6 +1170,12 @@ Responda SOMENTE JSON array:
             if (corrected !== ev.fulfillment_score) { updateData.fulfillment_score = corrected; needsUpdate = true; }
           }
 
+          // Se só houve limpeza de evidências (B11/B12) sem reavaliação, salva mesmo assim
+          if (needsUpdate && Object.keys(updateData).length === 0) {
+            updateData.evidencias_usadas = evidencias.slice(0, 5);
+            updateData.criterio_aplicado = 'ai_fix_evidences_v1';
+          }
+
           if (needsUpdate && Object.keys(updateData).length > 0) {
             // Mark old as not latest and insert new explanation
             const oldId = ev.id;
@@ -1178,7 +1184,7 @@ Responda SOMENTE JSON array:
               promise_id: ev.promise_id,
               status: updateData.status || ev.status,
               fulfillment_score: updateData.fulfillment_score ?? ev.fulfillment_score,
-              criterio_aplicado: 'ai_fix_explanations_v1',
+              criterio_aplicado: updateData.criterio_aplicado || 'ai_fix_explanations_v1',
               justificativa: updateData.justificativa || ev.justificativa || '',
               evidencias_usadas: updateData.evidencias_usadas || ev.evidencias_usadas || [],
               o_que_foi_feito: updateData.o_que_foi_feito || ev.o_que_foi_feito || '',
