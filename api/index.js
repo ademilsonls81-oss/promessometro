@@ -934,6 +934,8 @@ Responda SOMENTE JSON array:
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
 
+        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets_count: topSnippets.length, extracted_count: extracted.length };
+
         let inserted = 0;
         for (const p of extracted) {
           if (!skipInsert) {
@@ -956,7 +958,8 @@ Responda SOMENTE JSON array:
         results.push({
           politician: pol.name,
           discovered: inserted,
-          total_articles: allArticles.length
+          total_articles: allArticles.length,
+          groq_debug: groqDebug
         });
       }
 
