@@ -886,19 +886,17 @@ Responda SOMENTE JSON array:
           pol.role === 'prefeito' ? ['prefeito', 'administração'] :
           ['parlamentar', 'mandato'];
 
-        // Usa no maximo 2 variacoes de nome para evitar estourar rate limit do Serper
-        const searchNames = uniqueNames.slice(0, 2);
-        const queries = [];
-        for (const n of searchNames) {
-          queries.push(
-            `"${n}" "plano de governo" propostas "${roleLabels[0]}"`,
-            `"${n}" promessas de campanha "${roleLabels[0]}"`,
-            `"${n}" propostas "${roleLabels[1]}" eleicoes OR mandato`,
-            `"${n}" (promessas OR propostas) "${roleLabels[0]}" "${roleLabels[1]}"`,
-            `site:g1.globo.com OR site:folha.uol.com.br "${n}" promessas OR plano OR propostas`,
-            `site:uol.com.br OR site:estadao.com.br "${n}" promessas OR propostas`,
-            `"${n}" "programa de governo" OR "diario oficial" "${pol.state || ''}" "${roleLabels[0]}"`
-          );
+        // Queries focadas em promessas (baseado nas queries originais que funcionavam)
+        const queries = [
+          `"plano de governo" "${pol.name}" promessas OR propostas site:g1.globo.com OR site:oglobo.globo.com`,
+          `"promessas de campanha" "${pol.name}" "${roleLabels[0]}"`,
+          `"${pol.name}" propostas "${roleLabels[1]}" eleicoes`,
+          `"${pol.name}" "plano de governo" OR promessas OR propostas`,
+          `"${firstName}" promessas OR propostas "${roleLabels[0]}" "${pol.party || ''}"`
+        ];
+        // Se o nome tem mais de uma parte, adiciona busca com nome curto
+        if (firstName !== pol.name) {
+          queries.push(`"${firstName}" "plano de governo" promessas "${roleLabels[0]}"`);
         }
 
         // Run Serper searches in parallel
@@ -918,13 +916,13 @@ Responda SOMENTE JSON array:
         }
 
         // Limita snippets
-        const topSnippets = allArticles.slice(0, 5);
+        const topSnippets = allArticles.slice(0, 30);
 
         const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
-        // Se falhou com 70b, tenta com 8b e menos snippets
+        // Se falhou, tenta com menos snippets
         let finalExtracted = extracted;
-        if (extracted.length === 0 && allArticles.length > 5) {
+        if (extracted.length === 0 && allArticles.length > 10) {
           const fewerSnippets = allArticles.slice(0, 10);
           finalExtracted = await extractPromisesViaAI(pol, fewerSnippets, []);
         }
