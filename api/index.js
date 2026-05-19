@@ -722,10 +722,15 @@ Resposta SOMENTE JSON:
       const limit = parseInt(qs.get('limit')) || 15;
       const skipInsert = qs.get('dryrun') === 'true';
 
+      function normalizeSearch(s) {
+        return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/-/g, ' ');
+      }
+
       let polList;
       if (targetName) {
-        const { data } = await db().from('politicians').select('id, name, role, state, party').ilike('name', `%${targetName}%`);
-        polList = data || [];
+        const q = normalizeSearch(targetName);
+        const { data: all } = await db().from('politicians').select('id, name, role, state, party');
+        polList = (all || []).filter(p => normalizeSearch(p.name).includes(q) || q.includes(normalizeSearch(p.name)));
       } else {
         const { data } = await db().from('politicians').select('id, name, role, state, party');
         polList = data || [];
