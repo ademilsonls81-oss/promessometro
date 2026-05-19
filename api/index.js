@@ -1250,10 +1250,35 @@ Responda SOMENTE JSON array:
         }
       }
       // A5: Try to fix photo (sempre tenta, mesmo se URL existente estiver quebrada)
+      let photoUpdated = false;
       try {
         const photoUrl = await fetchWikipediaPhoto(pol.name);
-        if (photoUrl && photoUrl !== pol.photo_url) updates.photo_url = photoUrl;
+        if (photoUrl) {
+          // Verifica se a URL realmente funciona antes de salvar
+          const testRes = await fetch(photoUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) }).catch(() => null);
+          if (testRes && (testRes.ok || testRes.status === 200 || testRes.status === 301 || testRes.status === 302)) {
+            updates.photo_url = photoUrl;
+            photoUpdated = true;
+          }
+        }
       } catch (_) {}
+      if (!photoUpdated) {
+        // Fallback: tenta buscar foto de outra fonte (Wikipedia com redirect)
+        try {
+          const altUrl = `https://pt.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pol.name)}&prop=pageimages&piprop=original&format=json&origin=*`;
+          const altRes = await fetch(altUrl, { headers: { 'User-Agent': WIKI_UA } });
+          if (altRes.ok) {
+            const altData = await altRes.json();
+            const pages = altData?.query?.pages;
+            if (pages) {
+              const page = Object.values(pages)[0];
+              if (page?.original?.source) {
+                updates.photo_url = page.original.source;
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       if (Object.keys(updates).length > 0) {
         await dbAdmin().from('politicians').update(updates).eq('id', politician_id);

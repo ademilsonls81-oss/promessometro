@@ -65,10 +65,16 @@ function contemPalavraProibida(texto) {
 
 async function checkUrl(url) {
   if (!url) return false;
-  try {
-    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-    return res.ok;
-  } catch { return false; }
+  // Tenta HEAD primeiro; se falhar, tenta GET com range mínimo
+  for (const method of ['HEAD', 'GET']) {
+    try {
+      const opts = { method, signal: AbortSignal.timeout(8000) };
+      if (method === 'GET') opts.headers = { Range: 'bytes=0-0' };
+      const res = await fetch(url, opts);
+      if (res.ok || res.status === 206) return true;
+    } catch {}
+  }
+  return false;
 }
 
 function isSocialMedia(url) {
