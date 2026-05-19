@@ -1249,13 +1249,11 @@ Responda SOMENTE JSON array:
           } catch (_) {}
         }
       }
-      // A5: Try to fix photo
-      if (!pol.photo_url) {
-        try {
-          const photoUrl = await fetchWikipediaPhoto(pol.name);
-          if (photoUrl) updates.photo_url = photoUrl;
-        } catch (_) {}
-      }
+      // A5: Try to fix photo (sempre tenta, mesmo se URL existente estiver quebrada)
+      try {
+        const photoUrl = await fetchWikipediaPhoto(pol.name);
+        if (photoUrl && photoUrl !== pol.photo_url) updates.photo_url = photoUrl;
+      } catch (_) {}
 
       if (Object.keys(updates).length > 0) {
         await dbAdmin().from('politicians').update(updates).eq('id', politician_id);
