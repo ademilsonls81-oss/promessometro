@@ -1519,6 +1519,65 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       });
     }
 
+    // Discovery job endpoints
+    if (path === '/api/admin/start-discovery-job' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { politician_id, politician_name, role, state, party } = JSON.parse(body || '{}');
+      if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+
+      // Ensure table exists
+      try {
+        const { error: migErr } = await db().rpc('exec_sql', {
+          sql: `CREATE TABLE IF NOT EXISTS discovery_jobs (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            politician_id UUID REFERENCES politicians(id),
+            politician_name TEXT, cargo TEXT, role TEXT, state TEXT, party TEXT,
+            status TEXT DEFAULT 'pending',
+            pdf_url TEXT, pdf_text TEXT, total_extraidas INT DEFAULT 0, total_inseridas INT DEFAULT 0,
+            erro TEXT, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now()
+          ); NOTIFY pgrst, 'reload schema';`
+        });
+        if (migErr) console.error('Migration warning:', migErr);
+      } catch (e) { console.error('Migration error:', e); }
+
+      const { data: job, error } = await dbAdmin().from('discovery_jobs').insert({
+        politician_id, politician_name, role, state, party,
+        cargo: (role === 'governador' || role === 'presidente' || role === 'prefeito' || role === 'senador') ? 'majoritario' : 'proporcional',
+        status: 'pending'
+      }).select().single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ job_id: job.id, status: 'pending', message: 'Job de descoberta criado. O processamento leva ~1-3 minutos.' });
+    }
+
+    if (path.startsWith('/api/admin/discovery-status/') && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      const jobId = path.replace('/api/admin/discovery-status/', '');
+      const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', jobId).single();
+      if (!job) return res.status(404).json({ error: 'Job não encontrado' });
+      return res.json(job);
+    }
+
+    if (path === '/api/admin/discovery-run-now' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { job_id } = JSON.parse(body || '{}');
+      if (!job_id) return res.status(400).json({ error: 'job_id obrigatório' });
+
+      // Trigger cron processor synchronously (for testing)
+      const { default: processor } = await import('./cron/discovery-processor.js');
+      // Create a mock response
+      let processorRes = { json: () => {}, status: () => processorRes };
+      await processor(req, processorRes);
+      // Get updated job status
+      const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job_id).single();
+      return res.json(job || { status: 'processing' });
+    }
+
     if (path.startsWith('/api/admin/qualidade')) {
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });

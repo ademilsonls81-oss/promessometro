@@ -5,7 +5,7 @@ import {
   AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download,
   Play, Github, Zap, Search, Database, Clock, TrendingUp, Activity,
   ChevronDown, Loader2, AlertCircle, ArrowRight, Package, Bot, Globe,
-  UserCheck, Scale, SlidersHorizontal
+  UserCheck, Scale, SlidersHorizontal, BookOpen
 } from "lucide-react";
 
 interface CriterioFalha { id: string; descricao: string }
@@ -104,6 +104,8 @@ export default function Admin() {
   const [upgrading, setUpgrading] = useState(false);
   const [seedingIndicators, setSeedingIndicators] = useState<string | null>(null);
   const [findingPromises, setFindingPromises] = useState<string | null>(null);
+  const [discoveringJob, setDiscoveringJob] = useState<string | null>(null);
+  const [discoveryStatus, setDiscoveryStatus] = useState<{[key: string]: any}>({});
   const [fixingExplanations, setFixingExplanations] = useState<string | null>(null);
   const [fixingCadastro, setFixingCadastro] = useState<string | null>(null);
   const [seedingLegalFacts, setSeedingLegalFacts] = useState<string | null>(null);
@@ -211,6 +213,36 @@ export default function Admin() {
       if (!dryRun) fetchAll();
     } catch (e: any) { setErro(e.message); }
     setFindingPromises(null);
+  }
+
+  async function startDiscovery(pol: Politician) {
+    setDiscoveringJob(pol.id); setErro("");
+    try {
+      const res = await authFetch("/api/admin/start-discovery-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ politician_id: pol.id, politician_name: pol.name, role: pol.role, state: pol.state, party: pol.party })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setDiscoveryStatus(s => ({ ...s, [pol.id]: { job_id: json.job_id, status: "pending", message: "Job criado! Aguardando processamento..." } }));
+
+      // Poll for completion
+      const poll = async () => {
+        const statusRes = await authFetch(`/api/admin/discovery-status/${json.job_id}`);
+        if (!statusRes) return;
+        const statusJson = await statusRes.json();
+        if (statusJson.status === "completed" || statusJson.status === "error") {
+          setDiscoveryStatus(s => ({ ...s, [pol.id]: statusJson }));
+          setDiscoveringJob(null);
+          setTimeout(() => fetchAll(), 2000);
+        } else {
+          setDiscoveryStatus(s => ({ ...s, [pol.id]: { job_id: json.job_id, status: statusJson.status, message: `Processando... ${statusJson.total_extraidas || 0} promessas extraídas` } }));
+          setTimeout(poll, 5000);
+        }
+      };
+      setTimeout(poll, 5000);
+    } catch (e: any) { setErro(e.message); setDiscoveringJob(null); }
   }
 
   async function fixExplanations(pol: Politician) {
@@ -635,13 +667,14 @@ export default function Admin() {
                       if (!pol) return null;
                       const falhasSet = new Set(p.criterios_falhos.map(f => f.id));
                       const needsIndicators = p.stats.total_indicators === 0 || falhasSet.has("C1") || falhasSet.has("C2");
-                      const needsPromises = p.stats.total_promises < 5 || falhasSet.has("B1");
+                      const needsPromises = p.stats.total_promises < 10 || falhasSet.has("B1");
+                      const needsDiscovery = p.stats.total_promises < 20;
                       const needsCadastro = ["A1","A2","A3","A4","A5"].some(id => falhasSet.has(id));
                       const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12","B13"].some(id => falhasSet.has(id));
                       const needsLegalFacts = (p.stats.total_legal_facts === 0) || ["D1","D2","D3","D4","D5"].some(id => falhasSet.has(id));
                       const needsRecalculate = ["B14","C3","D1","E1","E2","E3"].some(id => falhasSet.has(id));
 
-                      const qualquer = needsIndicators || needsPromises || needsCadastro || needsExplanations || needsLegalFacts || needsRecalculate;
+                      const qualquer = needsIndicators || needsPromises || needsCadastro || needsExplanations || needsLegalFacts || needsRecalculate || needsDiscovery;
                       if (!qualquer) return null;
                       return (
                         <div className="mt-2 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
@@ -675,6 +708,13 @@ export default function Admin() {
                                 Buscar Promessas
                               </button>
                             )}
+                            {needsDiscovery && (
+                              <button onClick={() => startDiscovery(pol)} disabled={discoveringJob === pol.id}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-400 hover:bg-blue-500/20 transition-colors disabled:opacity-50">
+                                {discoveringJob === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookOpen className="w-3 h-3" />}
+                                Descobrir via Plano de Governo
+                              </button>
+                            )}
                             {needsLegalFacts && (
                               <button onClick={() => seedLegalFacts(pol)} disabled={seedingLegalFacts === pol.id}
                                 className="flex items-center gap-1 px-2.5 py-1 text-xs bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50">
@@ -701,6 +741,16 @@ export default function Admin() {
                           )}
                           {toolResults[`promises_${pol.id}`] && (
                             <div className="text-xs text-purple-400 mt-1">✅ Promessas: {toolResults[`promises_${pol.id}`].inserted} inseridas</div>
+                          )}
+                          {discoveryStatus[pol.id] && (
+                            <div className="text-xs text-blue-400 mt-1">
+                              {discoveryStatus[pol.id].status === "completed"
+                                ? `✅ Plano de Governo: ${discoveryStatus[pol.id].total_inseridas || 0} promessas inseridas (${discoveryStatus[pol.id].total_extraidas || 0} extraídas)`
+                                : discoveryStatus[pol.id].status === "error"
+                                ? `❌ Erro: ${discoveryStatus[pol.id].erro || "falha desconhecida"}`
+                                : `⏳ ${discoveryStatus[pol.id].message || "Descobrindo..."}`
+                              }
+                            </div>
                           )}
                           {toolResults[`legal_facts_${pol.id}`] && (
                             <div className="text-xs text-red-400 mt-1">✅ Fatos Jurídicos: {toolResults[`legal_facts_${pol.id}`].inserted} inseridos</div>

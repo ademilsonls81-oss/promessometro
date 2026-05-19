@@ -52,6 +52,10 @@
             "destination": "/api/cron/metodologia-audit.js"
         },
         {
+            "source": "/api/cron/discovery-processor",
+            "destination": "/api/cron/discovery-processor.js"
+        },
+        {
             "source": "/api/force-reavaliation",
             "destination": "/api/index.js"
         },
