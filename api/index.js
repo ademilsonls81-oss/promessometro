@@ -1170,6 +1170,13 @@ Responda SOMENTE JSON array:
             if (corrected !== ev.fulfillment_score) { updateData.fulfillment_score = corrected; needsUpdate = true; }
           }
 
+          // Se havia problema (B5-B10) mas IA falhou, salva pelo menos as evidências que temos
+          if ((badJust || badFeito || badFalta || badEvidence) && !needsUpdate) {
+            updateData.evidencias_usadas = evidencias.slice(0, 5);
+            updateData.criterio_aplicado = 'ai_fix_partial_v1';
+            needsUpdate = true;
+          }
+
           // Se só houve limpeza de evidências (B11/B12) sem reavaliação, salva mesmo assim
           if (needsUpdate && Object.keys(updateData).length === 0) {
             updateData.evidencias_usadas = evidencias.slice(0, 5);
