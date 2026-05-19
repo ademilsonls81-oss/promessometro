@@ -825,7 +825,7 @@ Responda SOMENTE JSON array:
               model: 'llama-3.3-70b-versatile',
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' },
-              temperature: 0.1, max_tokens: 4096
+              temperature: 0.1, max_tokens: 8192
             })
           });
           if (!r.ok) {
@@ -837,7 +837,7 @@ Responda SOMENTE JSON array:
               body: JSON.stringify({
                 model: 'llama-3.1-8b-instant',
                 messages: [{ role: 'user', content: prompt }],
-                temperature: 0.1, max_tokens: 4096
+                temperature: 0.1, max_tokens: 8192
               })
             });
             if (!r2.ok) { console.error('GROQ fallback error', r2.status, await r2.text().catch(()=>'')); return []; }
@@ -918,13 +918,13 @@ Responda SOMENTE JSON array:
         }
 
         // Limita snippets
-        const topSnippets = allArticles.slice(0, 15);
+        const topSnippets = allArticles.slice(0, 5);
 
         const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
         // Se falhou com 70b, tenta com 8b e menos snippets
         let finalExtracted = extracted;
-        if (extracted.length === 0 && allArticles.length > 15) {
+        if (extracted.length === 0 && allArticles.length > 5) {
           const fewerSnippets = allArticles.slice(0, 10);
           finalExtracted = await extractPromisesViaAI(pol, fewerSnippets, []);
         }
