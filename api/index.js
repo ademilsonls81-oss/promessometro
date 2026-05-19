@@ -1523,7 +1523,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
     if (path === '/api/admin/migrate-discovery' && method === 'POST') {
       const admin = requireAdmin(req);
-      if (!admin) return res.status(401).json({ error: 'N�o autorizado' });
+      if (!admin) return res.status(401).json({ error: 'N�o autorizado' });
       const sql = `CREATE TABLE IF NOT EXISTS discovery_jobs (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         politician_id UUID, politician_name TEXT, cargo TEXT, role TEXT,
@@ -1556,6 +1556,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         detail: 'Tabela discovery_jobs nao existe. Acesse /api/admin/migrate-discovery primeiro.'
       });
       return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento ~1-3 min.' });
+    }
 
     if (path.startsWith('/api/admin/discovery-status/') && method === 'GET') {
       const admin = requireAdmin(req);
