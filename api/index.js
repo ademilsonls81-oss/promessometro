@@ -918,18 +918,10 @@ Responda SOMENTE JSON array:
           continue;
         }
 
-        // Fetch full text from top articles for richer AI extraction
-        const topArticles = allArticles.slice(0, 5);
-        const fullTexts = await Promise.all(topArticles.map(async a => {
-          const text = await fetchArticle(a.url);
-          return text ? { titulo: a.titulo, fullText: text } : null;
-        }));
-        const validFullTexts = fullTexts.filter(Boolean);
-
         // Limita snippets para nao estourar contexto do Groq
         const topSnippets = allArticles.slice(0, 40);
 
-        const extracted = await extractPromisesViaAI(pol, topSnippets, validFullTexts);
+        const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
