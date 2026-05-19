@@ -107,8 +107,15 @@ const ALL_CRITERIA = [
   { id: 'A4', bloco: 'A', descricao: 'Partido preenchido',
     check: (p) => !!(p.party && p.party.trim().length > 0) },
 
-  { id: 'A5', bloco: 'A', descricao: 'Foto cadastrada e acessível',
-    check: async (p) => p.photo_url ? await checkUrl(p.photo_url) : false },
+  { id: 'A5', bloco: 'A', descricao: 'Foto cadastrada',
+    check: (p) => {
+      if (!p.photo_url) return false;
+      // Valida formato de URL sem depender de HTTP request externo
+      try {
+        const u = new URL(p.photo_url);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch { return false; }
+    } },
 
   // FIX A6: Antes hardcoded `false`. Agora: político tem nota final calculada (avaliado pelo sistema)
   { id: 'A6', bloco: 'A', descricao: 'Avaliado pelo sistema (nota calculada)',
