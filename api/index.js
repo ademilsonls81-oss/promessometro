@@ -905,7 +905,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         }
 
         // Limita snippets
-        const topSnippets = allArticles.slice(0, 40);
+        const topSnippets = allArticles.slice(0, 3);
 
         const extracted = await extractPromisesViaAI(pol, topSnippets, []);
 
@@ -914,7 +914,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         // Pausa entre politicos para evitar rate limit do Groq
         if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
 
-        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets_count_1: topSnippets.length, extracted_1: extracted.length, snippets_count_2: allArticles.length > 15 ? 10 : 0, extracted_2: finalExtracted.length > extracted.length ? finalExtracted.length - extracted.length : 0 };
+        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets: topSnippets.length, extracted: finalExtracted.length };
 
         let inserted = 0;
         for (const p of finalExtracted) {
