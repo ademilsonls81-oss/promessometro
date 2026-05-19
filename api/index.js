@@ -269,6 +269,15 @@ export default async function handler(req, res) {
           }
 
           if (!GROQ_KEY) { errors++; continue; }
+
+          if (evidences.length === 0) {
+            evidences.push({
+              fonte: "Ausência de Evidências",
+              descricao: "Nenhuma evidência ou notícia encontrada na web após varredura do nosso sistema.",
+              url: "#"
+            });
+          }
+
           const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência.';
           const prompt = `Avalie a promessa: "${promise.promise_title}" de ${promise.politician_name}. Evidências: ${evText}. Responda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"o que foi realizado mínimo 20 palavras","o_que_falta":"o que ainda falta mínimo 20 palavras"}`;
           const gr = await fetch(`${AI_URL}/chat/completions`, {
@@ -1138,6 +1147,14 @@ Responda SOMENTE JSON array:
             }
 
             // Re-evaluate via AI
+            if (evidencias.length === 0) {
+              evidencias.push({
+                fonte: "Ausência de Evidências",
+                descricao: "Nenhuma evidência ou notícia encontrada na web após varredura do nosso sistema.",
+                url: "#"
+              });
+            }
+
             if (GROQ_KEY) {
               const evText = evidencias.length > 0 ? evidencias.map(e => `[${e.fonte||'fonte'}]: ${e.descricao||''} (${e.url})`).join('\n') : 'Nenhuma evidência encontrada.';
               const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;

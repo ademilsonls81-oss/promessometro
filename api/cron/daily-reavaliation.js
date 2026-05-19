@@ -161,6 +161,14 @@ async function evaluateWithAI(promise) {
     return true;
   });
 
+  if (dedupedEvidences.length === 0) {
+    dedupedEvidences.push({
+      fonte: "Ausência de Evidências",
+      descricao: "Nenhuma evidência ou notícia encontrada na web após varredura automática.",
+      url: "#"
+    });
+  }
+
   const evText = dedupedEvidences.length > 0
     ? dedupedEvidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
     : 'Nenhuma evidência encontrada.';

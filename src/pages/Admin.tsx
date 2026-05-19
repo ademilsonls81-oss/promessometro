@@ -131,10 +131,11 @@ export default function Admin() {
   async function fetchAll() {
     setCarregando(true); setErro("");
     try {
+      const t = Date.now();
       const [qualRes, statusRes, polRes] = await Promise.all([
-        authFetch("/api/admin/qualidade"),
-        authFetch("/api/admin/system-status"),
-        authFetch("/api/politicians/ranking")
+        authFetch(`/api/admin/qualidade?t=${t}`),
+        authFetch(`/api/admin/system-status?t=${t}`),
+        authFetch(`/api/politicians/ranking?t=${t}`)
       ]);
       if (!qualRes) return;
       const qual = await qualRes.json();
