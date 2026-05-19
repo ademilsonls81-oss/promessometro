@@ -789,8 +789,6 @@ Resposta SOMENTE JSON:
       }
 
       // Variavel para debug do retorno Groq
-      let lastGroqRaw = '';
-
       async function extractPromisesViaAI(politician, snippets, fullTexts) {
         if (!GROQ_KEY || GROQ_KEY.startsWith('YOUR_')) return [];
         const snippetSection = snippets.map(a =>
@@ -838,11 +836,10 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
           const d = await r.json();
           if (d.error) { console.error('GROQ response error', d.error); return []; }
           let text = (d.choices?.[0]?.message?.content || '[]').trim();
-          lastGroqRaw = text.substring(0, 300);
           const parsed = JSON.parse(text);
           const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
           return arr.filter(p => p.titulo && p.titulo.length > 3);
-        } catch (e) { console.error('GROQ extraction error', e); lastGroqRaw = 'EXCEPTION: ' + String(e).substring(0,200); return []; }
+        } catch (e) { console.error('GROQ extraction error', e); return []; }
       }
 
       function isDuplicate(politicianId, politicianName, title, existingMap) {
@@ -912,13 +909,8 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 
         let finalExtracted = extracted;
 
-        // Pausa entre politicos para evitar rate limit do Groq
-        if (polList.length > 1) await new Promise(r => setTimeout(r, 1500));
-
-        const groqDebug = { key_set: !!GROQ_KEY && !GROQ_KEY.startsWith('YOUR_'), snippets: topSnippets.length, extracted: finalExtracted.length };
-
         let inserted = 0;
-        for (const p of finalExtracted) {
+        for (const p of deduped) {
           if (!skipInsert) {
             const { error } = await dbAdmin().from('promises').insert({
               politician_id: pol.id,
@@ -939,9 +931,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         results.push({
           politician: pol.name,
           discovered: inserted,
-          total_articles: allArticles.length,
-          groq_debug: groqDebug,
-          groq_raw: lastGroqRaw
+          total_articles: allArticles.length
         });
       }
 
