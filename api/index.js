@@ -1545,6 +1545,18 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const { politician_id, politician_name, role, state, party } = JSON.parse(body || '{}');
       if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
 
+      // Auto-migrate if table doesn't exist
+      const sql = `CREATE TABLE IF NOT EXISTS discovery_jobs (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        politician_id UUID, politician_name TEXT, cargo TEXT, role TEXT,
+        state TEXT, party TEXT, status TEXT DEFAULT 'pending',
+        pdf_url TEXT, pdf_text TEXT, total_extraidas INT DEFAULT 0,
+        total_inseridas INT DEFAULT 0, erro TEXT,
+        started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now()
+      ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
+      await db().rpc('exec_sql', { sql }).catch(() => {});
+
       const { data: job, error } = await dbAdmin().from('discovery_jobs').insert({
         politician_id, politician_name, role, state, party,
         cargo: ['governador','presidente','prefeito','senador'].includes((role||'').toLowerCase()) ? 'majoritario' : 'proporcional',
@@ -1553,7 +1565,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
       if (error) return res.status(500).json({
         error: error.message,
-        detail: 'Tabela discovery_jobs nao existe. Acesse /api/admin/migrate-discovery primeiro.'
+        detail: 'Tabela discovery_jobs nao existe mesmo apos auto-migration. Execute /api/admin/migrate-discovery manualmente.'
       });
       return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento ~1-3 min.' });
     }
