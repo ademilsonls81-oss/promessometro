@@ -909,6 +909,19 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 
         let finalExtracted = extracted;
 
+        // Dedup contra promessas ja existentes no banco
+        const existingKey = pol.id || pol.name;
+        const existingTitles = existingByPol[existingKey] || [];
+        const deduped = finalExtracted.filter(p => {
+          const words = p.titulo.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const isDup = existingTitles.some(e => {
+            const eWords = e.split(/\s+/).filter(w => w.length > 3);
+            const inter = words.filter(w => eWords.includes(w));
+            return inter.length >= Math.min(3, words.length * 0.4);
+          });
+          return !isDup;
+        });
+
         let inserted = 0;
         for (const p of deduped) {
           if (!skipInsert) {
