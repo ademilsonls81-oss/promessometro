@@ -886,17 +886,18 @@ Responda SOMENTE JSON array:
           pol.role === 'prefeito' ? ['prefeito', 'administração'] :
           ['parlamentar', 'mandato'];
 
-        // Queries focadas em promessas (baseado nas queries originais que funcionavam)
+        // Queries focadas em achar promessas explicitas em textos longos
         const queries = [
-          `"plano de governo" "${pol.name}" promessas OR propostas site:g1.globo.com OR site:oglobo.globo.com`,
-          `"promessas de campanha" "${pol.name}" "${roleLabels[0]}"`,
-          `"${pol.name}" propostas "${roleLabels[1]}" eleicoes`,
-          `"${pol.name}" "plano de governo" OR promessas OR propostas`,
-          `"${firstName}" promessas OR propostas "${roleLabels[0]}" "${pol.party || ''}"`
+          `"plano de governo" "${pol.name}" promessas OR propostas "${roleLabels[0]}"`,
+          `"programa de governo" "${pol.name}" "${roleLabels[0]}" "${pol.party || ''}"`,
+          `"${pol.name}" propostas "${roleLabels[0]}" promessas "${roleLabels[1]}" site:g1.globo.com OR site:folha OR site:uol`,
+          `"${pol.name}" promete OR prometeu "${roleLabels[1]}" "${roleLabels[0]}"`,
+          `"${pol.name}" "plano de governo" OR "programa de governo" promessas OR compromissos`,
+          `"${firstName}" "${roleLabels[0]}" "promessa" OR "proposta" OR "vou" OR "vamos"`
         ];
-        // Se o nome tem mais de uma parte, adiciona busca com nome curto
+        // Se o nome tem >1 parte, busca com nome curto + site de noticias
         if (firstName !== pol.name) {
-          queries.push(`"${firstName}" "plano de governo" promessas "${roleLabels[0]}"`);
+          queries.push(`"${firstName}" "${pol.party || ''}" "${roleLabels[0]}" promessas "plano de governo"`);
         }
 
         // Run Serper searches in parallel
@@ -916,15 +917,21 @@ Responda SOMENTE JSON array:
         }
 
         // Limita snippets
-        const topSnippets = allArticles.slice(0, 30);
+        const topSnippets = allArticles.slice(0, 40);
 
-        const extracted = await extractPromisesViaAI(pol, topSnippets, []);
+        // Busca texto completo dos top 3 artigos para dar mais contexto ao Groq
+        const topArticles = allArticles.slice(0, 3);
+        const fullTexts = (await Promise.all(topArticles.map(async a => {
+          const text = await fetchArticle(a.url);
+          return text ? { titulo: a.titulo, fullText: text.substring(0, 3000) } : null;
+        }))).filter(x => x !== null);
 
-        // Se falhou, tenta com menos snippets
+        const extracted = await extractPromisesViaAI(pol, topSnippets, fullTexts);
+
+        // Se falhou, tenta com apenas textos completos (sem snippets)
         let finalExtracted = extracted;
-        if (extracted.length === 0 && allArticles.length > 10) {
-          const fewerSnippets = allArticles.slice(0, 10);
-          finalExtracted = await extractPromisesViaAI(pol, fewerSnippets, []);
+        if (extracted.length === 0 && fullTexts.length > 0) {
+          finalExtracted = await extractPromisesViaAI(pol, [], fullTexts);
         }
 
         // Pausa entre politicos para evitar rate limit do Groq
