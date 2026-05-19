@@ -1545,7 +1545,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const { politician_id, politician_name, role, state, party } = JSON.parse(body || '{}');
       if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
 
-      // Auto-migrate if table doesn't exist
+      // Auto-migrate (table + stage columns)
       const sql = `CREATE TABLE IF NOT EXISTS discovery_jobs (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         politician_id UUID, politician_name TEXT, cargo TEXT, role TEXT,
@@ -1554,7 +1554,10 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         total_inseridas INT DEFAULT 0, erro TEXT,
         started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT now()
-      ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
+      ); ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS stage TEXT DEFAULT 'pending';
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS progress INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS pdf_source_url TEXT;
+      SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
       try {
         await dbAdmin().rpc('exec_sql', { sql });
       } catch (e) { console.error('migrate error:', e); }
@@ -1571,14 +1574,41 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         detail: 'Tabela discovery_jobs nao existe mesmo apos auto-migration. Execute /api/admin/migrate-discovery manualmente.'
       });
 
-      // Fire-and-forget: trigger processor in background
-      import('./cron/discovery-processor.js').then(mod => {
-        const processor = mod.default;
-        const fakeRes = { json: () => {}, status: () => fakeRes };
-        processor(req, fakeRes).catch(e => console.error('processor error:', e));
-      }).catch(e => console.error('processor import error:', e));
+      // Hybrid: try sync processing with 7s timeout, fallback to cron + polling
+      let processed = false;
+      try {
+        const { default: processor } = await import('./cron/discovery-processor.js');
+        const specificReq = { ...req, _specificJobId: job.id };
+        let processorDone = false;
+        processor(specificReq, { json: () => { processorDone = true; }, status: () => ({ json: () => { processorDone = true; } }) });
+        await Promise.race([
+          new Promise(resolve => {
+            const check = () => { if (processorDone) resolve(); else setTimeout(check, 200); };
+            check();
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
+        ]);
+        processed = true;
+      } catch (e) {
+        // Timeout ou erro — cron assume
+        console.error('Sync processing timeout/error:', e.message);
+      }
 
-      return res.json({ job_id: job.id, status: 'pending', message: 'Job criado. Processamento acionado.' });
+      const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job.id).single();
+      return res.json({
+        job_id: job.id,
+        status: currentJob?.status || 'processing',
+        stage: currentJob?.stage || 'pending',
+        progress: currentJob?.progress || 0,
+        total_extraidas: currentJob?.total_extraidas || 0,
+        total_inseridas: currentJob?.total_inseridas || 0,
+        erro: currentJob?.erro || null,
+        message: currentJob?.status === 'completed'
+          ? `${currentJob.total_inseridas || 0} promessas inseridas de ${currentJob.total_extraidas || 0} extraídas`
+          : currentJob?.status === 'failed'
+          ? `Erro: ${currentJob.erro || 'falha desconhecida'}`
+          : 'Processando...'
+      });
     }
 
     if (path.startsWith('/api/admin/discovery-status/') && method === 'GET') {
