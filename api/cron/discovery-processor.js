@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
 const SERPER_KEY = process.env.SERPER_API_KEY || '';
 const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
@@ -213,37 +213,52 @@ function chunkIntoPages(text, maxChars) {
   return chunks;
 }
 
+async function logDbErr(label, e) {
+  console.error(`[DB] ${label}: ${e?.message || e}`);
+}
+
 async function updateStage(dbClient, jobId, stage, progress) {
-  await dbClient.from('discovery_jobs').update({ stage, progress }).eq('id', jobId).catch(() => {});
+  const { error } = await dbClient.from('discovery_jobs').update({ stage, progress }).eq('id', jobId);
+  if (error) console.error(`[DB] updateStage(${stage}): ${error.message}`);
 }
 
 async function processJob(dbClient, job) {
   const isMaj = MAJORITARIOS.includes((job.role || '').toLowerCase());
   const year = ELECTION_YEARS[job.role?.toLowerCase()] || 2022;
   let allPromises = [];
+  const startedAt = Date.now();
+
+  console.log(`[JOB:${job.id.slice(0,8)}] Iniciando processamento de ${job.politician_name} (${job.role}, majoritario=${isMaj})`);
 
   if (isMaj) {
+    console.log(`[1] Buscando PDF plano de governo de ${job.politician_name}`);
     await updateStage(dbClient, job.id, 'buscando_pdf', 10);
 
     let pdfUrl = '';
     try {
       pdfUrl = await buscarPDF(job.politician_name, year);
-    } catch (e) { console.error('Erro buscando PDF:', e.message); }
+      console.log(`[1] PDF ${pdfUrl ? 'encontrado: ' + pdfUrl.slice(0,80) : 'NAO encontrado'}`);
+    } catch (e) { console.error('[1] Erro buscando PDF:', e.message); }
 
     if (pdfUrl) {
-      await dbClient.from('discovery_jobs').update({ pdf_source_url: pdfUrl }).eq('id', job.id).catch(() => {});
+      const { error: urlErr } = await dbClient.from('discovery_jobs').update({ pdf_source_url: pdfUrl }).eq('id', job.id);
+      if (urlErr) console.error(`[DB] pdf_source_url: ${urlErr.message}`);
       await updateStage(dbClient, job.id, 'baixando_pdf', 20);
 
+      console.log(`[2] Baixando PDF de ${pdfUrl.slice(0,60)}...`);
       let pdfText = '';
       try {
         pdfText = await downloadPDF(pdfUrl);
-      } catch (e) { console.error('Erro baixando PDF:', e.message); }
+        console.log(`[2] PDF baixado: ${pdfText.length} chars`);
+      } catch (e) { console.error('[2] Erro baixando PDF:', e.message); }
 
       if (pdfText && pdfText.length > 200) {
+        console.log(`[3] Extraindo promessas do PDF (${pdfText.length} chars)`);
         await updateStage(dbClient, job.id, 'extraindo_pdf', 30);
 
         const pages = chunkIntoPages(pdfText, 30000);
         const limitedPages = pages.slice(0, 50);
+        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length}`);
 
         for (let i = 0; i < limitedPages.length; i++) {
           const progress = 30 + Math.round((i / limitedPages.length) * 35);
@@ -251,31 +266,41 @@ async function processJob(dbClient, job) {
 
           try {
             const batch = limitedPages[i];
+            console.log(`[3.${i}] Enviando lote ${i+1}/${limitedPages.length} para Groq (${batch.length} chars)`);
             const promises = await extractWithGroq(batch, job.politician_name, job.role, { attempt: i });
+            console.log(`[3.${i}] Groq retornou ${promises.length} promessas`);
             allPromises.push(...promises.map(p => ({ ...p, fonte: 'pdf_tse' })));
           } catch (e) {
-            console.error('Erro Groq batch', i, e.message);
+            console.error('[3] Erro Groq batch', i, e.message);
           }
         }
+        console.log(`[3] Total extraido do PDF: ${allPromises.length} promessas`);
+      } else {
+        console.log(`[2] PDF vazio ou muito curto (${pdfText?.length || 0} chars)`);
       }
     }
 
     if (allPromises.length === 0) {
-      await dbClient.from('discovery_jobs').update({
+      console.log(`[1] Sem PDF, tentando Serper como fallback`);
+      const { error: errErro } = await dbClient.from('discovery_jobs').update({
         erro: 'PDF nao localizado ou vazio, usando Serper'
-      }).eq('id', job.id).catch(() => {});
+      }).eq('id', job.id);
+      if (errErro) console.error(`[DB] erro field: ${errErro.message}`);
     }
   }
 
+  console.log(`[4] Buscando artigos via Serper para ${job.politician_name}`);
   await updateStage(dbClient, job.id, 'buscando_artigos', isMaj ? 70 : 20);
 
   try {
     const serperPromises = await buscarArtigos(job.politician_name, job.role, year);
+    console.log(`[4] Serper retornou ${serperPromises.length} promessas`);
     allPromises.push(...serperPromises.map(p => ({ ...p, fonte: 'serper' })));
   } catch (e) {
-    console.error('Erro buscando artigos:', e.message);
+    console.error('[4] Erro buscando artigos:', e.message);
   }
 
+  console.log(`[5] Dados brutos: ${allPromises.length} promessas (PDF + Serper)`);
   await updateStage(dbClient, job.id, 'deduplicando', 85);
 
   let existingTitles = [];
@@ -284,8 +309,9 @@ async function processJob(dbClient, job) {
       .select('id, promise_title')
       .eq('politician_id', job.politician_id);
     existingTitles = (existing || []).map(p => p.promise_title.toLowerCase());
+    console.log(`[5] Promessas existentes no banco: ${existingTitles.length}`);
   } catch (e) {
-    console.error('Erro buscando existentes:', e.message);
+    console.error('[5] Erro buscando existentes:', e.message);
   }
 
   const unique = [];
@@ -295,6 +321,7 @@ async function processJob(dbClient, job) {
       existingTitles.push(p.titulo.toLowerCase());
     }
   }
+  console.log(`[6] Apos dedup: ${unique.length} promessas unicas`);
 
   await updateStage(dbClient, job.id, 'inserindo', 95);
 
@@ -312,18 +339,21 @@ async function processJob(dbClient, job) {
       });
       if (!error) inserted++;
     } catch (e) {
-      console.error('Erro inserindo promessa:', e.message);
+      console.error('[6] Erro inserindo promessa:', e.message);
     }
   }
 
-  await dbClient.from('discovery_jobs').update({
+  console.log(`[FIM] ${inserted}/${unique.length} inseridas em ${((Date.now()-startedAt)/1000).toFixed(1)}s`);
+
+  const { error: finalErr } = await dbClient.from('discovery_jobs').update({
     status: 'completed',
     stage: 'completed',
     progress: 100,
     total_extraidas: allPromises.length,
     total_inseridas: inserted,
     completed_at: new Date().toISOString()
-  }).eq('id', job.id).catch(() => {});
+  }).eq('id', job.id);
+  if (finalErr) console.error(`[DB] final update: ${finalErr.message}`);
 
   return { processed: 1, job_id: job.id, extraidas: allPromises.length, inseridas: inserted };
 }
@@ -375,14 +405,15 @@ export default async function handler(req, res) {
     return res.json(result);
 
   } catch (err) {
-    console.error('Discovery job error:', err);
+    console.error('[FATAL] Discovery job error:', err);
     if (req._specificJobId) {
-      await dbClient.from('discovery_jobs').update({
+      const { error: dbErr } = await dbClient.from('discovery_jobs').update({
         status: 'failed',
         stage: 'failed',
         erro: err.message || String(err),
         completed_at: new Date().toISOString()
-      }).eq('id', req._specificJobId).catch(() => {});
+      }).eq('id', req._specificJobId);
+      if (dbErr) console.error('[DB] fatal error update:', dbErr.message);
     }
     return res.status(500).json({ error: err.message });
   }

@@ -1577,12 +1577,14 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       // Tenta processar agora (síncrono até Vercel matar em 10s)
       // Processador salva progresso incremental no banco
       let processorError = null;
+      let processorResult = null;
+      const captureJson = (data) => { processorResult = data; };
       try {
         const { default: processor } = await import('./cron/discovery-processor.js');
         const specificReq = { ...req, _specificJobId: job.id };
         await processor(specificReq, {
-          json: () => {},
-          status: () => ({ json: () => {} })
+          json: captureJson,
+          status: () => ({ json: captureJson })
         }).catch(e => {
           processorError = e?.message || String(e);
           console.error('processor error:', processorError);
@@ -1590,6 +1592,10 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       } catch (e) {
         processorError = e?.message || String(e);
         console.error('processor load error:', processorError);
+      }
+
+      if (processorResult?.error && !processorError) {
+        processorError = processorResult.error;
       }
 
       const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job.id).single();
@@ -1601,6 +1607,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         total_extraidas: currentJob?.total_extraidas || 0,
         total_inseridas: currentJob?.total_inseridas || 0,
         erro: currentJob?.erro || processorError,
+        processorResult,
         message: processorError
           ? `Erro no processador: ${processorError}`
           : currentJob?.status === 'completed'
