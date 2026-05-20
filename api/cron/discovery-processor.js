@@ -125,10 +125,12 @@ async function extractWithGroq(text, nome, cargo, opts = {}) {
     console.error('[GROQ] GROQ_KEY vazia — verifique GROQ_API_KEY ou OPENAI_API_KEY');
     return [];
   }
-  const maxChars = 90000;
-  const chunk = text.substring(0, maxChars);
+  let chunk = text.substring(0, 20000);
 
-  const prompt = `Extraia TODAS as promessas de campanha, propostas e compromissos de ${nome} (${cargo || 'politico'}).
+  const model = (opts.attempt || 0) > 0 ? GROQ_FALLBACK : GROQ_MODEL;
+
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    const prompt = `Extraia TODAS as promessas de campanha, propostas e compromissos de ${nome} (${cargo || 'politico'}).
 
 Texto:
 ${chunk}
@@ -142,9 +144,6 @@ REGRAS:
 Responda JSON:
 {"promessas":[{"titulo":"promessa","descricao":"detalhes","categoria":"Categoria"}]}`;
 
-  const model = (opts.attempt || 0) > 0 ? GROQ_FALLBACK : GROQ_MODEL;
-
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
     try {
       const r = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
@@ -154,13 +153,19 @@ Responda JSON:
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' },
           temperature: 0.1,
-          max_tokens: 8192
+          max_tokens: 1024
         }),
         signal: AbortSignal.timeout(25000)
       });
       if (r.status === 429) {
         console.error(`[GROQ] HTTP 429 (model=${model}, tentativa=${tentativa+1}) — aguardando 4s`);
         await new Promise(rr => setTimeout(rr, 4000));
+        continue;
+      }
+      if (r.status === 413) {
+        console.error(`[GROQ] HTTP 413 — chunk muito grande (${chunk.length} chars), reduzindo pela metade`);
+        chunk = chunk.substring(0, Math.floor(chunk.length / 2));
+        if (chunk.length < 200) return [];
         continue;
       }
       if (!r.ok) {
@@ -216,7 +221,7 @@ async function buscarArtigos(nome, cargo, ano) {
 
   if (validTexts.length === 0) {
     console.log(`[4] fetchText falhou para todos os URLs, usando snippets do Serper (${unique.length} artigos)`);
-    const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n').substring(0, 6000);
+    const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n').substring(0, 3000);
     if (snippetText.length > 200) {
       return await extractWithGroq(snippetText, nome, cargo, { attempt: 0 });
     }
@@ -296,9 +301,9 @@ async function processJob(dbClient, job) {
         console.log(`[3] Extraindo promessas do PDF (${pdfText.length} chars)`);
         await updateStage(dbClient, job.id, 'extraindo_pdf', 30);
 
-        const pages = chunkIntoPages(pdfText, 6000);
-        const limitedPages = pages.slice(0, 15);
-        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length} (6k chars cada)`);
+        const pages = chunkIntoPages(pdfText, 2000);
+        const limitedPages = pages.slice(0, 10);
+        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length} (2k chars cada)`);
 
         for (let i = 0; i < limitedPages.length; i++) {
           const progress = 30 + Math.round((i / limitedPages.length) * 35);
