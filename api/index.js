@@ -1613,7 +1613,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         processorError = processorResult.error;
       }
 
-      const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job.id).single();
+      const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', job.id).single();
       return res.json({
         job_id: job.id,
         status: currentJob?.status || (processorError ? 'error' : 'processing'),
@@ -1638,9 +1638,15 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
       const jobId = path.replace('/api/admin/discovery-status/', '');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', jobId).single();
+      const { data: job } = await dbAdmin().from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages, partial_promises, last_checkpoint_at').eq('id', jobId).single();
       if (!job) return res.status(404).json({ error: 'Job não encontrado' });
-      return res.json(job);
+      // Parse partial_promises and return only the last 10 for the live feed
+      let lastPromises = [];
+      try {
+        const all = typeof job.partial_promises === 'string' ? JSON.parse(job.partial_promises) : (job.partial_promises || []);
+        lastPromises = Array.isArray(all) ? all.slice(-10) : [];
+      } catch(e) { lastPromises = []; }
+      return res.json({ ...job, partial_promises: undefined, last_promises: lastPromises });
     }
 
     if (path === '/api/admin/discovery-run-now' && method === 'POST') {
@@ -1656,7 +1662,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       let processorRes = { json: () => {}, status: () => processorRes };
       await processor(req, processorRes);
       // Get updated job status
-      const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job_id).single();
+      const { data: job } = await dbAdmin().from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', job_id).single();
       return res.json(job || { status: 'processing' });
     }
 

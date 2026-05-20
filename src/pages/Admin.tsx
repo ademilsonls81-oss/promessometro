@@ -106,6 +106,7 @@ export default function Admin() {
   const [findingPromises, setFindingPromises] = useState<string | null>(null);
   const [discoveringJob, setDiscoveringJob] = useState<string | null>(null);
   const [discoveryStatus, setDiscoveryStatus] = useState<{[key: string]: any}>({});
+  const [discoveryLivePromises, setDiscoveryLivePromises] = useState<{[key: string]: any[]}>({});
   const [fixingExplanations, setFixingExplanations] = useState<string | null>(null);
   const [fixingCadastro, setFixingCadastro] = useState<string | null>(null);
   const [seedingLegalFacts, setSeedingLegalFacts] = useState<string | null>(null);
@@ -252,11 +253,18 @@ export default function Admin() {
             [pol.id]: {
               job_id: json.job_id,
               status: statusJson.status,
+              current_page: statusJson.current_page,
+              total_pages: statusJson.total_pages,
+              total_extraidas: statusJson.total_extraidas,
+              total_inseridas: statusJson.total_inseridas,
               message: statusJson.current_page && statusJson.total_pages
-                ? `Página ${statusJson.current_page}/${statusJson.total_pages} (${statusJson.partial_promises?.length || 0} promessas)`
+                ? `Página ${statusJson.current_page}/${statusJson.total_pages} — ${statusJson.total_extraidas || 0} extraídas, ${statusJson.total_inseridas || 0} inseridas`
                 : 'Iniciando...'
             }
           }));
+          if (statusJson.last_promises && statusJson.last_promises.length > 0) {
+            setDiscoveryLivePromises(s => ({ ...s, [pol.id]: statusJson.last_promises }));
+          }
           setTimeout(poll, 5000);
         }
       };
@@ -762,13 +770,39 @@ export default function Admin() {
                             <div className="text-xs text-purple-400 mt-1">✅ Promessas: {toolResults[`promises_${pol.id}`].inserted} inseridas</div>
                           )}
                           {discoveryStatus[pol.id] && (
-                            <div className="text-xs text-blue-400 mt-1">
-                              {discoveryStatus[pol.id].status === "completed"
-                                ? `✅ Plano de Governo: ${discoveryStatus[pol.id].total_inseridas || 0} promessas inseridas (${discoveryStatus[pol.id].total_extraidas || 0} extraídas)`
-                                : discoveryStatus[pol.id].status === "error"
-                                ? `❌ Erro: ${discoveryStatus[pol.id].erro || "falha desconhecida"}`
-                                : `⏳ ${discoveryStatus[pol.id].message || "Descobrindo..."}`
-                              }
+                            <div className="mt-2 space-y-1">
+                              <div className="text-xs text-blue-400">
+                                {discoveryStatus[pol.id].status === "completed"
+                                  ? `✅ Plano de Governo: ${discoveryStatus[pol.id].total_inseridas || 0} promessas inseridas (${discoveryStatus[pol.id].total_extraidas || 0} extraídas)`
+                                  : discoveryStatus[pol.id].status === "error"
+                                  ? `❌ Erro: ${discoveryStatus[pol.id].erro || "falha desconhecida"}`
+                                  : `⏳ ${discoveryStatus[pol.id].message || "Descobrindo..."}`
+                                }
+                              </div>
+                              {/* Progress bar */}
+                              {discoveryStatus[pol.id].status !== "completed" && discoveryStatus[pol.id].total_pages > 0 && (
+                                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                                  <div className="h-full bg-blue-400 rounded-full transition-all duration-500"
+                                    style={{ width: `${Math.round((discoveryStatus[pol.id].current_page / discoveryStatus[pol.id].total_pages) * 100)}%` }} />
+                                </div>
+                              )}
+                              {/* Live feed of last extracted promises */}
+                              {discoveryLivePromises[pol.id] && discoveryLivePromises[pol.id].length > 0 && (
+                                <div className="mt-2 p-2 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                                  <div className="text-xs font-bold text-blue-300 mb-1.5">📋 Últimas promessas extraídas:</div>
+                                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                                    {discoveryLivePromises[pol.id].map((p: any, i: number) => (
+                                      <div key={i} className="text-xs text-gray-300 flex items-start gap-1.5 py-0.5 border-b border-white/5 last:border-0">
+                                        <span className="text-blue-400 shrink-0">{i + 1}.</span>
+                                        <div>
+                                          <span className="text-white">{p.titulo}</span>
+                                          {p.categoria && <span className="ml-1 text-gray-500">· {p.categoria}</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                           {toolResults[`legal_facts_${pol.id}`] && (

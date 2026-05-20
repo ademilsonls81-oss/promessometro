@@ -4,7 +4,9 @@ const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || 
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
 const SERPER_KEY = process.env.SERPER_API_KEY || '';
-const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+const AI_URL = (process.env.OPENAI_BASE_URL && !process.env.OPENAI_BASE_URL.includes('googleapis')) 
+  ? process.env.OPENAI_BASE_URL 
+  : 'https://api.groq.com/openai/v1';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
@@ -22,10 +24,73 @@ const ELECTION_YEARS = {
 };
 const GROQ_MODEL = 'llama-3.1-8b-instant';
 const GROQ_FALLBACK = 'llama-3.3-70b-versatile';
-const PAGE_SIZE = 2000;
+const PAGE_SIZE = 6000; // ~3 páginas de 2000 chars
 const PARALLEL = 3;
-const ROUNDS = 3;
-const BATCH_SIZE = 3;
+const ROUNDS = 2;
+const BATCH_SIZE = 1;
+
+const TSE_CARGO_MAP = {
+  presidente: 1,
+  governador: 3,
+  senador: 5,
+  deputado_federal: 6,
+  deputado_estadual: 7,
+  prefeito: 11,
+  vereador: 13
+};
+
+async function getEleicaoId(year, state, role) {
+  const isFederal = ['presidente', 'governador', 'senador', 'deputado_federal', 'deputado_estadual'].includes(role.toLowerCase());
+  if (isFederal) return '2040602022'; // Hardcoded para 2022 por enquanto, pode ser expandido
+  return '2045202024'; // Hardcoded para 2024 (Municipal)
+}
+
+async function fetchTSECandidate(year, state, role, name) {
+  const cargoId = TSE_CARGO_MAP[role.toLowerCase()] || 3;
+  const eleicaoId = await getEleicaoId(year, state, role);
+  const url = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/listar/${year}/${state}/${eleicaoId}/${cargoId}/candidatos`;
+  
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const normalizedTarget = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cand = data.candidatos?.find(c => {
+      const n1 = c.nomeCompleto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const n2 = c.nomeUrna.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return n1.includes(normalizedTarget) || n2.includes(normalizedTarget) || normalizedTarget.includes(n2);
+    });
+    
+    if (!cand) return null;
+    
+    // Buscar detalhes para pegar arquivos
+    const detailUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/candidatura/buscar/${year}/${state}/${eleicaoId}/candidato/${cand.id}`;
+    const dr = await fetch(detailUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!dr.ok) return null;
+    const details = await dr.json();
+    const plan = details.arquivos?.find(a => a.codTipo === '5');
+    return plan ? plan.idArquivo : null;
+  } catch (e) {
+    console.error('[TSE] Error:', e.message);
+    return null;
+  }
+}
+
+async function downloadTSEPDF(fileId) {
+  if (!fileId) return '';
+  const url = `https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/doc/${fileId}`;
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!r.ok) return '';
+    const buf = await r.arrayBuffer();
+    const pdfParse = (await import('pdf-parse')).default;
+    const pd = await pdfParse(Buffer.from(buf));
+    return pd.text || '';
+  } catch (e) {
+    console.error('[TSE] Download error:', e.message);
+    return '';
+  }
+}
 
 function normalizeCategory(cat) {
   if (!cat) return 'Outros';
@@ -129,22 +194,26 @@ async function extractWithGroq(text, nome, cargo, opts = {}) {
   const model = GROQ_MODEL;
 
   for (let tentativa = 0; tentativa < 3; tentativa++) {
-    const prompt = `Extraia TODAS as promessas de campanha, propostas e compromissos de ${nome} (${cargo || 'politico'}).
+    const prompt = `Analise o plano de governo ou propostas de ${nome} (${cargo || 'político'}).
+Extraia uma lista exaustiva de todas as promessas, compromissos e propostas específicas.
 
-Texto:
+REGRAS DE OURO (MUITO IMPORTANTE):
+1. IGNORE O SUMÁRIO/ÍNDICE: Descarte qualquer linha que pareça um índice ou sumário (ex: "Saúde ...... 10", "Educação ... 15"). Se o texto parecer apenas uma lista de capítulos, ignore-os.
+2. FOCO EM AÇÃO CONCRETA: Extraia apenas PROPOSTAS REAIS (Ex: "Construir 10 novas escolas", "Reduzir o ICMS em 2%"). 
+3. IGNORE FRASES GENÉRICAS: Descarte frases de introdução, elogios ou descrições de estado atual (Ex: "São Paulo é o maior estado", "Iremos cuidar das pessoas"). Isso NÃO são promessas.
+4. DIVIDA PROPOSTAS: Se uma frase tiver duas ações (Ex: "Ampliar o metrô e reformar estações"), crie duas promessas distintas.
+5. CATEGORIAS EXATAS: Saude, Educacao, Seguranca, Economia, Infraestrutura, Meio_Ambiente, Trabalho, Habitacao, Transporte, Outros.
+
+Texto para análise:
 ${chunk}
 
-REGRAS:
-1. Extraia CADA promessa individualmente
-2. "construir 10 hospitais e 50 escolas" = DUAS promessas
-3. Nao invente promessas — extraia apenas do texto fornecido
-4. Extraia o maximo possivel
-
-Responda JSON:
-{"promessas":[{"titulo":"promessa","descricao":"detalhes","categoria":"Categoria"}]}`;
+Retorne estritamente JSON:
+{"promessas":[{"titulo":"Ação curta e direta começando com Verbo no Infinito ou Futuro","descricao":"Detalhes da meta, valores ou prazos","categoria":"Categoria"}]}`;
 
     try {
-      const r = await fetch(`${AI_URL}/chat/completions`, {
+      const fullUrl = `${AI_URL}/chat/completions`;
+      console.log(`[GROQ] Calling ${fullUrl} for ${nome}`);
+      const r = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
@@ -271,6 +340,16 @@ async function saveCheckpoint(dbClient, jobId, currentPage, totalPages, partialP
     stage: currentPage >= totalPages ? 'checkpoint_final' : 'checkpoint_salvo'
   }).eq('id', jobId);
   if (error) console.error(`[DB] checkpoint: ${error.message}`);
+
+  // Inserção parcial para atualizar o Admin em tempo real
+  if (partialPromises.length > 5) {
+     const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', jobId).single();
+     if (job) {
+       const inserted = await finalizarInsercoes(dbClient, job, partialPromises);
+       // Atualiza o contador de inseridas no job
+       await dbClient.from('discovery_jobs').update({ total_inseridas: inserted }).eq('id', jobId);
+     }
+  }
 }
 
 async function setupPDFJob(dbClient, job) {
@@ -279,33 +358,42 @@ async function setupPDFJob(dbClient, job) {
   }
 
   const isMaj = MAJORITARIOS.includes((job.role || '').toLowerCase());
-  if (!isMaj) return { pdfText: '', totalPages: 0 };
-
-  console.log(`[SETUP] Baixando PDF para ${job.politician_name}`);
-  await updateStage(dbClient, job.id, 'buscando_pdf', 10);
-
-  let pdfUrl = '';
-  try {
-    pdfUrl = await buscarPDF(job.politician_name, ELECTION_YEARS[job.role?.toLowerCase()] || 2022);
-    console.log(`[SETUP] PDF ${pdfUrl ? 'encontrado' : 'NAO encontrado'}`);
-  } catch (e) { console.error('[SETUP] Erro buscando PDF:', e.message); }
-
-  if (!pdfUrl) {
-    await dbClient.from('discovery_jobs').update({ erro: 'PDF nao localizado' }).eq('id', job.id);
-    return { pdfText: '', totalPages: 0 };
-  }
-
-  await dbClient.from('discovery_jobs').update({ pdf_source_url: pdfUrl }).eq('id', job.id);
-  await updateStage(dbClient, job.id, 'baixando_pdf', 20);
+  // Se não for majoritário, ainda podemos tentar TSE, mas o usuário pediu obrigatório para todos se possível.
+  // No TSE, deputados também têm planos (embora menos comuns ou agregados ao partido).
+  
+  console.log(`[SETUP] Buscando Plano no TSE para ${job.politician_name}`);
+  await updateStage(dbClient, job.id, 'buscando_tse', 10);
 
   let pdfText = '';
+  let pdfUrl = '';
   try {
-    pdfText = await downloadPDF(pdfUrl);
-    console.log(`[SETUP] PDF baixado: ${pdfText.length} chars`);
-  } catch (e) { console.error('[SETUP] Erro baixando PDF:', e.message); }
+    const year = ELECTION_YEARS[job.role?.toLowerCase()] || 2022;
+    const fileId = await fetchTSECandidate(year, job.state || 'BR', job.role, job.politician_name);
+    if (fileId) {
+      pdfUrl = `https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/doc/${fileId}`;
+      console.log(`[SETUP] PDF encontrado no TSE: ${pdfUrl}`);
+      await updateStage(dbClient, job.id, 'baixando_tse', 15);
+      pdfText = await downloadTSEPDF(fileId);
+    }
+  } catch (e) {
+    console.error('[SETUP] TSE Error:', e.message);
+  }
+
+  // Fallback para busca via Serper se TSE falhar
+  if (!pdfText) {
+    console.log(`[SETUP] TSE falhou ou sem arquivo. Tentando Serper para ${job.politician_name}`);
+    await updateStage(dbClient, job.id, 'buscando_pdf_serper', 20);
+    try {
+      pdfUrl = await buscarPDF(job.politician_name, ELECTION_YEARS[job.role?.toLowerCase()] || 2022);
+      if (pdfUrl) {
+        console.log(`[SETUP] PDF encontrado via Serper: ${pdfUrl}`);
+        pdfText = await downloadPDF(pdfUrl);
+      }
+    } catch (e) { console.error('[SETUP] Serper PDF Error:', e.message); }
+  }
 
   if (!pdfText || pdfText.length < 200) {
-    await dbClient.from('discovery_jobs').update({ erro: 'PDF vazio ou corrompido' }).eq('id', job.id);
+    // Se ainda não temos texto, não cancelamos o job, pois o processNextChunk usará Serper Articles como fonte primária
     return { pdfText: '', totalPages: 0 };
   }
 
@@ -556,7 +644,7 @@ export default async function handler(req, res) {
 
   try {
     if (req._specificJobId) {
-      const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', req._specificJobId).single();
+      const { data: job } = await dbClient.from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', req._specificJobId).single();
       if (!job) return res.json({ processed: 0, error: 'Job nao encontrado' });
       if (job.status === 'completed') return res.json({ processed: 0, message: 'Ja finalizado' });
 
