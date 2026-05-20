@@ -352,15 +352,23 @@ export default async function handler(req, res) {
       if (job.status === 'completed' || job.status === 'failed') {
         return res.json({ processed: 0, message: 'Job ja finalizado' });
       }
+      // Marca como processing antes de comecar
+      await dbClient.from('discovery_jobs').update({
+        status: 'processing',
+        stage: 'pending',
+        progress: 0,
+        started_at: new Date().toISOString()
+      }).eq('id', job.id);
       const result = await processJob(dbClient, job);
       return res.json(result);
     }
 
-    // Cron mode: pega proximo job pendente
+    // Cron mode: pega pending + processing travados (> 15min)
+    const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const { data: jobs } = await dbClient
       .from('discovery_jobs')
       .select('*')
-      .eq('status', 'pending')
+      .or(`status.eq.pending,and(status.eq.processing,started_at.lt.${quinzeMinAtras})`)
       .order('created_at', { ascending: true })
       .limit(1);
 
