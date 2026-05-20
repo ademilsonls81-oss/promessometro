@@ -447,18 +447,25 @@ export default async function handler(req, res) {
       await sendSlackAlert('⚠️ Cron sem avaliações', { total: promises.length, evaluated, failed });
     }
 
-    // Processa discovery jobs pendentes (1 por execucao)
+    // Processa discovery jobs (1 por execucao) — pendentes ou processing incompletos
     let discoveryProcessed = 0;
     try {
       const { data: pendingJobs } = await db()
         .from('discovery_jobs')
         .select('*')
-        .eq('status', 'pending')
+        .or(`status.eq.pending,status.eq.processing`)
         .order('created_at', { ascending: true })
-        .limit(1);
-      if (pendingJobs && pendingJobs.length > 0) {
+        .limit(10);
+      const incomplete = (pendingJobs || []).find(j =>
+        j.status === 'pending' ||
+        (j.status === 'processing' && (
+          j.total_pages === null || j.total_pages === 0 ||
+          (j.current_page || 0) < (j.total_pages || 0)
+        ))
+      );
+      if (incomplete) {
         const { default: discoveryProcessor } = await import('./discovery-processor.js');
-        await discoveryProcessor({ _specificJobId: pendingJobs[0].id }, {
+        await discoveryProcessor({ _specificJobId: incomplete.id }, {
           json: () => {}, status: () => ({ json: () => {} })
         });
         discoveryProcessed = 1;

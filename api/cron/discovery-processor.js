@@ -22,6 +22,9 @@ const ELECTION_YEARS = {
 };
 const GROQ_MODEL = 'llama-3.1-8b-instant';
 const GROQ_FALLBACK = 'llama-3.3-70b-versatile';
+const PAGE_SIZE = 2000;
+const PARALLEL = 3;
+const ROUNDS = 3;
 const BATCH_SIZE = 3;
 
 function normalizeCategory(cat) {
@@ -43,10 +46,7 @@ function extractTextFromHTML(html) {
 }
 
 async function searchSerper(query) {
-  if (!SERPER_KEY) {
-    console.error('[SERPER] SERPER_KEY vazia — verifique SERPER_API_KEY');
-    return [];
-  }
+  if (!SERPER_KEY) return [];
   try {
     const r = await fetch('https://google.serper.dev/search', {
       method: 'POST',
@@ -126,8 +126,7 @@ async function extractWithGroq(text, nome, cargo, opts = {}) {
     return [];
   }
   let chunk = text.substring(0, 20000);
-
-  const model = (opts.attempt || 0) > 0 ? GROQ_FALLBACK : GROQ_MODEL;
+  const model = GROQ_MODEL;
 
   for (let tentativa = 0; tentativa < 3; tentativa++) {
     const prompt = `Extraia TODAS as promessas de campanha, propostas e compromissos de ${nome} (${cargo || 'politico'}).
@@ -158,18 +157,18 @@ Responda JSON:
         signal: AbortSignal.timeout(25000)
       });
       if (r.status === 429) {
-        console.error(`[GROQ] HTTP 429 (model=${model}, tentativa=${tentativa+1}) — aguardando 4s`);
+        console.error(`[GROQ] HTTP 429 (tentativa=${tentativa+1}) — aguardando 4s`);
         await new Promise(rr => setTimeout(rr, 4000));
         continue;
       }
       if (r.status === 413) {
-        console.error(`[GROQ] HTTP 413 — chunk muito grande (${chunk.length} chars), reduzindo pela metade`);
+        console.error(`[GROQ] HTTP 413 — chunk ${chunk.length} chars, reduzindo`);
         chunk = chunk.substring(0, Math.floor(chunk.length / 2));
         if (chunk.length < 200) return [];
         continue;
       }
       if (!r.ok) {
-        console.error(`[GROQ] HTTP ${r.status} (model=${model})`);
+        console.error(`[GROQ] HTTP ${r.status}`);
         return [];
       }
       const d = await r.json();
@@ -181,7 +180,6 @@ Responda JSON:
       if (!raw) { console.error('[GROQ] resposta vazia'); return []; }
       const parsed = JSON.parse(raw);
       const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
-      console.log(`[GROQ] batch ${opts.attempt||0} (model=${model}): ${arr.length} promessas`);
       return arr.filter(p => p.titulo && p.titulo.length > 3);
     } catch (e) {
       if (tentativa < 2) {
@@ -220,10 +218,10 @@ async function buscarArtigos(nome, cargo, ano) {
   const validTexts = texts.filter(Boolean);
 
   if (validTexts.length === 0) {
-    console.log(`[4] fetchText falhou para todos os URLs, usando snippets do Serper (${unique.length} artigos)`);
+    console.log(`[SERPER] fetchText falhou, usando snippets (${unique.length} artigos)`);
     const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n').substring(0, 3000);
     if (snippetText.length > 200) {
-      return await extractWithGroq(snippetText, nome, cargo, { attempt: 0 });
+      return await extractWithGroq(snippetText, nome, cargo);
     }
     return [];
   }
@@ -232,9 +230,8 @@ async function buscarArtigos(nome, cargo, ano) {
   for (let i = 0; i < validTexts.length && i < 9; i += BATCH_SIZE) {
     const batch = validTexts.slice(i, i + BATCH_SIZE);
     const combined = batch.map(a => `=== ${a.titulo} ===\n${a.text.substring(0, 6000)}`).join('\n\n');
-    const promises = await extractWithGroq(combined, nome, cargo, { attempt: i });
+    const promises = await extractWithGroq(combined, nome, cargo);
     all.push(...promises);
-    await new Promise(r => setTimeout(r, 1500));
   }
   return all;
 }
@@ -258,127 +255,237 @@ function chunkIntoPages(text, maxChars) {
   return chunks;
 }
 
-async function logDbErr(label, e) {
-  console.error(`[DB] ${label}: ${e?.message || e}`);
-}
-
 async function updateStage(dbClient, jobId, stage, progress) {
   const { error } = await dbClient.from('discovery_jobs').update({ stage, progress }).eq('id', jobId);
   if (error) console.error(`[DB] updateStage(${stage}): ${error.message}`);
 }
 
-async function processJob(dbClient, job) {
+async function saveCheckpoint(dbClient, jobId, currentPage, totalPages, partialPromises) {
+  const { error } = await dbClient.from('discovery_jobs').update({
+    current_page: currentPage,
+    total_pages: totalPages,
+    partial_promises: JSON.stringify(partialPromises),
+    last_checkpoint_at: new Date().toISOString(),
+    progress: totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0,
+    stage: currentPage >= totalPages ? 'checkpoint_final' : 'checkpoint_salvo'
+  }).eq('id', jobId);
+  if (error) console.error(`[DB] checkpoint: ${error.message}`);
+}
+
+async function setupPDFJob(dbClient, job) {
+  if (job.pdf_text) {
+    return { pdfText: job.pdf_text, totalPages: job.total_pages || 0 };
+  }
+
   const isMaj = MAJORITARIOS.includes((job.role || '').toLowerCase());
-  const year = ELECTION_YEARS[job.role?.toLowerCase()] || 2022;
-  let allPromises = [];
+  if (!isMaj) return { pdfText: '', totalPages: 0 };
+
+  console.log(`[SETUP] Baixando PDF para ${job.politician_name}`);
+  await updateStage(dbClient, job.id, 'buscando_pdf', 10);
+
+  let pdfUrl = '';
+  try {
+    pdfUrl = await buscarPDF(job.politician_name, ELECTION_YEARS[job.role?.toLowerCase()] || 2022);
+    console.log(`[SETUP] PDF ${pdfUrl ? 'encontrado' : 'NAO encontrado'}`);
+  } catch (e) { console.error('[SETUP] Erro buscando PDF:', e.message); }
+
+  if (!pdfUrl) {
+    await dbClient.from('discovery_jobs').update({ erro: 'PDF nao localizado' }).eq('id', job.id);
+    return { pdfText: '', totalPages: 0 };
+  }
+
+  await dbClient.from('discovery_jobs').update({ pdf_source_url: pdfUrl }).eq('id', job.id);
+  await updateStage(dbClient, job.id, 'baixando_pdf', 20);
+
+  let pdfText = '';
+  try {
+    pdfText = await downloadPDF(pdfUrl);
+    console.log(`[SETUP] PDF baixado: ${pdfText.length} chars`);
+  } catch (e) { console.error('[SETUP] Erro baixando PDF:', e.message); }
+
+  if (!pdfText || pdfText.length < 200) {
+    await dbClient.from('discovery_jobs').update({ erro: 'PDF vazio ou corrompido' }).eq('id', job.id);
+    return { pdfText: '', totalPages: 0 };
+  }
+
+  const pages = chunkIntoPages(pdfText, PAGE_SIZE);
+  const totalPages = pages.length;
+  console.log(`[SETUP] PDF dividido em ${totalPages} paginas de ${PAGE_SIZE} chars`);
+
+  const { error: saveErr } = await dbClient.from('discovery_jobs').update({
+    pdf_text: pdfText,
+    total_pages: totalPages,
+    total_extraidas: 0,
+    progress: 0,
+    stage: 'extraindo_pdf'
+  }).eq('id', job.id);
+  if (saveErr) console.error(`[DB] save pdf_text: ${saveErr.message}`);
+
+  return { pdfText, totalPages };
+}
+
+async function processNextChunk(dbClient, job) {
   const startedAt = Date.now();
+  const isMaj = MAJORITARIOS.includes((job.role || '').toLowerCase());
 
-  console.log(`[JOB:${job.id.slice(0,8)}] Iniciando processamento de ${job.politician_name} (${job.role}, majoritario=${isMaj})`);
+  // Phase 1: setup PDF if needed (first run)
+  if (!job.pdf_text) {
+    if (isMaj) {
+      const setup = await setupPDFJob(dbClient, job);
+      if (!setup.pdfText) {
+        console.log(`[JOB] Sem PDF para ${job.politician_name}, pulando`);
+        return { processed: 0, message: 'Sem PDF disponivel', page: 0, total: 0 };
+      }
+      job.pdf_text = setup.pdfText;
+      job.total_pages = setup.totalPages;
+    }
+  }
 
-  if (isMaj) {
-    console.log(`[1] Buscando PDF plano de governo de ${job.politician_name}`);
-    await updateStage(dbClient, job.id, 'buscando_pdf', 10);
+  // If no pdf_text even after setup (proporcional or no PDF found), run Serper primary
+  if (!job.pdf_text || job.pdf_text.length < 200) {
+    console.log(`[JOB] Sem PDF viavel, usando Serper como fonte primaria`);
+    const serperPromises = await buscarArtigos(job.politician_name, job.role,
+      ELECTION_YEARS[job.role?.toLowerCase()] || 2022);
+    if (serperPromises.length === 0) {
+      await dbClient.from('discovery_jobs').update({
+        status: 'completed', stage: 'completed', progress: 100,
+        total_extraidas: 0, total_inseridas: 0, completed_at: new Date().toISOString(),
+        erro: 'Nenhuma promessa encontrada via Serper'
+      }).eq('id', job.id);
+      return { processed: 0, message: '0 promessas via Serper' };
+    }
+    const finalizadas = await finalizarInsercoes(dbClient, job, serperPromises.map(p => ({ ...p, fonte: 'serper' })));
+    return { processed: 1, message: `${finalizadas} promessas inseridas via Serper`, inseridas: finalizadas };
+  }
 
-    let pdfUrl = '';
-    try {
-      pdfUrl = await buscarPDF(job.politician_name, year);
-      console.log(`[1] PDF ${pdfUrl ? 'encontrado: ' + pdfUrl.slice(0,80) : 'NAO encontrado'}`);
-    } catch (e) { console.error('[1] Erro buscando PDF:', e.message); }
+  const pages = chunkIntoPages(job.pdf_text, PAGE_SIZE);
+  const totalPages = job.total_pages || pages.length;
+  const fromPage = job.current_page || 0;
 
-    if (pdfUrl) {
-      const { error: urlErr } = await dbClient.from('discovery_jobs').update({ pdf_source_url: pdfUrl }).eq('id', job.id);
-      if (urlErr) console.error(`[DB] pdf_source_url: ${urlErr.message}`);
-      await updateStage(dbClient, job.id, 'baixando_pdf', 20);
+  if (fromPage >= totalPages) {
+    console.log(`[JOB] Todas as ${totalPages} paginas ja processadas, finalizando`);
+    return await finalizarJobComSerper(dbClient, job, totalPages);
+  }
 
-      console.log(`[2] Baixando PDF de ${pdfUrl.slice(0,60)}...`);
-      let pdfText = '';
-      try {
-        pdfText = await downloadPDF(pdfUrl);
-        console.log(`[2] PDF baixado: ${pdfText.length} chars`);
-      } catch (e) { console.error('[2] Erro baixando PDF:', e.message); }
+  const pagesToProcess = Math.min(PARALLEL * ROUNDS, totalPages - fromPage);
+  const roundsNeeded = Math.ceil(pagesToProcess / PARALLEL);
 
-      if (pdfText && pdfText.length > 200) {
-        console.log(`[3] Extraindo promessas do PDF (${pdfText.length} chars)`);
-        await updateStage(dbClient, job.id, 'extraindo_pdf', 30);
+  console.log(`[JOB] Paginas ${fromPage+1}-${fromPage+pagesToProcess} de ${totalPages} (${pagesToProcess} paginas em ${roundsNeeded} rounds)`);
+  await updateStage(dbClient, job.id, 'analisando_chunk', Math.round((fromPage / totalPages) * 100));
 
-        const pages = chunkIntoPages(pdfText, 2000);
-        const limitedPages = pages.slice(0, 10);
-        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length} (2k chars cada)`);
+  // Carregar promessas parciais existentes
+  let partialPromises = [];
+  try {
+    if (job.partial_promises && Array.isArray(job.partial_promises)) {
+      partialPromises = job.partial_promises;
+    }
+  } catch (e) { partialPromises = []; }
 
-        for (let i = 0; i < limitedPages.length; i++) {
-          const progress = 30 + Math.round((i / limitedPages.length) * 35);
-          await updateStage(dbClient, job.id, 'analisando_groq', progress);
+  let newPageCount = 0;
 
-          try {
-            const batch = limitedPages[i];
-            console.log(`[3.${i}] Enviando lote ${i+1}/${limitedPages.length} para Groq (${batch.length} chars)`);
-            const promises = await extractWithGroq(batch, job.politician_name, job.role, { attempt: i });
-            console.log(`[3.${i}] Groq retornou ${promises.length} promessas`);
-            allPromises.push(...promises.map(p => ({ ...p, fonte: 'pdf_tse' })));
-          } catch (e) {
-            console.error('[3] Erro Groq batch', i, e.message);
-          }
-          // Delay 1s entre lotes pra evitar rate limit (429)
-          await new Promise(r => setTimeout(r, 1000));
-        }
-        console.log(`[3] Total extraido do PDF: ${allPromises.length} promessas`);
-      } else {
-        console.log(`[2] PDF vazio ou muito curto (${pdfText?.length || 0} chars)`);
+  for (let round = 0; round < roundsNeeded; round++) {
+    const roundStart = fromPage + newPageCount;
+    const roundEnd = Math.min(roundStart + PARALLEL, fromPage + pagesToProcess);
+
+    const groqCalls = [];
+    for (let p = roundStart; p < roundEnd; p++) {
+      if (pages[p]) {
+        groqCalls.push(
+          extractWithGroq(pages[p], job.politician_name, job.role)
+            .then(r => r.map(pr => ({ ...pr, fonte: 'pdf_tse' })))
+        );
       }
     }
 
-    if (allPromises.length === 0) {
-      console.log(`[1] Sem PDF, tentando Serper como fallback`);
-      const { error: errErro } = await dbClient.from('discovery_jobs').update({
-        erro: 'PDF nao localizado ou vazio, usando Serper'
-      }).eq('id', job.id);
-      if (errErro) console.error(`[DB] erro field: ${errErro.message}`);
-    }
+    if (groqCalls.length === 0) break;
+
+    console.log(`[ROUND ${round+1}/${roundsNeeded}] Enviando ${groqCalls.length} chamadas Groq em paralelo (paginas ${roundStart+1}-${roundEnd})`);
+    const results = await Promise.all(groqCalls);
+    const roundPromises = results.flat();
+    partialPromises.push(...roundPromises);
+    newPageCount += groqCalls.length;
+
+    console.log(`[ROUND ${round+1}] Groq retornou ${roundPromises.length} promessas (acumulado: ${partialPromises.length})`);
+
+    // Salvar checkpoint apos cada round
+    const newCurrentPage = fromPage + newPageCount;
+    await saveCheckpoint(dbClient, job.id, newCurrentPage, totalPages, partialPromises);
+    console.log(`[CHECKPOINT] Pagina ${newCurrentPage}/${totalPages} salva`);
   }
 
-  console.log(`[4] Buscando artigos via Serper para ${job.politician_name}`);
-  await updateStage(dbClient, job.id, 'buscando_artigos', isMaj ? 70 : 20);
+  const finalPage = fromPage + newPageCount;
 
+  if (finalPage >= totalPages) {
+    console.log(`[JOB] PDF completo! ${partialPromises.length} promessas extraidas. Finalizando...`);
+    return await finalizarJobComSerper(dbClient, job, totalPages);
+  }
+
+  console.log(`[JOB] Fim da execucao: pagina ${finalPage}/${totalPages}, ${partialPromises.length} promessas parciais`);
+  return {
+    processed: 1,
+    page: finalPage,
+    total: totalPages,
+    partial: partialPromises.length,
+    message: `Paginas ${finalPage}/${totalPages} processadas (${Math.round(finalPage/totalPages*100)}%)`
+  };
+}
+
+async function finalizarJobComSerper(dbClient, job, totalPages) {
+  const isMaj = MAJORITARIOS.includes((job.role || '').toLowerCase());
+  let allPromises = [];
+
+  // Carregar promessas parciais do PDF
   try {
-    const serperPromises = await buscarArtigos(job.politician_name, job.role, year);
-    console.log(`[4] Serper retornou ${serperPromises.length} promessas`);
-    allPromises.push(...serperPromises.map(p => ({ ...p, fonte: 'serper' })));
-  } catch (e) {
-    console.error('[4] Erro buscando artigos:', e.message);
+    const { data: current } = await dbClient.from('discovery_jobs').select('partial_promises').eq('id', job.id).single();
+    if (current?.partial_promises && Array.isArray(current.partial_promises)) {
+      allPromises.push(...current.partial_promises);
+    }
+  } catch (e) { console.error('[FINAL] Erro carregando parciais:', e.message); }
+
+  console.log(`[FINAL] ${allPromises.length} promessas do PDF`);
+
+  // Serper como complemento (apenas para majoritarios com PDF, ou primario para proporcionais)
+  if (isMaj) {
+    console.log(`[FINAL] Buscando artigos Serper como complemento`);
+    await updateStage(dbClient, job.id, 'buscando_artigos', 85);
+    try {
+      const serperPromises = await buscarArtigos(job.politician_name, job.role,
+        ELECTION_YEARS[job.role?.toLowerCase()] || 2022);
+      console.log(`[FINAL] Serper retornou ${serperPromises.length} promessas extras`);
+      allPromises.push(...serperPromises.map(p => ({ ...p, fonte: 'serper' })));
+    } catch (e) { console.error('[FINAL] Erro Serper:', e.message); }
   }
 
-  console.log(`[5] Dados brutos: ${allPromises.length} promessas (PDF + Serper)`);
-  await updateStage(dbClient, job.id, 'deduplicando', 85);
-
+  // Dedup
   let existingTitles = [];
   try {
     const { data: existing } = await dbClient.from('promises')
       .select('id, promise_title')
       .eq('politician_id', job.politician_id);
-    existingTitles = (existing || []).map(p => p.promise_title.toLowerCase());
-    console.log(`[5] Promessas existentes no banco: ${existingTitles.length}`);
-  } catch (e) {
-    console.error('[5] Erro buscando existentes:', e.message);
-  }
+    existingTitles = (existing || []).map(p => p.promise_title.toLowerCase().trim());
+    console.log(`[FINAL] Promessas existentes no banco: ${existingTitles.length}`);
+  } catch (e) { console.error('[FINAL] Erro buscando existentes:', e.message); }
 
   const unique = [];
   for (const p of allPromises) {
-    if (!isDuplicate(p.titulo, existingTitles)) {
+    const titulo = (p.titulo || '').trim();
+    if (!titulo || titulo.length < 4) continue;
+    if (!isDuplicate(titulo, existingTitles)) {
       unique.push(p);
-      existingTitles.push(p.titulo.toLowerCase());
+      existingTitles.push(titulo.toLowerCase());
     }
   }
-  console.log(`[6] Apos dedup: ${unique.length} promessas unicas`);
+  console.log(`[FINAL] Apos dedup: ${unique.length} unicas de ${allPromises.length}`);
 
+  // Inserir
   await updateStage(dbClient, job.id, 'inserindo', 95);
-
   let inserted = 0;
   for (const p of unique) {
     try {
       const { error } = await dbClient.from('promises').insert({
         politician_id: job.politician_id,
         politician_name: job.politician_name,
-        promise_title: p.titulo.trim(),
+        promise_title: (p.titulo || '').trim(),
         category: normalizeCategory(p.categoria),
         status: 'pendente',
         fulfillment_score: 50,
@@ -386,11 +493,11 @@ async function processJob(dbClient, job) {
       });
       if (!error) inserted++;
     } catch (e) {
-      console.error('[6] Erro inserindo promessa:', e.message);
+      console.error('[FINAL] Erro inserindo:', e.message);
     }
   }
 
-  console.log(`[FIM] ${inserted}/${unique.length} inseridas em ${((Date.now()-startedAt)/1000).toFixed(1)}s`);
+  console.log(`[FINAL] ${inserted}/${unique.length} inseridas`);
 
   const { error: finalErr } = await dbClient.from('discovery_jobs').update({
     status: 'completed',
@@ -398,6 +505,7 @@ async function processJob(dbClient, job) {
     progress: 100,
     total_extraidas: allPromises.length,
     total_inseridas: inserted,
+    current_page: totalPages,
     completed_at: new Date().toISOString()
   }).eq('id', job.id);
   if (finalErr) console.error(`[DB] final update: ${finalErr.message}`);
@@ -405,62 +513,94 @@ async function processJob(dbClient, job) {
   return { processed: 1, job_id: job.id, extraidas: allPromises.length, inseridas: inserted };
 }
 
+async function finalizarInsercoes(dbClient, job, promises) {
+  let existingTitles = [];
+  try {
+    const { data: existing } = await dbClient.from('promises')
+      .select('id, promise_title')
+      .eq('politician_id', job.politician_id);
+    existingTitles = (existing || []).map(p => p.promise_title.toLowerCase().trim());
+  } catch (e) { existingTitles = []; }
+
+  const unique = [];
+  for (const p of promises) {
+    const titulo = (p.titulo || '').trim();
+    if (!titulo || titulo.length < 4) continue;
+    if (!isDuplicate(titulo, existingTitles)) {
+      unique.push(p);
+      existingTitles.push(titulo.toLowerCase());
+    }
+  }
+
+  let inserted = 0;
+  for (const p of unique) {
+    try {
+      const { error } = await dbClient.from('promises').insert({
+        politician_id: job.politician_id,
+        politician_name: job.politician_name,
+        promise_title: (p.titulo || '').trim(),
+        category: normalizeCategory(p.categoria),
+        status: 'pendente',
+        fulfillment_score: 50,
+        party: job.party
+      });
+      if (!error) inserted++;
+    } catch (e) { }
+  }
+  return inserted;
+}
+
 export default async function handler(req, res) {
   const dbClient = db();
 
   try {
-    // Processa job específico (chamado via start-discovery-job)
     if (req._specificJobId) {
       const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', req._specificJobId).single();
       if (!job) return res.json({ processed: 0, error: 'Job nao encontrado' });
-      if (job.status === 'completed' || job.status === 'failed') {
-        return res.json({ processed: 0, message: 'Job ja finalizado' });
-      }
-      // Marca como processing antes de comecar
+      if (job.status === 'completed') return res.json({ processed: 0, message: 'Ja finalizado' });
+
       await dbClient.from('discovery_jobs').update({
-        status: 'processing',
-        stage: 'pending',
-        progress: 0,
+        status: 'processing', stage: 'iniciando', progress: 0,
         started_at: new Date().toISOString()
       }).eq('id', job.id);
-      const result = await processJob(dbClient, job);
+
+      const result = await processNextChunk(dbClient, job);
       return res.json(result);
     }
 
-    // Cron mode: pega pending + processing travados (> 15min)
-    const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const { data: jobs } = await dbClient
       .from('discovery_jobs')
       .select('*')
-      .or(`status.eq.pending,and(status.eq.processing,started_at.lt.${quinzeMinAtras})`)
+      .or(`status.eq.pending,status.eq.processing`)
       .order('created_at', { ascending: true })
-      .limit(1);
+      .limit(10);
 
-    if (!jobs || jobs.length === 0) {
+    const incomplete = (jobs || []).find(j =>
+      j.status === 'pending' ||
+      (j.status === 'processing' && (
+        j.total_pages === null || j.total_pages === 0 ||
+        (j.current_page || 0) < (j.total_pages || 0)
+      ))
+    );
+    if (!incomplete) {
       return res.json({ processed: 0, message: 'Nenhum job pendente' });
     }
 
-    const job = jobs[0];
+    const job = incomplete;
     await dbClient.from('discovery_jobs').update({
       status: 'processing',
-      stage: 'pending',
-      progress: 0,
       started_at: new Date().toISOString()
     }).eq('id', job.id);
 
-    const result = await processJob(dbClient, job);
+    const result = await processNextChunk(dbClient, job);
     return res.json(result);
 
   } catch (err) {
-    console.error('[FATAL] Discovery job error:', err);
+    console.error('[FATAL]', err);
     if (req._specificJobId) {
-      const { error: dbErr } = await dbClient.from('discovery_jobs').update({
-        status: 'failed',
-        stage: 'failed',
-        erro: err.message || String(err),
-        completed_at: new Date().toISOString()
+      await dbClient.from('discovery_jobs').update({
+        status: 'failed', erro: err.message, completed_at: new Date().toISOString()
       }).eq('id', req._specificJobId);
-      if (dbErr) console.error('[DB] fatal error update:', dbErr.message);
     }
     return res.status(500).json({ error: err.message });
   }

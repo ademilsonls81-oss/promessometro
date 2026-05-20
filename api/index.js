@@ -1532,7 +1532,16 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         total_inseridas INT DEFAULT 0, erro TEXT,
         started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT now()
-      ); SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
+      ); ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS stage TEXT DEFAULT 'pending';
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS progress INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS pdf_source_url TEXT;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS current_page INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS total_pages INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS chunks_processed INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS partial_promises JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS last_processed_chunk TEXT;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS last_checkpoint_at TIMESTAMPTZ;
+      SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
       const { data, error } = await dbAdmin().rpc('exec_sql', { sql });
       if (error) return res.status(500).json({ error: error.message });
       return res.json({ success: true, message: 'Tabela discovery_jobs criada' });
@@ -1557,6 +1566,12 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       ); ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS stage TEXT DEFAULT 'pending';
       ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS progress INT DEFAULT 0;
       ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS pdf_source_url TEXT;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS current_page INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS total_pages INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS chunks_processed INT DEFAULT 0;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS partial_promises JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS last_processed_chunk TEXT;
+      ALTER TABLE discovery_jobs ADD COLUMN IF NOT EXISTS last_checkpoint_at TIMESTAMPTZ;
       SELECT 1; NOTIFY pgrst, 'reload schema'; SELECT 1;`;
       try {
         await dbAdmin().rpc('exec_sql', { sql });
