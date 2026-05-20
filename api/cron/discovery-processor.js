@@ -43,7 +43,10 @@ function extractTextFromHTML(html) {
 }
 
 async function searchSerper(query) {
-  if (!SERPER_KEY) return [];
+  if (!SERPER_KEY) {
+    console.error('[SERPER] SERPER_KEY vazia — verifique SERPER_API_KEY');
+    return [];
+  }
   try {
     const r = await fetch('https://google.serper.dev/search', {
       method: 'POST',
@@ -102,7 +105,7 @@ async function downloadPDF(url) {
   try {
     const r = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(6000)
     });
     if (!r.ok) return '';
     const buf = await r.arrayBuffer();
@@ -118,7 +121,10 @@ async function downloadPDF(url) {
 }
 
 async function extractWithGroq(text, nome, cargo, opts = {}) {
-  if (!GROQ_KEY) return [];
+  if (!GROQ_KEY) {
+    console.error('[GROQ] GROQ_KEY vazia — verifique GROQ_API_KEY ou OPENAI_API_KEY');
+    return [];
+  }
   const maxChars = 90000;
   const chunk = text.substring(0, maxChars);
 
@@ -150,14 +156,25 @@ Responda JSON:
       }),
       signal: AbortSignal.timeout(25000)
     });
-    if (!r.ok) return [];
+    if (!r.ok) {
+      console.error(`[GROQ] HTTP ${r.status} (model=${model})`);
+      return [];
+    }
     const d = await r.json();
-    if (d.error) return [];
-    const text = (d.choices?.[0]?.message?.content || '[]').trim();
-    const parsed = JSON.parse(text);
+    if (d.error) {
+      console.error(`[GROQ] API error: ${d.error?.message || JSON.stringify(d.error)}`);
+      return [];
+    }
+    const raw = (d.choices?.[0]?.message?.content || '').trim();
+    if (!raw) { console.error('[GROQ] resposta vazia'); return []; }
+    const parsed = JSON.parse(raw);
     const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
+    console.log(`[GROQ] batch ${opts.attempt||0}: ${arr.length} promessas`);
     return arr.filter(p => p.titulo && p.titulo.length > 3);
-  } catch { return []; }
+  } catch (e) {
+    console.error(`[GROQ] exception: ${e?.message || e}`);
+    return [];
+  }
 }
 
 async function buscarArtigos(nome, cargo, ano) {
@@ -182,7 +199,15 @@ async function buscarArtigos(nome, cargo, ano) {
     return text ? { titulo: a.titulo, text } : null;
   }));
   const validTexts = texts.filter(Boolean);
-  if (validTexts.length === 0) return [];
+
+  if (validTexts.length === 0) {
+    console.log(`[4] fetchText falhou para todos os URLs, usando snippets do Serper (${unique.length} artigos)`);
+    const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n');
+    if (snippetText.length > 200) {
+      return await extractWithGroq(snippetText, nome, cargo, { attempt: 0 });
+    }
+    return [];
+  }
 
   let all = [];
   for (let i = 0; i < validTexts.length; i += BATCH_SIZE) {
