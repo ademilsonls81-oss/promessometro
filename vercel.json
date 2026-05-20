@@ -89,26 +89,6 @@
             "path": "/api/cron/pipeline-orchestrator",
             "schedule": "0 18 * * *"
         },
-        {
-            "path": "/api/cron/discover-evidences",
-            "schedule": "0 1 * * *"
-        },
-        {
-            "path": "/api/cron/daily-reavaliation",
-            "schedule": "0 2 * * *"
-        },
-        {
-            "path": "/api/cron/backup-export",
-            "schedule": "0 3 * * 0"
-        },
-        {
-            "path": "/api/cron/metodologia-audit",
-            "schedule": "0 5 * * *"
-        },
-        {
-            "path": "/api/cron/discovery-processor",
-            "schedule": "0 8 * * *"
-        }
     ],
     "headers": [
         {

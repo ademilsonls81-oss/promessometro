@@ -1574,25 +1574,17 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         detail: 'Tabela discovery_jobs nao existe mesmo apos auto-migration. Execute /api/admin/migrate-discovery manualmente.'
       });
 
-      // Hybrid: try sync processing with 7s timeout, fallback to cron + polling
+      // Tenta processar agora (síncrono até Vercel matar em 10s)
+      // Processador salva progresso incremental no banco
       try {
         const { default: processor } = await import('./cron/discovery-processor.js');
         const specificReq = { ...req, _specificJobId: job.id };
-        let processorDone = false;
-        const fakeRes = {
-          json: () => { processorDone = true; },
-          status: () => ({ json: () => { processorDone = true; } })
-        };
-        processor(specificReq, fakeRes).catch(e => console.error('processor error:', e.message));
-        await Promise.race([
-          new Promise(resolve => {
-            const check = () => { if (processorDone) resolve(); else setTimeout(check, 200); };
-            check();
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000))
-        ]);
+        await processor(specificReq, {
+          json: () => {},
+          status: () => ({ json: () => {} })
+        }).catch(e => console.error('processor error:', e.message));
       } catch (e) {
-        console.error('Sync processing timeout/error:', e.message);
+        console.error('processor load error:', e.message);
       }
 
       const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job.id).single();
@@ -1608,7 +1600,9 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           ? `${currentJob.total_inseridas || 0} promessas inseridas de ${currentJob.total_extraidas || 0} extraídas`
           : currentJob?.status === 'failed'
           ? `Erro: ${currentJob.erro || 'falha desconhecida'}`
-          : 'Processando...'
+          : currentJob?.status === 'processing'
+          ? `Processando... ${currentJob.stage || 'iniciando'} (${currentJob.progress || 0}%)`
+          : 'Aguardando processamento...'
       });
     }
 

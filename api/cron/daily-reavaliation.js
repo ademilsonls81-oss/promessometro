@@ -447,7 +447,31 @@ export default async function handler(req, res) {
       await sendSlackAlert('⚠️ Cron sem avaliações', { total: promises.length, evaluated, failed });
     }
 
-    return res.status(200).json({ status: 'ok', evaluated, failed, politicians_updated: polIdsUpdated.size });
+    // Processa discovery jobs pendentes (1 por execucao)
+    let discoveryProcessed = 0;
+    try {
+      const { data: pendingJobs } = await db()
+        .from('discovery_jobs')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (pendingJobs && pendingJobs.length > 0) {
+        const { default: discoveryProcessor } = await import('./discovery-processor.js');
+        await discoveryProcessor({ _specificJobId: pendingJobs[0].id }, {
+          json: () => {}, status: () => ({ json: () => {} })
+        });
+        discoveryProcessed = 1;
+      }
+    } catch (e) {
+      console.error('[Cron] discovery job error:', e.message);
+    }
+
+    return res.status(200).json({
+      status: 'ok', evaluated, failed,
+      politicians_updated: polIdsUpdated.size,
+      discovery_processed: discoveryProcessed
+    });
 
   } catch (err) {
     console.error(`[Cron] FATAL: ${err.message}`);
