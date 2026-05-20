@@ -247,7 +247,16 @@ export default function Admin() {
           setDiscoveringJob(null);
           setTimeout(() => fetchAll(), 2000);
         } else {
-          setDiscoveryStatus(s => ({ ...s, [pol.id]: { job_id: json.job_id, status: statusJson.status, message: `Processando... ${statusJson.total_extraidas || 0} promessas extraídas` } }));
+          setDiscoveryStatus(s => ({
+            ...s,
+            [pol.id]: {
+              job_id: json.job_id,
+              status: statusJson.status,
+              message: statusJson.current_page && statusJson.total_pages
+                ? `Página ${statusJson.current_page}/${statusJson.total_pages} (${statusJson.partial_promises?.length || 0} promessas)`
+                : 'Iniciando...'
+            }
+          }));
           setTimeout(poll, 5000);
         }
       };

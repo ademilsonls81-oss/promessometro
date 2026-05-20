@@ -265,6 +265,7 @@ async function saveCheckpoint(dbClient, jobId, currentPage, totalPages, partialP
     current_page: currentPage,
     total_pages: totalPages,
     partial_promises: JSON.stringify(partialPromises),
+    total_extraidas: partialPromises.length,
     last_checkpoint_at: new Date().toISOString(),
     progress: totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0,
     stage: currentPage >= totalPages ? 'checkpoint_final' : 'checkpoint_salvo'

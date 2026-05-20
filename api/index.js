@@ -1637,6 +1637,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
       const jobId = path.replace('/api/admin/discovery-status/', '');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', jobId).single();
       if (!job) return res.status(404).json({ error: 'Job não encontrado' });
       return res.json(job);
