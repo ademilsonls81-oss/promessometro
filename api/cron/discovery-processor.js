@@ -143,38 +143,52 @@ Responda JSON:
 {"promessas":[{"titulo":"promessa","descricao":"detalhes","categoria":"Categoria"}]}`;
 
   const model = (opts.attempt || 0) > 0 ? GROQ_FALLBACK : GROQ_MODEL;
-  try {
-    const r = await fetch(`${AI_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 8192
-      }),
-      signal: AbortSignal.timeout(25000)
-    });
-    if (!r.ok) {
-      console.error(`[GROQ] HTTP ${r.status} (model=${model})`);
+
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const r = await fetch(`${AI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 8192
+        }),
+        signal: AbortSignal.timeout(25000)
+      });
+      if (r.status === 429) {
+        console.error(`[GROQ] HTTP 429 (model=${model}, tentativa=${tentativa+1}) — aguardando 4s`);
+        await new Promise(rr => setTimeout(rr, 4000));
+        continue;
+      }
+      if (!r.ok) {
+        console.error(`[GROQ] HTTP ${r.status} (model=${model})`);
+        return [];
+      }
+      const d = await r.json();
+      if (d.error) {
+        console.error(`[GROQ] API error: ${d.error?.message || JSON.stringify(d.error)}`);
+        return [];
+      }
+      const raw = (d.choices?.[0]?.message?.content || '').trim();
+      if (!raw) { console.error('[GROQ] resposta vazia'); return []; }
+      const parsed = JSON.parse(raw);
+      const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
+      console.log(`[GROQ] batch ${opts.attempt||0} (model=${model}): ${arr.length} promessas`);
+      return arr.filter(p => p.titulo && p.titulo.length > 3);
+    } catch (e) {
+      if (tentativa < 2) {
+        console.error(`[GROQ] exception (tentativa ${tentativa+1}): ${e?.message} — retry 4s`);
+        await new Promise(rr => setTimeout(rr, 4000));
+        continue;
+      }
+      console.error(`[GROQ] exception final: ${e?.message || e}`);
       return [];
     }
-    const d = await r.json();
-    if (d.error) {
-      console.error(`[GROQ] API error: ${d.error?.message || JSON.stringify(d.error)}`);
-      return [];
-    }
-    const raw = (d.choices?.[0]?.message?.content || '').trim();
-    if (!raw) { console.error('[GROQ] resposta vazia'); return []; }
-    const parsed = JSON.parse(raw);
-    const arr = Array.isArray(parsed) ? parsed : (parsed.promessas || parsed.promises || []);
-    console.log(`[GROQ] batch ${opts.attempt||0}: ${arr.length} promessas`);
-    return arr.filter(p => p.titulo && p.titulo.length > 3);
-  } catch (e) {
-    console.error(`[GROQ] exception: ${e?.message || e}`);
-    return [];
   }
+  return [];
 }
 
 async function buscarArtigos(nome, cargo, ano) {
@@ -202,7 +216,7 @@ async function buscarArtigos(nome, cargo, ano) {
 
   if (validTexts.length === 0) {
     console.log(`[4] fetchText falhou para todos os URLs, usando snippets do Serper (${unique.length} artigos)`);
-    const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n');
+    const snippetText = unique.map(a => `=== ${a.titulo} ===\n${a.descricao}`).join('\n\n').substring(0, 6000);
     if (snippetText.length > 200) {
       return await extractWithGroq(snippetText, nome, cargo, { attempt: 0 });
     }
@@ -210,11 +224,12 @@ async function buscarArtigos(nome, cargo, ano) {
   }
 
   let all = [];
-  for (let i = 0; i < validTexts.length; i += BATCH_SIZE) {
+  for (let i = 0; i < validTexts.length && i < 9; i += BATCH_SIZE) {
     const batch = validTexts.slice(i, i + BATCH_SIZE);
-    const combined = batch.map(a => `=== ${a.titulo} ===\n${a.text.substring(0, 8000)}`).join('\n\n');
+    const combined = batch.map(a => `=== ${a.titulo} ===\n${a.text.substring(0, 6000)}`).join('\n\n');
     const promises = await extractWithGroq(combined, nome, cargo, { attempt: i });
     all.push(...promises);
+    await new Promise(r => setTimeout(r, 1500));
   }
   return all;
 }
@@ -281,9 +296,9 @@ async function processJob(dbClient, job) {
         console.log(`[3] Extraindo promessas do PDF (${pdfText.length} chars)`);
         await updateStage(dbClient, job.id, 'extraindo_pdf', 30);
 
-        const pages = chunkIntoPages(pdfText, 30000);
-        const limitedPages = pages.slice(0, 50);
-        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length}`);
+        const pages = chunkIntoPages(pdfText, 6000);
+        const limitedPages = pages.slice(0, 15);
+        console.log(`[3] PDF dividido em ${pages.length} paginas, processando ${limitedPages.length} (6k chars cada)`);
 
         for (let i = 0; i < limitedPages.length; i++) {
           const progress = 30 + Math.round((i / limitedPages.length) * 35);
@@ -298,6 +313,8 @@ async function processJob(dbClient, job) {
           } catch (e) {
             console.error('[3] Erro Groq batch', i, e.message);
           }
+          // Delay 1s entre lotes pra evitar rate limit (429)
+          await new Promise(r => setTimeout(r, 1000));
         }
         console.log(`[3] Total extraido do PDF: ${allPromises.length} promessas`);
       } else {
