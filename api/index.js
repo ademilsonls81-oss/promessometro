@@ -1576,33 +1576,38 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
       // Tenta processar agora (síncrono até Vercel matar em 10s)
       // Processador salva progresso incremental no banco
+      let processorError = null;
       try {
         const { default: processor } = await import('./cron/discovery-processor.js');
         const specificReq = { ...req, _specificJobId: job.id };
         await processor(specificReq, {
           json: () => {},
           status: () => ({ json: () => {} })
-        }).catch(e => console.error('processor error:', e.message));
+        }).catch(e => {
+          processorError = e?.message || String(e);
+          console.error('processor error:', processorError);
+        });
       } catch (e) {
-        console.error('processor load error:', e.message);
+        processorError = e?.message || String(e);
+        console.error('processor load error:', processorError);
       }
 
       const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job.id).single();
       return res.json({
         job_id: job.id,
-        status: currentJob?.status || 'processing',
+        status: currentJob?.status || (processorError ? 'error' : 'processing'),
         stage: currentJob?.stage || 'pending',
         progress: currentJob?.progress || 0,
         total_extraidas: currentJob?.total_extraidas || 0,
         total_inseridas: currentJob?.total_inseridas || 0,
-        erro: currentJob?.erro || null,
-        message: currentJob?.status === 'completed'
+        erro: currentJob?.erro || processorError,
+        message: processorError
+          ? `Erro no processador: ${processorError}`
+          : currentJob?.status === 'completed'
           ? `${currentJob.total_inseridas || 0} promessas inseridas de ${currentJob.total_extraidas || 0} extraídas`
           : currentJob?.status === 'failed'
           ? `Erro: ${currentJob.erro || 'falha desconhecida'}`
-          : currentJob?.status === 'processing'
-          ? `Processando... ${currentJob.stage || 'iniciando'} (${currentJob.progress || 0}%)`
-          : 'Aguardando processamento...'
+          : 'Processando...'
       });
     }
 
