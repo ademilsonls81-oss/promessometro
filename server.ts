@@ -112,6 +112,10 @@ app.use("/api/admin", (req, res, next) => {
   import("./src/routes/admin.js").then(m => m.default(req, res, next)).catch(next);
 });
 
+app.use("/api/admin", (req, res, next) => {
+  import("./src/routes/discovery.js").then(m => m.default(req, res, next)).catch(next);
+});
+
 app.use("/api/cron", (req, res, next) => {
   import("./src/routes/cron.js").then(m => m.default(req, res, next)).catch(next);
 });

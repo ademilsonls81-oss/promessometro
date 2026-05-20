@@ -238,8 +238,16 @@ export default function Admin() {
       }
       setDiscoveryStatus(s => ({ ...s, [pol.id]: { job_id: json.job_id, status: "pending", message: "Job criado! Aguardando processamento..." } }));
 
-      // Poll for completion
+      // Poll for completion — each ciclo: step (processa chunk) + status (le progresso)
       const poll = async () => {
+        // 1. Avança processamento chamando discovery-run-now
+        await authFetch("/api/admin/discovery-run-now", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: json.job_id })
+        });
+
+        // 2. Le status atualizado
         const statusRes = await authFetch(`/api/admin/discovery-status/${json.job_id}`);
         if (!statusRes) return;
         const statusJson = await statusRes.json();
@@ -259,6 +267,24 @@ export default function Admin() {
               total_inseridas: statusJson.total_inseridas,
               message: statusJson.current_page && statusJson.total_pages
                 ? `Página ${statusJson.current_page}/${statusJson.total_pages} — ${statusJson.total_extraidas || 0} extraídas, ${statusJson.total_inseridas || 0} inseridas`
+                : statusJson.stage === "criado"
+                ? "Job criado, iniciando processamento..."
+                : statusJson.stage === "iniciando"
+                ? "Iniciando..."
+                : statusJson.stage === "buscando_tse"
+                ? "Buscando PDF no TSE..."
+                : statusJson.stage === "baixando_tse"
+                ? "Baixando PDF do TSE..."
+                : statusJson.stage === "buscando_pdf_serper"
+                ? "Buscando PDF via Serper..."
+                : statusJson.stage === "extraindo_pdf"
+                ? "Extraindo promessas do PDF..."
+                : statusJson.stage === "analisando_chunk"
+                ? `Analisando páginas (${statusJson.current_page || 0}/${statusJson.total_pages || "?"})...`
+                : statusJson.stage === "buscando_artigos"
+                ? "Buscando artigos complementares..."
+                : statusJson.stage === "inserindo"
+                ? "Inserindo promessas no banco..."
                 : 'Iniciando...'
             }
           }));
@@ -268,7 +294,7 @@ export default function Admin() {
           setTimeout(poll, 5000);
         }
       };
-      setTimeout(poll, 5000);
+      setTimeout(poll, 3000);
     } catch (e: any) { setErro(e.message); setDiscoveringJob(null); }
   }
 

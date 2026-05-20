@@ -1,0 +1,44 @@
+{
+  "processados": [
+    {
+      "politico": "GLADSON DE LIMA CAMELI",
+      "politico_id": "7c84bab8-5774-44bb-8f1e-bb2451e1e16c",
+      "total_paginas": 46,
+      "extraidas": 71,
+      "inseridas": 6,
+      "existentes_antes": 44
+    },
+    {
+      "politico": "PAULO SURUAGY DO AMARAL DANTAS",
+      "politico_id": "588468c9-4d94-4d59-acba-125b42d89f76",
+      "total_paginas": 19,
+      "extraidas": 37,
+      "inseridas": 11,
+      "existentes_antes": 25
+    },
+    {
+      "politico": "CLÉCIO LUÍS VILHENA VIEIRA",
+      "politico_id": "735c683b-72b0-4b62-8861-0362d71b16b5",
+      "total_paginas": 31,
+      "extraidas": 74,
+      "inseridas": 12,
+      "existentes_antes": 26
+    },
+    {
+      "politico": "JERÔNIMO RODRIGUES SOUZA",
+      "politico_id": "09fde2b4-463c-4df7-a0fc-b7d74c8b6e01",
+      "total_paginas": 73,
+      "extraidas": 100,
+      "inseridas": 39,
+      "existentes_antes": 0
+    },
+    {
+      "politico": "ELMANO DE FREITAS DA COSTA",
+      "politico_id": "f1ad8df1-10fd-4c9e-999c-449769272d13",
+      "total_paginas": 17,
+      "extraidas": 25,
+      "inseridas": 7,
+      "existentes_antes": 0
+    }
+  ]
+}

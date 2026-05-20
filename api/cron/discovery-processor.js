@@ -24,10 +24,10 @@ const ELECTION_YEARS = {
 };
 const GROQ_MODEL = 'llama-3.1-8b-instant';
 const GROQ_FALLBACK = 'llama-3.3-70b-versatile';
-const PAGE_SIZE = 6000; // ~3 páginas de 2000 chars
-const PARALLEL = 3;
-const ROUNDS = 2;
-const BATCH_SIZE = 1;
+const PAGE_SIZE = 3000;      // páginas individuais (menores = mais rápidas)
+const BATCH_PAGES = 3;       // páginas por chamada Groq (3 páginas × 3k chars = 9k chars)
+const ROUNDS = 4;            // batches por chunk (4 batches × 5 páginas = 20 páginas)
+const CUTOFF_MS = 9000;      // usa quase todo timeout de 10s da Vercel Hobby
 
 const TSE_CARGO_MAP = {
   presidente: 1,
@@ -193,6 +193,8 @@ async function extractWithGroq(text, nome, cargo, opts = {}) {
   let chunk = text.substring(0, 20000);
   const model = GROQ_MODEL;
 
+  const retryDelays = [2000, 4000, 8000];
+
   for (let tentativa = 0; tentativa < 3; tentativa++) {
     const prompt = `Analise o plano de governo ou propostas de ${nome} (${cargo || 'político'}).
 Extraia uma lista exaustiva de todas as promessas, compromissos e propostas específicas.
@@ -226,8 +228,11 @@ Retorne estritamente JSON:
         signal: AbortSignal.timeout(25000)
       });
       if (r.status === 429) {
-        console.error(`[GROQ] HTTP 429 (tentativa=${tentativa+1}) — aguardando 4s`);
-        await new Promise(rr => setTimeout(rr, 4000));
+        const delay = retryDelays[tentativa] || 4000;
+        const retryAfter = r.headers.get('retry-after');
+        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : delay;
+        console.error(`[GROQ] HTTP 429 (tentativa=${tentativa+1}) — aguardando ${waitMs}ms`);
+        await new Promise(rr => setTimeout(rr, waitMs));
         continue;
       }
       if (r.status === 413) {
@@ -252,8 +257,9 @@ Retorne estritamente JSON:
       return arr.filter(p => p.titulo && p.titulo.length > 3);
     } catch (e) {
       if (tentativa < 2) {
-        console.error(`[GROQ] exception (tentativa ${tentativa+1}): ${e?.message} — retry 4s`);
-        await new Promise(rr => setTimeout(rr, 4000));
+        const delay = retryDelays[tentativa] || 4000;
+        console.error(`[GROQ] exception (tentativa ${tentativa+1}): ${e?.message} — retry ${delay}ms`);
+        await new Promise(rr => setTimeout(rr, delay));
         continue;
       }
       console.error(`[GROQ] exception final: ${e?.message || e}`);
@@ -296,9 +302,8 @@ async function buscarArtigos(nome, cargo, ano) {
   }
 
   let all = [];
-  for (let i = 0; i < validTexts.length && i < 9; i += BATCH_SIZE) {
-    const batch = validTexts.slice(i, i + BATCH_SIZE);
-    const combined = batch.map(a => `=== ${a.titulo} ===\n${a.text.substring(0, 6000)}`).join('\n\n');
+  for (let i = 0; i < validTexts.length && i < 9; i++) {
+    const combined = `=== ${validTexts[i].titulo} ===\n${validTexts[i].text.substring(0, 6000)}`;
     const promises = await extractWithGroq(combined, nome, cargo);
     all.push(...promises);
   }
@@ -340,16 +345,8 @@ async function saveCheckpoint(dbClient, jobId, currentPage, totalPages, partialP
     stage: currentPage >= totalPages ? 'checkpoint_final' : 'checkpoint_salvo'
   }).eq('id', jobId);
   if (error) console.error(`[DB] checkpoint: ${error.message}`);
-
-  // Inserção parcial para atualizar o Admin em tempo real
-  if (partialPromises.length > 5) {
-     const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', jobId).single();
-     if (job) {
-       const inserted = await finalizarInsercoes(dbClient, job, partialPromises);
-       // Atualiza o contador de inseridas no job
-       await dbClient.from('discovery_jobs').update({ total_inseridas: inserted }).eq('id', jobId);
-     }
-  }
+  // NOTA: Inserção no banco só acontece no final (finalizarJobComSerper),
+  // após dedup contra promessas existentes + complemento Serper
 }
 
 async function setupPDFJob(dbClient, job) {
@@ -422,11 +419,12 @@ async function processNextChunk(dbClient, job) {
     if (isMaj) {
       const setup = await setupPDFJob(dbClient, job);
       if (!setup.pdfText) {
-        console.log(`[JOB] Sem PDF para ${job.politician_name}, pulando`);
-        return { processed: 0, message: 'Sem PDF disponivel', page: 0, total: 0 };
+        console.log(`[JOB] Sem PDF para ${job.politician_name} — tentando Serper como fallback`);
+        // Não retorna — cai no Serper fallback abaixo
+      } else {
+        job.pdf_text = setup.pdfText;
+        job.total_pages = setup.totalPages;
       }
-      job.pdf_text = setup.pdfText;
-      job.total_pages = setup.totalPages;
     }
   }
 
@@ -456,10 +454,13 @@ async function processNextChunk(dbClient, job) {
     return await finalizarJobComSerper(dbClient, job, totalPages);
   }
 
-  const pagesToProcess = Math.min(PARALLEL * ROUNDS, totalPages - fromPage);
-  const roundsNeeded = Math.ceil(pagesToProcess / PARALLEL);
+  // Agrupa páginas em batches para reduzir chamadas Groq
+  const totalBatches = Math.ceil(totalPages / BATCH_PAGES);
+  const fromBatch = Math.floor(fromPage / BATCH_PAGES);
+  const batchesRemaining = totalBatches - fromBatch;
+  const batchesToProcess = Math.min(batchesRemaining, ROUNDS);
 
-  console.log(`[JOB] Paginas ${fromPage+1}-${fromPage+pagesToProcess} de ${totalPages} (${pagesToProcess} paginas em ${roundsNeeded} rounds)`);
+  console.log(`[JOB] Paginas ${fromPage+1}-${totalPages} de ${totalPages} (${totalBatches} batches de ${BATCH_PAGES} paginas, processando ${batchesToProcess})`);
   await updateStage(dbClient, job.id, 'analisando_chunk', Math.round((fromPage / totalPages) * 100));
 
   // Carregar promessas parciais existentes
@@ -472,32 +473,32 @@ async function processNextChunk(dbClient, job) {
 
   let newPageCount = 0;
 
-  for (let round = 0; round < roundsNeeded; round++) {
-    const roundStart = fromPage + newPageCount;
-    const roundEnd = Math.min(roundStart + PARALLEL, fromPage + pagesToProcess);
-
-    const groqCalls = [];
-    for (let p = roundStart; p < roundEnd; p++) {
-      if (pages[p]) {
-        groqCalls.push(
-          extractWithGroq(pages[p], job.politician_name, job.role)
-            .then(r => r.map(pr => ({ ...pr, fonte: 'pdf_tse' })))
-        );
-      }
+  for (let batch = 0; batch < batchesToProcess; batch++) {
+    if (Date.now() - startedAt > CUTOFF_MS) {
+      console.log(`[JOB] Cutoff de ${CUTOFF_MS}ms atingido — parando execucao`);
+      break;
     }
 
-    if (groqCalls.length === 0) break;
+    const batchIndex = fromBatch + batch;
+    const batchStartPage = batchIndex * BATCH_PAGES;
+    const batchEndPage = Math.min(batchStartPage + BATCH_PAGES, totalPages);
+    const batchPages = pages.slice(batchStartPage, batchEndPage);
 
-    console.log(`[ROUND ${round+1}/${roundsNeeded}] Enviando ${groqCalls.length} chamadas Groq em paralelo (paginas ${roundStart+1}-${roundEnd})`);
-    const results = await Promise.all(groqCalls);
-    const roundPromises = results.flat();
-    partialPromises.push(...roundPromises);
-    newPageCount += groqCalls.length;
+    if (batchPages.length === 0) break;
 
-    console.log(`[ROUND ${round+1}] Groq retornou ${roundPromises.length} promessas (acumulado: ${partialPromises.length})`);
+    const mergedText = batchPages.join('\n\n---\n\n');
 
-    // Salvar checkpoint apos cada round
-    const newCurrentPage = fromPage + newPageCount;
+    console.log(`[ROUND ${batch+1}/${batchesToProcess}] Enviando ${batchPages.length} paginas em 1 chamada Groq (paginas ${batchStartPage+1}-${batchEndPage})`);
+    const batchPromises = await extractWithGroq(mergedText, job.politician_name, job.role)
+      .then(r => r.map(pr => ({ ...pr, fonte: 'pdf_tse' })));
+
+    partialPromises.push(...batchPromises);
+    newPageCount += batchPages.length;
+
+    console.log(`[ROUND ${batch+1}] Groq retornou ${batchPromises.length} promessas (acumulado: ${partialPromises.length})`);
+
+    // Salvar checkpoint apos cada batch
+    const newCurrentPage = batchEndPage;
     await saveCheckpoint(dbClient, job.id, newCurrentPage, totalPages, partialPromises);
     console.log(`[CHECKPOINT] Pagina ${newCurrentPage}/${totalPages} salva`);
   }
@@ -644,9 +645,18 @@ export default async function handler(req, res) {
 
   try {
     if (req._specificJobId) {
-      const { data: job } = await dbClient.from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', req._specificJobId).single();
+      const { data: job } = await dbClient.from('discovery_jobs').select('*').eq('id', req._specificJobId).single();
       if (!job) return res.json({ processed: 0, error: 'Job nao encontrado' });
       if (job.status === 'completed') return res.json({ processed: 0, message: 'Ja finalizado' });
+
+      // Guard: se já está processing e começou há menos de 30s, outro chunk já está rodando
+      if (job.status === 'processing' && job.started_at) {
+        const elapsed = Date.now() - new Date(job.started_at).getTime();
+        if (elapsed < 30000) {
+          console.log(`[GUARD] Job ${job.id} ja em processamento (${Math.round(elapsed/1000)}s atras) — pulando`);
+          return res.json({ processed: 0, message: 'Ja em processamento' });
+        }
+      }
 
       await dbClient.from('discovery_jobs').update({
         status: 'processing', stage: 'iniciando', progress: 0,
@@ -654,6 +664,12 @@ export default async function handler(req, res) {
       }).eq('id', job.id);
 
       const result = await processNextChunk(dbClient, job);
+
+      // Limpa started_at para permitir proximo chunk no polling
+      await dbClient.from('discovery_jobs').update({
+        started_at: null
+      }).eq('id', job.id);
+
       return res.json(result);
     }
 

@@ -1589,47 +1589,16 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         detail: 'Tabela discovery_jobs nao existe mesmo apos auto-migration. Execute /api/admin/migrate-discovery manualmente.'
       });
 
-      // Tenta processar agora (síncrono até Vercel matar em 10s)
-      // Processador salva progresso incremental no banco
-      let processorError = null;
-      let processorResult = null;
-      const captureJson = (data) => { processorResult = data; };
-      try {
-        const { default: processor } = await import('./cron/discovery-processor.js');
-        const specificReq = { ...req, _specificJobId: job.id };
-        await processor(specificReq, {
-          json: captureJson,
-          status: () => ({ json: captureJson })
-        }).catch(e => {
-          processorError = e?.message || String(e);
-          console.error('processor error:', processorError);
-        });
-      } catch (e) {
-        processorError = e?.message || String(e);
-        console.error('processor load error:', processorError);
-      }
-
-      if (processorResult?.error && !processorError) {
-        processorError = processorResult.error;
-      }
-
-      const { data: currentJob } = await dbAdmin().from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', job.id).single();
+      // Não processa síncrono — o processamento é feito em chunks via discovery-run-now
+      // durante o polling do frontend, para evitar timeout de 10s da Vercel
       return res.json({
         job_id: job.id,
-        status: currentJob?.status || (processorError ? 'error' : 'processing'),
-        stage: currentJob?.stage || 'pending',
-        progress: currentJob?.progress || 0,
-        total_extraidas: currentJob?.total_extraidas || 0,
-        total_inseridas: currentJob?.total_inseridas || 0,
-        erro: currentJob?.erro || processorError,
-        processorResult,
-        message: processorError
-          ? `Erro no processador: ${processorError}`
-          : currentJob?.status === 'completed'
-          ? `${currentJob.total_inseridas || 0} promessas inseridas de ${currentJob.total_extraidas || 0} extraídas`
-          : currentJob?.status === 'failed'
-          ? `Erro: ${currentJob.erro || 'falha desconhecida'}`
-          : 'Processando...'
+        status: 'pending',
+        stage: 'criado',
+        progress: 0,
+        total_extraidas: 0,
+        total_inseridas: 0,
+        message: 'Job criado! Aguardando processamento incremental...'
       });
     }
 
@@ -1656,14 +1625,25 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const { job_id } = JSON.parse(body || '{}');
       if (!job_id) return res.status(400).json({ error: 'job_id obrigatório' });
 
-      // Trigger cron processor synchronously (for testing)
       const { default: processor } = await import('./cron/discovery-processor.js');
-      // Create a mock response
-      let processorRes = { json: () => {}, status: () => processorRes };
-      await processor(req, processorRes);
-      // Get updated job status
-      const { data: job } = await dbAdmin().from('discovery_jobs').select('id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages').eq('id', job_id).single();
-      return res.json(job || { status: 'processing' });
+      const specificReq = { ...req, _specificJobId: job_id };
+      let processorRes;
+      try {
+        await processor(specificReq, {
+          json: (data) => { processorRes = data; },
+          status: () => ({ json: (data) => { processorRes = data; } })
+        });
+      } catch (e) {
+        console.error('[discovery-run-now] error:', e.message);
+      }
+      const { data: job } = await dbAdmin().from('discovery_jobs').select('*').eq('id', job_id).single();
+      // send back partial_promises for live feed
+      let lastPromises = [];
+      try {
+        const all = typeof job?.partial_promises === 'string' ? JSON.parse(job.partial_promises) : (job?.partial_promises || []);
+        lastPromises = Array.isArray(all) ? all.slice(-10) : [];
+      } catch(e) { lastPromises = []; }
+      return res.json({ ...(job || {}), partial_promises: undefined, last_promises: lastPromises });
     }
 
     if (path.startsWith('/api/admin/qualidade')) {
