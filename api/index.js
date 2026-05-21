@@ -1215,6 +1215,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
       const { politician_id } = JSON.parse(body || '{}');
       if (!politician_id) return res.status(400).json({ error: 'politician_id obrigatório' });
+      try {
 
       const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
       const SERPER_KEY = process.env.SERPER_API_KEY || '';
@@ -1232,8 +1233,8 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       if (promiseIds.length === 0) {
         return res.json({ fixed: 0, created: 0, errors: 0, total: 0, details: [], message: 'Nenhuma promessa encontrada para este político' });
       }
-      const { data: explanations } = await dbAdmin().from('promise_explanations').select('promise_id').in('promise_id', promiseIds).eq('is_latest', true);
-      const explainedIds = new Set((explanations||[]).map(e => e.promise_id));
+      const { data: allExplData } = await dbAdmin().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
+      const explainedIds = new Set((allExplData||[]).map(e => e.promise_id));
       const needCreate = (promises||[]).filter(p => !explainedIds.has(p.id));
 
       let fixed = 0, created = 0, errors = 0, details = [];
@@ -1280,9 +1281,8 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (e) { errors++; console.error('[fix-explanations:create]', e.message); }
       }
 
-      // Now fix existing explanations
-      const { data: existingExplanations } = await dbAdmin().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
-      const relevant = existingExplanations || [];
+      // Fix existing explanations (already fetched above as allExplData)
+      const relevant = allExplData || [];
 
       for (const ev of relevant) {
         try {
@@ -1416,6 +1416,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         fixed, created, errors, total: relevant.length,
         debug: { promises_count: promiseIds.length, explained_count: explainedIds.size, need_create_count: needCreate.length, has_groq: !!GROQ_KEY, has_serper: !!SERPER_KEY },
         details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : total > 0 ? `${fixed} avaliações corrigidas` : 'Nenhuma avaliação para processar' });
+      } catch (err) { return res.status(500).json({ error: err.message, detail: err.stack }); }
     }
 
     // ─── FIX CADASTRO (A1-A4) ───────────────────────────────────────────────────
