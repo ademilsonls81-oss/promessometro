@@ -161,14 +161,22 @@ export default async function handler(req, res) {
       const url = new URL(req.url, 'http://localhost');
       const includeAll = url.searchParams.get('include_all') === 'true';
 
-      const [polRes, evalRes, promRes] = await Promise.all([
+      const [polRes, promRes] = await Promise.all([
         db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score'),
-        db().from('promise_explanations').select('promise_id, status, fulfillment_score').eq('is_latest', true),
         db().from('promises').select('id, politician_id, politician_name, status')
       ]);
       if (polRes.error) return res.status(500).json({ error: polRes.error.message });
+      const allEvalRes = [];
+      let evalOffset = 0;
+      while (true) {
+        const { data: batch, error } = await db().from('promise_explanations').select('promise_id, status, fulfillment_score').eq('is_latest', true).range(evalOffset, evalOffset + 999);
+        if (error || !batch || batch.length === 0) break;
+        allEvalRes.push(...batch);
+        if (batch.length < 1000) break;
+        evalOffset += 1000;
+      }
 
-      const evalMap = {}; (evalRes.data || []).forEach(e => evalMap[e.promise_id] = e);
+      const evalMap = {}; (allEvalRes || []).forEach(e => evalMap[e.promise_id] = e);
       const promByPol = {};
       const promByNormName = {};
       (promRes.data || []).forEach(p => {
@@ -1579,7 +1587,21 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       if (!pol) return res.status(404).json({ error: 'Político não encontrado' });
 
       const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
-      const { data: explanations } = await db().from('promise_explanations').select('*').eq('is_latest', true);
+      const pIds = (promises||[]).map(p => p.id);
+      let allExplanations = [];
+      if (pIds.length > 0) {
+        let offset = 0;
+        const BATCH = 1000;
+        while (true) {
+          const { data: batch, error } = await db().from('promise_explanations').select('*').in('promise_id', pIds).eq('is_latest', true).range(offset, offset + BATCH - 1);
+          if (error) break;
+          if (!batch || batch.length === 0) break;
+          allExplanations = allExplanations.concat(batch);
+          if (batch.length < BATCH) break;
+          offset += BATCH;
+        }
+      }
+      const explanations = allExplanations;
       const { data: indicators } = await db().from('indicators').select('*').eq('politician_id', politician_id);
       const { data: legalFacts } = await db().from('legal_facts').select('*').eq('politician_id', politician_id);
 

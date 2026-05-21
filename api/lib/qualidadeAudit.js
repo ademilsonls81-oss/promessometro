@@ -348,9 +348,19 @@ export async function runQualidadeAudit() {
   if (!pols) return [];
 
   const { data: allPromises } = await db().from('promises').select('id, politician_id, status');
-  const { data: allExplanations } = await db().from('promise_explanations')
-    .select('id, promise_id, status, fulfillment_score, evidencias_usadas, criterio_aplicado, justificativa, o_que_foi_feito, o_que_falta')
-    .eq('is_latest', true);
+  let allExplanations = [];
+  let offset = 0;
+  const BATCH = 1000;
+  while (true) {
+    const { data: batch, error } = await db().from('promise_explanations')
+      .select('id, promise_id, status, fulfillment_score, evidencias_usadas, criterio_aplicado, justificativa, o_que_foi_feito, o_que_falta')
+      .eq('is_latest', true).range(offset, offset + BATCH - 1);
+    if (error) break;
+    if (!batch || batch.length === 0) break;
+    allExplanations = allExplanations.concat(batch);
+    if (batch.length < BATCH) break;
+    offset += BATCH;
+  }
 
   const result = [];
 
