@@ -1201,12 +1201,59 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
       const promiseIds = (promises||[]).map(p => p.id);
       if (promiseIds.length === 0) {
-        return res.json({ fixed: 0, errors: 0, total: 0, details: [], message: 'Nenhuma promessa encontrada para este político' });
+        return res.json({ fixed: 0, created: 0, errors: 0, total: 0, details: [], message: 'Nenhuma promessa encontrada para este político' });
       }
-      const { data: explanations } = await db().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
-      const relevant = explanations || [];
+      const { data: explanations } = await db().from('promise_explanations').select('promise_id').in('promise_id', promiseIds).eq('is_latest', true);
+      const explainedIds = new Set((explanations||[]).map(e => e.promise_id));
+      const needCreate = (promises||[]).filter(p => !explainedIds.has(p.id));
 
-      let fixed = 0, errors = 0, details = [];
+      let fixed = 0, created = 0, errors = 0, details = [];
+
+      // Create evaluations for promises without explanations
+      for (const promise of needCreate) {
+        try {
+          let evidencias = [];
+          if (SERPER_KEY) {
+            const sr = await fetch('https://google.serper.dev/search', {
+              method: 'POST', headers: { 'Content-Type':'application/json','X-API-KEY':SERPER_KEY },
+              body: JSON.stringify({ q: `${promise.politician_name} ${(promise.promise_title||'').substring(0,60)}`, gl:'br', hl:'pt-br', num:5 })
+            });
+            if (sr.ok) { const sd = await sr.json(); evidencias = (sd.organic||[]).filter(r => !isSocial(r.link)).map(r => ({ descricao: r.snippet||'', fonte: r.source||extractDomain(r.link), url: r.link||'' })); }
+          }
+          if (evidencias.length === 0) {
+            evidencias.push({ fonte: "Ausência de Evidências", descricao: "Nenhuma evidência encontrada na web.", url: "#" });
+          }
+          if (GROQ_KEY) {
+            const evText = evidencias.map(e => `[${e.fonte||'fonte'}]: ${e.descricao||''} (${e.url})`).join('\n');
+            const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;
+            const gr = await fetch(`${AI_URL}/chat/completions`, {
+              method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${GROQ_KEY}` },
+              body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
+            });
+            if (gr.ok) {
+              const gd = await gr.json();
+              const parsed = JSON.parse(gd.choices[0].message.content);
+              const ms = normStatus(parsed.status);
+              const sc = clampScore(ms, parsed.fulfillment_score);
+              await dbAdmin().from('promise_explanations').insert({
+                promise_id: promise.id, status: ms, fulfillment_score: sc,
+                criterio_aplicado: 'ai_fix_created_v1', justificativa: parsed.justificativa||'',
+                evidencias_usadas: evidencias.slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'',
+                o_que_falta: parsed.o_que_falta||'', confianca: evidencias.length >= 2 ? 0.80 : 0.60,
+                modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString()
+              });
+              await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, last_verified_at: new Date().toISOString() }).eq('id', promise.id);
+              created++;
+              details.push({ promise_id: promise.id, title: promise.promise_title?.substring(0,40), action: 'created' });
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        } catch (e) { errors++; console.error('[fix-explanations:create]', e.message); }
+      }
+
+      // Now fix existing explanations
+      const { data: existingExplanations } = await db().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
+      const relevant = existingExplanations || [];
 
       for (const ev of relevant) {
         try {
@@ -1329,7 +1376,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (e) { errors++; console.error('[fix-explanations]', e.message); }
       }
 
-      return res.json({ fixed, errors, total: relevant.length, details });
+      return res.json({ fixed, created, errors, total: relevant.length, details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : `${fixed} avaliações corrigidas` });
     }
 
     // ─── FIX CADASTRO (A1-A4) ───────────────────────────────────────────────────

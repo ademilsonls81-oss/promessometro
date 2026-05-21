@@ -787,7 +787,11 @@ export default function Admin() {
                             )}
                           </div>
                           {toolResults[`fix_explanations_${pol.id}`] && (
-                            <div className="text-xs text-orange-400 mt-2">✅ Avaliações: {toolResults[`fix_explanations_${pol.id}`].fixed} corrigidas</div>
+                            <div className="text-xs text-orange-400 mt-2">
+                              ✅ {toolResults[`fix_explanations_${pol.id}`].created > 0 ? `${toolResults[`fix_explanations_${pol.id}`].created} criadas, ` : ''}
+                              {toolResults[`fix_explanations_${pol.id}`].fixed} corrigidas
+                              {toolResults[`fix_explanations_${pol.id}`].total === 0 && toolResults[`fix_explanations_${pol.id}`].created === 0 ? ' (sem avaliações para processar)' : ''}
+                            </div>
                           )}
                           {toolResults[`fix_cadastro_${pol.id}`] && (
                             <div className="text-xs text-gray-300 mt-1">✅ Cadastro: {toolResults[`fix_cadastro_${pol.id}`].fixed} campo(s) atualizado(s)</div>
