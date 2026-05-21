@@ -1469,7 +1469,12 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (_) {}
       }
       if (!pol.role || !pol.state || !pol.party || pol.role === 'politico') {
-        if (GROQ_KEY && snippets) {
+        // Fallback 1: se role null e state é UF brasileira, é Governador
+        if (!pol.role && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
+          updates.role = 'Governador';
+        }
+        // Fallback 2: tenta Groq com Serper se disponível
+        if ((!pol.role || pol.role === 'politico' || !pol.state || !pol.party) && GROQ_KEY && snippets) {
           const prompt = `Extraia dados do político brasileiro. Contexto: ${snippets}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`;
           try {
             const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
@@ -1481,34 +1486,11 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
           } catch (_) {}
         }
       }
-      // A5: Try to fix photo (sempre tenta, mesmo se URL existente estiver quebrada)
-      let photoUpdated = false;
-      try {
-        const photoUrl = await fetchWikipediaPhoto(pol.name);
-        if (photoUrl) {
-          // Verifica se a URL realmente funciona antes de salvar
-          const testRes = await fetch(photoUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) }).catch(() => null);
-          if (testRes && (testRes.ok || testRes.status === 200 || testRes.status === 301 || testRes.status === 302)) {
-            updates.photo_url = photoUrl;
-            photoUpdated = true;
-          }
-        }
-      } catch (_) {}
-      if (!photoUpdated) {
-        // Fallback: tenta buscar foto de outra fonte (Wikipedia com redirect)
+      // A5: Fix photo — tenta Wikipedia diretamente (sem HEAD verification que pode falhar em serverless)
+      if (!pol.photo_url) {
         try {
-          const altUrl = `https://pt.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pol.name)}&prop=pageimages&piprop=original&format=json&origin=*`;
-          const altRes = await fetch(altUrl, { headers: { 'User-Agent': WIKI_UA } });
-          if (altRes.ok) {
-            const altData = await altRes.json();
-            const pages = altData?.query?.pages;
-            if (pages) {
-              const page = Object.values(pages)[0];
-              if (page?.original?.source) {
-                updates.photo_url = page.original.source;
-              }
-            }
-          }
+          const photoUrl = await fetchWikipediaPhoto(pol.name);
+          if (photoUrl) updates.photo_url = photoUrl;
         } catch (_) {}
       }
 
