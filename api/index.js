@@ -195,12 +195,37 @@ export default async function handler(req, res) {
           else { pe++; if (ev) { totalScore += sc || 20; evalCount++; } }
         });
         const pct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
+
+        const c1 = pct;
+        const c2 = pol.c2_score != null ? Number(pol.c2_score) : null;
+        const c3 = pol.c3_score != null ? Number(pol.c3_score) : null;
+        const hasMetodologia = c2 != null || c3 != null;
+        let finalScore = c1;
+        if (c2 != null && c3 != null) {
+          finalScore = Math.round(c1 * 0.40 + c2 * 0.35 + c3 * 0.25);
+        } else if (c2 != null) {
+          finalScore = Math.round(c1 * 0.40 + c2 * 0.35);
+        }
+        let grade = null;
+        if (hasMetodologia) {
+          if (c3 != null && c3 < 20) { grade = 'C'; }
+          else if (finalScore >= 80) { grade = 'A'; }
+          else if (finalScore >= 60) { grade = 'B'; }
+          else if (finalScore >= 40) { grade = 'C'; }
+          else if (finalScore >= 20) { grade = 'D'; }
+          else { grade = 'F'; }
+        }
+
+        if (hasMetodologia && (pol.final_score !== finalScore || pol.grade !== grade || pol.c1_score !== c1)) {
+          dbAdmin().from('politicians').update({ c1_score: c1, final_score: finalScore, grade, last_evaluated_at: new Date().toISOString() }).eq('id', pol.id).then().catch(()=>{});
+        }
+
         return {
           ...pol,
           stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length },
           percentage: pct, promise_count: list.length,
-          grade: pol.grade || null, final_score: pol.final_score || null,
-          c1_score: pol.c1_score, c2_score: pol.c2_score, c3_score: pol.c3_score
+          grade, final_score: finalScore,
+          c1_score: c1, c2_score: pol.c2_score, c3_score: pol.c3_score
         };
       });
 
