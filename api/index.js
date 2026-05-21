@@ -1253,6 +1253,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
           if (evidencias.length === 0) {
             evidencias.push({ fonte: "Ausência de Evidências", descricao: "Nenhuma evidência encontrada na web.", url: "#" });
           }
+          let ms = 'pendente', sc = 20, justificativa = '', oqFeito = '', oqFalta = '', modelo = 'fallback_v1';
           if (GROQ_KEY) {
             const evText = evidencias.map(e => `[${e.fonte||'fonte'}]: ${e.descricao||''} (${e.url})`).join('\n');
             const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;
@@ -1263,21 +1264,35 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
             if (gr.ok) {
               const gd = await gr.json();
               const parsed = JSON.parse(gd.choices[0].message.content);
-              const ms = normStatus(parsed.status);
-              const sc = clampScore(ms, parsed.fulfillment_score);
-              await dbAdmin().from('promise_explanations').insert({
-                promise_id: promise.id, status: ms, fulfillment_score: sc,
-                criterio_aplicado: 'ai_fix_created_v1', justificativa: parsed.justificativa||'',
-                evidencias_usadas: evidencias.slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'',
-                o_que_falta: parsed.o_que_falta||'', confianca: evidencias.length >= 2 ? 0.80 : 0.60,
-                modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString()
-              });
-              await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, last_verified_at: new Date().toISOString() }).eq('id', promise.id);
-              created++;
-              details.push({ promise_id: promise.id, title: promise.promise_title?.substring(0,40), action: 'created' });
-              await new Promise(r => setTimeout(r, 2000));
+              ms = normStatus(parsed.status);
+              sc = clampScore(ms, parsed.fulfillment_score);
+              justificativa = parsed.justificativa||'';
+              oqFeito = parsed.o_que_foi_feito||'';
+              oqFalta = parsed.o_que_falta||'';
+              modelo = 'llama-3.3-70b-versatile';
+            } else {
+              const errBody = await gr.text().catch(()=>'');
+              console.error('[fix-explanations:create] Groq error', gr.status, errBody.substring(0,200));
             }
           }
+          // Fallback: usa evidencias como justificativa se IA falhou
+          if (!justificativa || justificativa.length < 20) {
+            const snippets = evidencias.slice(0,3).map(e => e.descricao).filter(Boolean);
+            justificativa = snippets.length > 0 ? `Com base em evidências: ${snippets.join('; ')}. Status inferido como pendente por falta de avaliação por IA.` : 'Sem evidências disponíveis. Status: pendente.';
+            oqFeito = oqFeito || (snippets.length > 0 ? snippets[0].substring(0,100) : 'Nenhuma informação disponível.');
+            oqFalta = oqFalta || 'Aguardando novas informações para avaliação definitiva.';
+          }
+          await dbAdmin().from('promise_explanations').insert({
+            promise_id: promise.id, status: ms, fulfillment_score: sc,
+            criterio_aplicado: 'ai_fix_created_v1', justificativa,
+            evidencias_usadas: evidencias.slice(0,5), o_que_foi_feito: oqFeito,
+            o_que_falta: oqFalta, confianca: evidencias.length >= 2 ? 0.80 : 0.60,
+            modelo_ia: modelo, is_latest: true, gerado_em: new Date().toISOString()
+          });
+          await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, last_verified_at: new Date().toISOString() }).eq('id', promise.id);
+          created++;
+          details.push({ promise_id: promise.id, title: promise.promise_title?.substring(0,40), action: 'created' });
+          await new Promise(r => setTimeout(r, 2000));
         } catch (e) { errors++; console.error('[fix-explanations:create]', e.message); }
       }
 
