@@ -1593,7 +1593,62 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         else inserted++;
       }
 
-      return res.json({ inserted, total: facts.length, errors, politician: nome });
+      // Always recalculate scores after seeding
+      const { data: pol } = await db().from('politicians').select('*').eq('id', politician_id).single();
+      if (pol) {
+        const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
+        const pIds = (promises||[]).map(p => p.id);
+        let allExplanations = [];
+        if (pIds.length > 0) {
+          let offset = 0; const BATCH = 1000;
+          while (true) {
+            const { data: batch } = await db().from('promise_explanations').select('*').in('promise_id', pIds).eq('is_latest', true).range(offset, offset + BATCH - 1);
+            if (!batch || batch.length === 0) break;
+            allExplanations = allExplanations.concat(batch);
+            if (batch.length < BATCH) break; offset += BATCH;
+          }
+        }
+        const explanations = allExplanations;
+        const { data: indicators } = await db().from('indicators').select('*').eq('politician_id', politician_id);
+        const { data: legalFacts } = await db().from('legal_facts').select('*').eq('politician_id', politician_id);
+        const evalMap = {};
+        (explanations||[]).forEach(e => evalMap[e.promise_id] = e);
+        let f = 0, pa = 0;
+        (promises||[]).forEach(p => {
+          const ev = evalMap[p.id]; const s = ev ? normStatus(ev.status) : normStatus(p.status);
+          if (s === 'cumprida') f++; else if (s === 'parcial') pa++;
+        });
+        const total = (promises||[]).length;
+        const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
+        const CAT_WEIGHTS2 = { seguranca: 0.30, financas: 0.40, funcionalismo: 0.30 };
+        const catScores2 = { seguranca: [], financas: [], funcionalismo: [] };
+        (indicators||[]).forEach(i => { if (i.score != null && catScores2[i.category]) catScores2[i.category].push(i.score); });
+        let wSum2 = 0, sSum2 = 0;
+        for (const [cat, scores] of Object.entries(catScores2)) {
+          if (scores.length > 0) { const avg = scores.reduce((a,b) => a+b, 0)/scores.length; sSum2 += avg * (CAT_WEIGHTS2[cat]||0); wSum2 += CAT_WEIGHTS2[cat]||0; }
+        }
+        const c2 = wSum2 > 0 ? parseFloat((sSum2 / wSum2).toFixed(1)) : null;
+        const PENALTY_MAP2 = { condemnation: 50, investigation: 20, alert: 10, irregularity: 5 };
+        let c3 = 100;
+        (legalFacts||[]).forEach(fact => { if (fact.is_active !== false) c3 -= PENALTY_MAP2[fact.fact_type] || 0; });
+        c3 = Math.max(0, c3);
+        const w1 = 0.40, w2 = 0.35, w3 = 0.25;
+        let pesoTotal = w1, scorePonderado = c1 * w1;
+        if (c2 != null) { scorePonderado += c2 * w2; pesoTotal += w2; }
+        if (c3 != null) { scorePonderado += c3 * w3; pesoTotal += w3; }
+        let finalScore = pesoTotal > 0 ? parseFloat((scorePonderado / pesoTotal).toFixed(1)) : 0;
+        if (c3 < 20) finalScore = Math.min(finalScore, 59);
+        const grade = finalScore >= 80 ? 'A' : finalScore >= 60 ? 'B' : finalScore >= 40 ? 'C' : finalScore >= 20 ? 'D' : 'F';
+        const cappedGrade = c3 < 20 ? (finalScore >= 40 ? 'C' : finalScore >= 20 ? 'D' : 'F') : grade;
+        await dbAdmin().from('politicians').update({
+          c1_score: c1, c2_score: c2, c3_score: c3,
+          final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade,
+          methodology_version: '1.0', last_evaluated_at: new Date().toISOString()
+        }).eq('id', politician_id);
+        return res.json({ inserted, total: facts.length, errors, politician: nome, recalculated: true, scores: { c1, c2, c3, final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade } });
+      }
+
+      return res.json({ inserted, total: facts.length, errors, politician: nome, recalculated: false });
     }
 
     // ─── RECALCULATE SCORES (B14, C3, D1, E1-E3) ──────────────────────────────

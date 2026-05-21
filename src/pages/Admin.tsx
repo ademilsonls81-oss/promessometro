@@ -842,7 +842,7 @@ export default function Admin() {
                             </div>
                           )}
                           {toolResults[`legal_facts_${pol.id}`] && (
-                            <div className="text-xs text-red-400 mt-1">✅ Fatos Jurídicos: {toolResults[`legal_facts_${pol.id}`].inserted} inseridos</div>
+                            <div className="text-xs text-red-400 mt-1">✅ Fatos Jurídicos: {toolResults[`legal_facts_${pol.id}`].inserted} inseridos{toolResults[`legal_facts_${pol.id}`].scores ? ` | C1=${toolResults[`legal_facts_${pol.id}`].scores.c1} C2=${toolResults[`legal_facts_${pol.id}`].scores.c2} C3=${toolResults[`legal_facts_${pol.id}`].scores.c3} Final=${toolResults[`legal_facts_${pol.id}`].scores.final_score} Grade=${toolResults[`legal_facts_${pol.id}`].scores.grade}` : ''}</div>
                           )}
                           {toolResults[`scores_${pol.id}`] && (
                             <div className="text-xs text-green-400 mt-1">✅ Notas recalculadas: C1={toolResults[`scores_${pol.id}`].scores?.c1} C2={toolResults[`scores_${pol.id}`].scores?.c2} C3={toolResults[`scores_${pol.id}`].scores?.c3} Final={toolResults[`scores_${pol.id}`].scores?.final_score} Grade={toolResults[`scores_${pol.id}`].scores?.grade}</div>
