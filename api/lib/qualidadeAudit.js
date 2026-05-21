@@ -287,7 +287,7 @@ const ALL_CRITERIA = [
   { id: 'D2', bloco: 'D', descricao: 'Cada fato jurídico tem tipo válido',
     tipo: 'juridico', check: (p, ctx) => {
       const lf = ctx.legal_facts || [];
-      if (lf.length === 0) return true;
+      if (lf.length === 0) return !!p.legal_facts_checked_at;
       const tipos = new Set(['condemnation', 'investigation', 'alert', 'irregularity']);
       return lf.every(f => f.fact_type && tipos.has(f.fact_type));
     }
@@ -296,7 +296,7 @@ const ALL_CRITERIA = [
   { id: 'D3', bloco: 'D', descricao: 'Cada fato tem descrição',
     tipo: 'juridico', check: (p, ctx) => {
       const lf = ctx.legal_facts || [];
-      if (lf.length === 0) return true;
+      if (lf.length === 0) return !!p.legal_facts_checked_at;
       return lf.every(f => f.description && f.description.trim().length > 0);
     }
   },
@@ -304,7 +304,7 @@ const ALL_CRITERIA = [
   { id: 'D4', bloco: 'D', descricao: 'Cada fato tem fonte',
     tipo: 'juridico', check: (p, ctx) => {
       const lf = ctx.legal_facts || [];
-      if (lf.length === 0) return true;
+      if (lf.length === 0) return !!p.legal_facts_checked_at;
       return lf.every(f => f.source_url && f.source_url.trim().length > 0);
     }
   },
@@ -312,7 +312,7 @@ const ALL_CRITERIA = [
   { id: 'D5', bloco: 'D', descricao: 'Cada fato tem data',
     tipo: 'juridico', check: (p, ctx) => {
       const lf = ctx.legal_facts || [];
-      if (lf.length === 0) return true;
+      if (lf.length === 0) return !!p.legal_facts_checked_at;
       return lf.every(f => f.date && !isNaN(new Date(f.date).getTime()));
     }
   },
@@ -348,7 +348,7 @@ const ALL_CRITERIA = [
 ];
 
 export async function runQualidadeAudit() {
-  const { data: pols } = await db().from('politicians').select('id, name, slug, role, state, party, photo_url, c1_score, c2_score, c3_score, final_score, grade, last_evaluated_at');
+  const { data: pols } = await db().from('politicians').select('id, name, slug, role, state, party, photo_url, c1_score, c2_score, c3_score, final_score, grade, last_evaluated_at, legal_facts_checked_at');
   if (!pols) return [];
 
   const result = [];

@@ -1593,6 +1593,9 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         else inserted++;
       }
 
+      // Mark politician as searched even if 0 facts found
+      await dbAdmin().from('politicians').update({ legal_facts_checked_at: new Date().toISOString() }).eq('id', politician_id);
+
       // Always recalculate scores after seeding
       const { data: pol } = await db().from('politicians').select('*').eq('id', politician_id).single();
       if (pol) {
