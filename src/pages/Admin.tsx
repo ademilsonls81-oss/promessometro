@@ -119,6 +119,16 @@ export default function Admin() {
   const [searchPol, setSearchPol] = useState("");
   const [filteredPols, setFilteredPols] = useState<Politician[]>([]);
 
+  // Add politician form
+  const [novoNome, setNovoNome] = useState("");
+  const [novoEstado, setNovoEstado] = useState("");
+  const [novaCidade, setNovaCidade] = useState("");
+  const [novoPartido, setNovoPartido] = useState("");
+  const [novoCargo, setNovoCargo] = useState("Prefeito");
+  const [novoPdfUrl, setNovoPdfUrl] = useState("");
+  const [adicionando, setAdicionando] = useState(false);
+  const [resultadoAdd, setResultadoAdd] = useState<any>(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
@@ -365,6 +375,30 @@ export default function Admin() {
     setRecalculatingScores(null);
   }
 
+  async function adicionarPolitico() {
+    if (!novoNome.trim() || !novoEstado.trim()) { setErro("Nome e estado obrigatórios"); return; }
+    setAdicionando(true); setErro(""); setResultadoAdd(null);
+    try {
+      const res = await authFetch("/api/admin/download-plano-governo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: novoNome.trim(),
+          state: novoEstado.trim(),
+          city: novaCidade.trim() || undefined,
+          party: novoPartido.trim() || undefined,
+          role: novoCargo,
+          pdf_url: novoPdfUrl.trim() || undefined
+        })
+      });
+      if (!res) return;
+      const json = await res.json();
+      setResultadoAdd(json);
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setAdicionando(false);
+  }
+
   async function runPipeline(target: string) {
     setPipelineRunning(true); setErro("");
     try {
@@ -538,6 +572,71 @@ export default function Admin() {
             {toolResults.auditoria && (
               <div className="text-xs p-3 bg-white/5 rounded-xl border border-white/10 text-gray-300">
                 📊 Auditoria — Políticos: {toolResults.auditoria.politicians_checked} | Issues: {toolResults.auditoria.total_issues} | Corrigidos: {toolResults.auditoria.fixed} | Pulados: {toolResults.auditoria.skipped_human_reviewed}
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* ── Adicionar Candidato (Cidade) ───────────────────────────────────── */}
+        <Section title="➕ Adicionar Candidato (Cidade)" icon={UserCheck}>
+          <div className="pt-4 space-y-3">
+            <p className="text-xs text-gray-400">
+              Adiciona um novo político (prefeito de cidade) ao sistema. Se não informar URL do PDF, o sistema busca automaticamente.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Nome *</label>
+                <input value={novoNome} onChange={e => setNovoNome(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Estado (UF) *</label>
+                <input value={novoEstado} onChange={e => setNovoEstado(e.target.value.toUpperCase())}
+                  placeholder="Ex: SP" maxLength={2}
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Cidade</label>
+                <input value={novaCidade} onChange={e => setNovaCidade(e.target.value)}
+                  placeholder="Ex: São Paulo"
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Partido</label>
+                <input value={novoPartido} onChange={e => setNovoPartido(e.target.value)}
+                  placeholder="Ex: PT"
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Cargo</label>
+                <select value={novoCargo} onChange={e => setNovoCargo(e.target.value)}
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-neon-cyan/50">
+                  <option value="Prefeito">Prefeito</option>
+                  <option value="Governador">Governador</option>
+                  <option value="Vereador">Vereador</option>
+                  <option value="Deputado Estadual">Deputado Estadual</option>
+                  <option value="Deputado Federal">Deputado Federal</option>
+                  <option value="Senador">Senador</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">URL do PDF (opcional)</label>
+                <input value={novoPdfUrl} onChange={e => setNovoPdfUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              </div>
+            </div>
+            <button onClick={adicionarPolitico} disabled={adicionando}
+              className="flex items-center gap-2 px-4 py-2.5 bg-neon-cyan/10 border border-neon-cyan/30 rounded-xl text-neon-cyan hover:bg-neon-cyan/20 transition-colors disabled:opacity-50 text-sm font-medium">
+              {adicionando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {adicionando ? "Buscando PDF..." : "Baixar PDF + Criar Político"}
+            </button>
+            {resultadoAdd && (
+              <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-xl text-xs text-green-300 space-y-1">
+                <div>✅ <span className="text-white font-medium">{resultadoAdd.politician.name}</span> criado ({resultadoAdd.politician.state}{resultadoAdd.politician.city ? ` · ${resultadoAdd.politician.city}` : ''})</div>
+                {resultadoAdd.pdf.source_url && <div>📄 Fonte: <a href={resultadoAdd.pdf.source_url} target="_blank" className="text-neon-cyan underline">{resultadoAdd.pdf.source_url.slice(0, 60)}…</a></div>}
+                {resultadoAdd.pdf.storage_url && <div>💾 PDF salvo em: <a href={resultadoAdd.pdf.storage_url} target="_blank" className="text-neon-cyan underline">storage/{resultadoAdd.pdf.filename || 'visualizar'}</a></div>}
               </div>
             )}
           </div>

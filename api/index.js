@@ -1736,6 +1736,76 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       });
     }
 
+    // ─── DOWNLOAD PLANO DE GOVERNO ────────────────────────────────────
+    // Adiciona novo político (cidade ou estado) e baixa PDF do plano de governo
+    if (path === '/api/admin/download-plano-governo' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+      const { name, state, city, party, role, pdf_url } = JSON.parse(body || '{}');
+      if (!name) return res.status(400).json({ error: 'name obrigatório' });
+      if (!state) return res.status(400).json({ error: 'state obrigatório' });
+
+      // Create/update politician
+      const pol = await ensurePolitician(name);
+      // Update with provided data
+      const updates = { state: state.toUpperCase(), role: role || 'Prefeito' };
+      if (city) updates.cidade = city;
+      if (party) updates.party = party;
+      await dbAdmin().from('politicians').update(updates).eq('id', pol.id);
+
+      // Search for PDF
+      const SERPER_KEY = process.env.SERPER_API_KEY || '';
+      let pdfSourceUrl = pdf_url || '';
+      let storageUrl = '';
+
+      if (!pdfSourceUrl && SERPER_KEY) {
+        try {
+          const query = city
+            ? `"plano de governo" "${name}" "${city}" "${state}" filetype:pdf`
+            : `"plano de governo" "${name}" "${state}" filetype:pdf`;
+          const sr = await fetch('https://google.serper.dev/search', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER_KEY},
+            body:JSON.stringify({ q: query, gl:'br', hl:'pt-br', num:5 })
+          });
+          if (sr.ok) {
+            const sd = await sr.json();
+            const pdfResult = (sd.organic||[]).find(r => r.link && r.link.toLowerCase().includes('.pdf'));
+            if (pdfResult) pdfSourceUrl = pdfResult.link;
+          }
+        } catch (_) {}
+      }
+
+      // Download PDF and upload to Supabase Storage
+      if (pdfSourceUrl) {
+        try {
+          const pdfRes = await fetch(pdfSourceUrl, { signal: AbortSignal.timeout(30000) });
+          if (pdfRes.ok) {
+            const pdfBuffer = await pdfRes.arrayBuffer();
+            const slug = toSlug(name);
+            const cidadeSlug = city ? toSlug(city) + '_' : '';
+            const filename = `${state.toUpperCase()}_${cidadeSlug}${slug}.pdf`;
+
+            const { data: uploadData } = await dbAdmin().storage.from('planos-governo').upload(filename, pdfBuffer, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+
+            if (uploadData) {
+              const { data: { publicUrl } } = dbAdmin().storage.from('planos-governo').getPublicUrl(filename);
+              storageUrl = publicUrl;
+              await dbAdmin().from('politicians').update({ plano_governo_url: storageUrl }).eq('id', pol.id);
+            }
+          }
+        } catch (_) {}
+      }
+
+      return res.json({
+        success: true, politician: { id: pol.id, name: pol.name, slug: pol.slug, state, city, party, role: updates.role },
+        pdf: { source_url: pdfSourceUrl, storage_url: storageUrl }
+      });
+    }
+
     // Discovery job endpoints
 
     if (path === '/api/admin/migrate-discovery' && method === 'POST') {
