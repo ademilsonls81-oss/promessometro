@@ -126,54 +126,100 @@ const ALL_CRITERIA = [
     check: (p, ctx) => (ctx.promises || []).length >= 5 },
 
   { id: 'B2', bloco: 'B', descricao: 'Nenhuma promessa com status nulo',
-    check: (p, ctx) => (ctx.promises || []).every(pp => pp.status && VALID_STATUS.has(normStatus(pp.status))) },
+    check: (p, ctx) => {
+      if ((ctx.promises || []).length === 0) return false;
+      return (ctx.promises || []).every(pp => pp.status && VALID_STATUS.has(normStatus(pp.status)));
+    }
+  },
 
   { id: 'B3', bloco: 'B', descricao: 'Nenhuma promessa com score nulo',
-    check: (p, ctx) => (ctx.explanations || []).every(e => e.fulfillment_score != null && e.fulfillment_score >= 0 && e.fulfillment_score <= 100) },
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => e.fulfillment_score != null && e.fulfillment_score >= 0 && e.fulfillment_score <= 100);
+    }
+  },
 
   { id: 'B4', bloco: 'B', descricao: 'Score compatível com status',
-    check: (p, ctx) => (ctx.explanations || []).every(e => {
-      const s = normStatus(e.status), sc = e.fulfillment_score;
-      if (s === 'cumprida') return sc >= 75 && sc <= 100;
-      if (s === 'parcial') return sc >= 40 && sc <= 74;
-      if (s === 'pendente') return sc >= 0 && sc <= 39;
-      if (s === 'quebrada') return sc === 0;
-      return true;
-    })
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => {
+        const s = normStatus(e.status), sc = e.fulfillment_score;
+        if (s === 'cumprida') return sc >= 75 && sc <= 100;
+        if (s === 'parcial') return sc >= 40 && sc <= 74;
+        if (s === 'pendente') return sc >= 0 && sc <= 39;
+        if (s === 'quebrada') return sc === 0;
+        return true;
+      });
+    }
   },
 
   { id: 'B5', bloco: 'B', descricao: 'Justificativa real preenchida (sem placeholder)',
-    check: (p, ctx) => (ctx.explanations || []).every(e => e.justificativa && e.justificativa.length > 30 && !contemPalavraProibida(e.justificativa)) },
-
-  { id: 'B6', bloco: 'B', descricao: 'O que foi concluído preenchido e real',
-    check: (p, ctx) => (ctx.explanations || []).every(e => e.o_que_foi_feito && e.o_que_foi_feito.length > 10 && !contemPalavraProibida(e.o_que_foi_feito)) },
-
-  { id: 'B7', bloco: 'B', descricao: 'O que ainda falta preenchido',
-    check: (p, ctx) => (ctx.explanations || []).every(e => e.o_que_falta && e.o_que_falta.length > 5 && !contemPalavraProibida(e.o_que_falta)) },
-
-  { id: 'B8', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Cumprida',
-    check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'cumprida').every(e => (e.evidencias_usadas || []).length >= 2) },
-
-  { id: 'B9', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Parcial',
-    check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'parcial').every(e => (e.evidencias_usadas || []).length >= 2) },
-
-  { id: 'B10', bloco: 'B', descricao: 'Mínimo 1 evidência por promessa Pendente',
-    check: (p, ctx) => (ctx.explanations || []).filter(e => normStatus(e.status) === 'pendente').every(e => (e.evidencias_usadas || []).length >= 1) },
-
-  // FIX B11: Lógica de verificação de redes sociais usando função centralizada
-  { id: 'B11', bloco: 'B', descricao: 'Nenhuma evidência de rede social (Instagram, Facebook, TikTok, Twitter/X)',
-    check: (p, ctx) => (ctx.explanations || []).every(e => (e.evidencias_usadas || []).every(ev => !isSocialMedia(ev.url))) },
-
-  { id: 'B12', bloco: 'B', descricao: 'Domínios únicos por promessa',
-    check: (p, ctx) => (ctx.explanations || []).every(e => {
-      const dominios = (e.evidencias_usadas || []).map(ev => getUrlDomain(ev.url)).filter(Boolean);
-      return new Set(dominios).size === dominios.length;
-    })
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => e.justificativa && e.justificativa.length > 30 && !contemPalavraProibida(e.justificativa));
+    }
   },
 
-  // FIX B13: Aceitar 'pipeline_auto_evaluation', 'daily_reavaliation_v1', 'ai_reavaliation_v1' — rejeitar apenas herança
+  { id: 'B6', bloco: 'B', descricao: 'O que foi concluído preenchido e real',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => e.o_que_foi_feito && e.o_que_foi_feito.length > 10 && !contemPalavraProibida(e.o_que_foi_feito));
+    }
+  },
+
+  { id: 'B7', bloco: 'B', descricao: 'O que ainda falta preenchido',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => e.o_que_falta && e.o_que_falta.length > 5 && !contemPalavraProibida(e.o_que_falta));
+    }
+  },
+
+  { id: 'B8', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Cumprida',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).filter(e => normStatus(e.status) === 'cumprida').every(e => (e.evidencias_usadas || []).length >= 2);
+    }
+  },
+
+  { id: 'B9', bloco: 'B', descricao: 'Mínimo 2 evidências por promessa Parcial',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).filter(e => normStatus(e.status) === 'parcial').every(e => (e.evidencias_usadas || []).length >= 2);
+    }
+  },
+
+  { id: 'B10', bloco: 'B', descricao: 'Mínimo 1 evidência por promessa Pendente',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).filter(e => normStatus(e.status) === 'pendente').every(e => (e.evidencias_usadas || []).length >= 1);
+    }
+  },
+
+  // FIX B11
+  { id: 'B11', bloco: 'B', descricao: 'Nenhuma evidência de rede social (Instagram, Facebook, TikTok, Twitter/X)',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => (e.evidencias_usadas || []).every(ev => !isSocialMedia(ev.url)));
+    }
+  },
+
+  { id: 'B12', bloco: 'B', descricao: 'Domínios únicos por promessa',
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => {
+        const dominios = (e.evidencias_usadas || []).map(ev => getUrlDomain(ev.url)).filter(Boolean);
+        return new Set(dominios).size === dominios.length;
+      });
+    }
+  },
+
+  // FIX B13
   { id: 'B13', bloco: 'B', descricao: 'Avaliação por IA (não herança automática)',
-    check: (p, ctx) => (ctx.explanations || []).every(e => !isHerancaAutomatica(e.criterio_aplicado)) },
+    check: (p, ctx) => {
+      if ((ctx.explanations || []).length === 0) return false;
+      return (ctx.explanations || []).every(e => !isHerancaAutomatica(e.criterio_aplicado));
+    }
+  },
 
   { id: 'B14', bloco: 'B', descricao: 'C1 calculado corretamente',
     check: (p, ctx) => {
@@ -240,19 +286,32 @@ const ALL_CRITERIA = [
 
   { id: 'D2', bloco: 'D', descricao: 'Cada fato jurídico tem tipo válido',
     tipo: 'juridico', check: (p, ctx) => {
+      if ((ctx.legal_facts || []).length === 0) return false;
       const tipos = new Set(['condemnation', 'investigation', 'alert', 'irregularity']);
       return (ctx.legal_facts || []).every(f => f.fact_type && tipos.has(f.fact_type));
     }
   },
 
   { id: 'D3', bloco: 'D', descricao: 'Cada fato tem descrição',
-    tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.description && f.description.trim().length > 0) },
+    tipo: 'juridico', check: (p, ctx) => {
+      if ((ctx.legal_facts || []).length === 0) return false;
+      return (ctx.legal_facts || []).every(f => f.description && f.description.trim().length > 0);
+    }
+  },
 
   { id: 'D4', bloco: 'D', descricao: 'Cada fato tem fonte',
-    tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.source_url && f.source_url.trim().length > 0) },
+    tipo: 'juridico', check: (p, ctx) => {
+      if ((ctx.legal_facts || []).length === 0) return false;
+      return (ctx.legal_facts || []).every(f => f.source_url && f.source_url.trim().length > 0);
+    }
+  },
 
   { id: 'D5', bloco: 'D', descricao: 'Cada fato tem data',
-    tipo: 'juridico', check: (p, ctx) => (ctx.legal_facts || []).every(f => f.date && !isNaN(new Date(f.date).getTime())) },
+    tipo: 'juridico', check: (p, ctx) => {
+      if ((ctx.legal_facts || []).length === 0) return false;
+      return (ctx.legal_facts || []).every(f => f.date && !isNaN(new Date(f.date).getTime()));
+    }
+  },
 
   { id: 'D6', bloco: 'D', descricao: 'C3 não é negativo',
     tipo: 'juridico', check: (p, ctx) => p.c3_score == null || p.c3_score >= 0 },
