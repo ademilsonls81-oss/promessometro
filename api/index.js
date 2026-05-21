@@ -1363,8 +1363,15 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
             if (corrected !== ev.fulfillment_score) { updateData.fulfillment_score = corrected; needsUpdate = true; }
           }
 
-          // Se havia problema (B5-B10) mas IA falhou, salva pelo menos as evidências que temos
+          // Se havia problema (B5-B10) mas IA falhou, gera fallback das evidencias
           if ((badJust || badFeito || badFalta || badEvidence) && !needsUpdate) {
+            const evSnippets = evidencias.slice(0, 3).map(e => e.descricao).filter(Boolean);
+            const fallbackText = evSnippets.length > 0
+              ? `Com base em evidências: ${evSnippets.join('; ')}`
+              : 'Sem evidências disponíveis no momento.';
+            updateData.justificativa = badJust ? (fallbackText + ' Status mantido por falta de contra-evidência.') : ev.justificativa;
+            updateData.o_que_foi_feito = badFeito ? fallbackText : ev.o_que_foi_feito;
+            updateData.o_que_falta = badFalta ? 'Aguardando novas informações para avaliação definitiva.' : ev.o_que_falta;
             updateData.evidencias_usadas = evidencias.slice(0, 5);
             updateData.criterio_aplicado = 'ai_fix_partial_v1';
             needsUpdate = true;
