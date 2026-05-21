@@ -347,27 +347,24 @@ export async function runQualidadeAudit() {
   const { data: pols } = await db().from('politicians').select('id, name, slug, role, state, party, photo_url, c1_score, c2_score, c3_score, final_score, grade, last_evaluated_at');
   if (!pols) return [];
 
-  const { data: allPromises } = await db().from('promises').select('id, politician_id, status');
-  let allExplanations = [];
-  let offset = 0;
-  const BATCH = 1000;
-  while (true) {
-    const { data: batch, error } = await db().from('promise_explanations')
-      .select('id, promise_id, status, fulfillment_score, evidencias_usadas, criterio_aplicado, justificativa, o_que_foi_feito, o_que_falta')
-      .eq('is_latest', true).range(offset, offset + BATCH - 1);
-    if (error) break;
-    if (!batch || batch.length === 0) break;
-    allExplanations = allExplanations.concat(batch);
-    if (batch.length < BATCH) break;
-    offset += BATCH;
-  }
-
   const result = [];
 
   for (const pol of pols) {
-    const promises = (allPromises || []).filter(p => p.politician_id === pol.id);
-    const promiseIds = new Set(promises.map(p => p.id));
-    const explanations = (allExplanations || []).filter(e => promiseIds.has(e.promise_id));
+    const { data: promises } = await db().from('promises').select('id, status').eq('politician_id', pol.id);
+    const pIds = (promises||[]).map(p => p.id);
+    let explanations = [];
+    if (pIds.length > 0) {
+      let off = 0;
+      while (true) {
+        const { data: batch } = await db().from('promise_explanations')
+          .select('id, promise_id, status, fulfillment_score, evidencias_usadas, criterio_aplicado, justificativa, o_que_foi_feito, o_que_falta')
+          .in('promise_id', pIds).eq('is_latest', true).range(off, off + 999);
+        if (!batch || batch.length === 0) break;
+        explanations = explanations.concat(batch);
+        if (batch.length < 1000) break;
+        off += 1000;
+      }
+    }
 
     const { data: indicators } = await db().from('indicators').select('*').eq('politician_id', pol.id);
     const { data: legal_facts } = await db().from('legal_facts').select('*').eq('politician_id', pol.id);

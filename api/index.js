@@ -224,10 +224,6 @@ export default async function handler(req, res) {
           else { grade = 'F'; }
         }
 
-        if (hasMetodologia && (pol.final_score !== finalScore || pol.grade !== grade || pol.c1_score !== c1)) {
-          dbAdmin().from('politicians').update({ c1_score: c1, final_score: finalScore, grade, last_evaluated_at: new Date().toISOString() }).eq('id', pol.id).then().catch(()=>{});
-        }
-
         return {
           ...pol,
           stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length },
