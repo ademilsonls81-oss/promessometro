@@ -1199,8 +1199,12 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       function clampScore(st, sc) { const r={cumprida:[80,100],parcial:[40,79],pendente:[0,39],quebrada:[0,0]}[normStatus(st)]||[0,39]; return Math.max(r[0],Math.min(r[1],Math.round(sc||r[0]))); }
 
       const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
-      const { data: explanations } = await db().from('promise_explanations').select('*').eq('is_latest', true);
-      const relevant = (explanations||[]).filter(e => new Set((promises||[]).map(p => p.id)).has(e.promise_id));
+      const promiseIds = (promises||[]).map(p => p.id);
+      if (promiseIds.length === 0) {
+        return res.json({ fixed: 0, errors: 0, total: 0, details: [], message: 'Nenhuma promessa encontrada para este político' });
+      }
+      const { data: explanations } = await db().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
+      const relevant = explanations || [];
 
       let fixed = 0, errors = 0, details = [];
 
