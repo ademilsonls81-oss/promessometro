@@ -1227,12 +1227,12 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       function isPlaceholder(t) { return !t || t.trim().length < 20 || PROHIBITED.some(p => t.includes(p)); }
       function clampScore(st, sc) { const r={cumprida:[80,100],parcial:[40,79],pendente:[0,39],quebrada:[0,0]}[normStatus(st)]||[0,39]; return Math.max(r[0],Math.min(r[1],Math.round(sc||r[0]))); }
 
-      const { data: promises } = await db().from('promises').select('*').eq('politician_id', politician_id);
+      const { data: promises } = await dbAdmin().from('promises').select('*').eq('politician_id', politician_id);
       const promiseIds = (promises||[]).map(p => p.id);
       if (promiseIds.length === 0) {
         return res.json({ fixed: 0, created: 0, errors: 0, total: 0, details: [], message: 'Nenhuma promessa encontrada para este político' });
       }
-      const { data: explanations } = await db().from('promise_explanations').select('promise_id').in('promise_id', promiseIds).eq('is_latest', true);
+      const { data: explanations } = await dbAdmin().from('promise_explanations').select('promise_id').in('promise_id', promiseIds).eq('is_latest', true);
       const explainedIds = new Set((explanations||[]).map(e => e.promise_id));
       const needCreate = (promises||[]).filter(p => !explainedIds.has(p.id));
 
@@ -1281,7 +1281,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       }
 
       // Now fix existing explanations
-      const { data: existingExplanations } = await db().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
+      const { data: existingExplanations } = await dbAdmin().from('promise_explanations').select('*').in('promise_id', promiseIds).eq('is_latest', true);
       const relevant = existingExplanations || [];
 
       for (const ev of relevant) {
@@ -1405,7 +1405,10 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (e) { errors++; console.error('[fix-explanations]', e.message); }
       }
 
-      return res.json({ fixed, created, errors, total: relevant.length, details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : `${fixed} avaliações corrigidas` });
+      return res.json({
+        fixed, created, errors, total: relevant.length,
+        debug: { promises_count: promiseIds.length, explained_count: explainedIds.size, need_create_count: needCreate.length, has_groq: !!GROQ_KEY, has_serper: !!SERPER_KEY },
+        details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : total > 0 ? `${fixed} avaliações corrigidas` : 'Nenhuma avaliação para processar' });
     }
 
     // ─── FIX CADASTRO (A1-A4) ───────────────────────────────────────────────────

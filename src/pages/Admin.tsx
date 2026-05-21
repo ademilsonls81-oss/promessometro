@@ -791,6 +791,9 @@ export default function Admin() {
                               ✅ {toolResults[`fix_explanations_${pol.id}`].created > 0 ? `${toolResults[`fix_explanations_${pol.id}`].created} criadas, ` : ''}
                               {toolResults[`fix_explanations_${pol.id}`].fixed} corrigidas
                               {toolResults[`fix_explanations_${pol.id}`].total === 0 && toolResults[`fix_explanations_${pol.id}`].created === 0 ? ' (sem avaliações para processar)' : ''}
+                              {toolResults[`fix_explanations_${pol.id}`].debug && (
+                                <span className="text-gray-600"> [promessas:{toolResults[`fix_explanations_${pol.id}`].debug.promises_count} explicadas:{toolResults[`fix_explanations_${pol.id}`].debug.explained_count} groq:{toolResults[`fix_explanations_${pol.id}`].debug.has_groq ? 'sim' : 'nao'}]</span>
+                              )}
                             </div>
                           )}
                           {toolResults[`fix_cadastro_${pol.id}`] && (
