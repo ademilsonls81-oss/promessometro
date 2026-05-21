@@ -1471,7 +1471,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       if (!pol.role || !pol.state || !pol.party || pol.role === 'politico') {
         // Fallback 1: se role null e state é UF brasileira, é Governador
         if (!pol.role && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
-          updates.role = 'Governador';
+          updates.role = 'governador';
         }
         // Fallback 2: tenta Groq com Serper se disponível
         if ((!pol.role || pol.role === 'politico' || !pol.state || !pol.party) && GROQ_KEY && snippets) {
