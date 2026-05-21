@@ -99,8 +99,35 @@ async function fetchWikipediaPhoto(name) {
   return null;
 }
 
+function normName(name) {
+  if (!name) return '';
+  return name.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '');
+}
+
 async function ensurePolitician(name) {
-  const { data: existing } = await db().from('politicians').select('id, name, photo_url').ilike('name', name.trim()).maybeSingle();
+  const trimmed = name.trim();
+  
+  // Try multiple matching strategies
+  let existing = null;
+  
+  // 1. Exact accent-insensitive
+  const { data: match1 } = await db().from('politicians').select('id, name, photo_url, role, state, party').ilike('name', trimmed).maybeSingle();
+  if (match1) existing = match1;
+  
+  // 2. First + last name match
+  if (!existing) {
+    const parts = trimmed.split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      const firstName = parts[0];
+      const lastName = parts[parts.length - 1];
+      const { data: all } = await db().from('politicians').select('id, name, photo_url, role, state, party');
+      existing = (all || []).find(p => {
+        const pParts = p.name.split(' ').filter(Boolean);
+        return pParts.length >= 2 && normName(pParts[0]) === normName(firstName) && normName(pParts[pParts.length - 1]) === normName(lastName);
+      }) || null;
+    }
+  }
+  
   if (existing) {
     if (!existing.photo_url) {
       const photoUrl = await fetchWikipediaPhoto(existing.name);
@@ -111,10 +138,10 @@ async function ensurePolitician(name) {
     }
     return existing;
   }
-  const slug = toSlug(name);
-  const photoUrl = await fetchWikipediaPhoto(name);
+  const slug = toSlug(trimmed);
+  const photoUrl = await fetchWikipediaPhoto(trimmed);
   const { data: newPol } = await db().from('politicians').insert({
-    name: name.trim(), slug, role: 'politico', state: 'BR',
+    name: trimmed, slug, role: 'politico', state: 'BR',
     photo_url: photoUrl || null
   }).select().single();
   return newPol;
@@ -140,14 +167,20 @@ export default async function handler(req, res) {
 
       const evalMap = {}; (evalRes.data || []).forEach(e => evalMap[e.promise_id] = e);
       const promByPol = {};
+      const promByNormName = {};
       (promRes.data || []).forEach(p => {
-        const id = p.politician_id || p.politician_name;
+        const id = p.politician_id;
         if (!promByPol[id]) promByPol[id] = [];
         promByPol[id].push(p);
+        if (p.politician_name) {
+          const key = normName(p.politician_name);
+          if (!promByNormName[key]) promByNormName[key] = [];
+          promByNormName[key].push(p);
+        }
       });
 
       const ranking = (polRes.data || []).map(pol => {
-        const list = promByPol[pol.id] || promByPol[pol.name] || [];
+        const list = promByPol[pol.id] || promByNormName[normName(pol.name)] || [];
         let f = 0, pa = 0, b = 0, pe = 0, totalScore = 0, evalCount = 0;
         list.forEach(p => {
           const ev = evalMap[p.id];
