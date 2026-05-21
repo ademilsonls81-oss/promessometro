@@ -158,6 +158,9 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/politicians/ranking' && method === 'GET') {
+      const url = new URL(req.url, 'http://localhost');
+      const includeAll = url.searchParams.get('include_all') === 'true';
+
       const [polRes, evalRes, promRes] = await Promise.all([
         db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score'),
         db().from('promise_explanations').select('promise_id, status, fulfillment_score').eq('is_latest', true),
@@ -199,9 +202,12 @@ export default async function handler(req, res) {
           grade: pol.grade || null, final_score: pol.final_score || null,
           c1_score: pol.c1_score, c2_score: pol.c2_score, c3_score: pol.c3_score
         };
-      }).filter(p => p.promise_count > 0).sort((a, b) => b.percentage - a.percentage);
+      });
 
-      return res.json({ ranking: ranking.slice(0, 50), total: ranking.length });
+      let result = ranking.sort((a, b) => b.percentage - a.percentage);
+      if (!includeAll) result = result.filter(p => p.promise_count > 0);
+
+      return res.json({ ranking: result.slice(0, 50), total: result.length });
     }
 
     if (path === '/api/promises' && method === 'GET') {

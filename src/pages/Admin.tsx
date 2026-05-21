@@ -138,7 +138,7 @@ export default function Admin() {
       const [qualRes, statusRes, polRes] = await Promise.all([
         authFetch(`/api/admin/qualidade?t=${t}`),
         authFetch(`/api/admin/system-status?t=${t}`),
-        authFetch(`/api/politicians/ranking?t=${t}`)
+        authFetch(`/api/politicians/ranking?include_all=true&t=${t}`)
       ]);
       if (!qualRes) return;
       const qual = await qualRes.json();
