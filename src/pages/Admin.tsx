@@ -33,9 +33,10 @@ function getToken() { return localStorage.getItem("admin_token") || ""; }
 
 async function authFetch(url: string, options: any = {}) {
   const token = getToken();
+  if (!token) return null;
   const headers = { ...options.headers, Authorization: `Bearer ${token}` };
   const res = await fetch(url, { ...options, headers });
-  if (res.status === 401) { localStorage.removeItem("admin_token"); window.location.href = "/admin"; return null; }
+  if (res.status === 401) return null;
   return res;
 }
 
@@ -122,7 +123,7 @@ export default function Admin() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     if (code) { window.history.replaceState({}, "", "/admin"); loginGithub(code); }
-    else if (getToken()) { fetchAll(); }
+    else if (getToken()) { setAutenticado(true); fetchAll(); }
   }, []);
 
   useEffect(() => {
@@ -134,13 +135,15 @@ export default function Admin() {
   async function fetchAll() {
     setCarregando(true); setErro("");
     try {
+      const token = getToken();
+      if (!token) { setCarregando(false); return; }
       const t = Date.now();
       const [qualRes, statusRes, polRes] = await Promise.all([
         authFetch(`/api/admin/qualidade?t=${t}`),
         authFetch(`/api/admin/system-status?t=${t}`),
         authFetch(`/api/politicians/ranking?include_all=true&t=${t}`)
       ]);
-      if (!qualRes) return;
+      if (!qualRes) { localStorage.removeItem("admin_token"); setAutenticado(false); setCarregando(false); return; }
       const qual = await qualRes.json();
       setDados(qual.politicos || []);
       setAutenticado(true);
