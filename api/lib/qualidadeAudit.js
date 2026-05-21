@@ -286,30 +286,34 @@ const ALL_CRITERIA = [
 
   { id: 'D2', bloco: 'D', descricao: 'Cada fato jurídico tem tipo válido',
     tipo: 'juridico', check: (p, ctx) => {
-      if ((ctx.legal_facts || []).length === 0) return false;
+      const lf = ctx.legal_facts || [];
+      if (lf.length === 0) return true;
       const tipos = new Set(['condemnation', 'investigation', 'alert', 'irregularity']);
-      return (ctx.legal_facts || []).every(f => f.fact_type && tipos.has(f.fact_type));
+      return lf.every(f => f.fact_type && tipos.has(f.fact_type));
     }
   },
 
   { id: 'D3', bloco: 'D', descricao: 'Cada fato tem descrição',
     tipo: 'juridico', check: (p, ctx) => {
-      if ((ctx.legal_facts || []).length === 0) return false;
-      return (ctx.legal_facts || []).every(f => f.description && f.description.trim().length > 0);
+      const lf = ctx.legal_facts || [];
+      if (lf.length === 0) return true;
+      return lf.every(f => f.description && f.description.trim().length > 0);
     }
   },
 
   { id: 'D4', bloco: 'D', descricao: 'Cada fato tem fonte',
     tipo: 'juridico', check: (p, ctx) => {
-      if ((ctx.legal_facts || []).length === 0) return false;
-      return (ctx.legal_facts || []).every(f => f.source_url && f.source_url.trim().length > 0);
+      const lf = ctx.legal_facts || [];
+      if (lf.length === 0) return true;
+      return lf.every(f => f.source_url && f.source_url.trim().length > 0);
     }
   },
 
   { id: 'D5', bloco: 'D', descricao: 'Cada fato tem data',
     tipo: 'juridico', check: (p, ctx) => {
-      if ((ctx.legal_facts || []).length === 0) return false;
-      return (ctx.legal_facts || []).every(f => f.date && !isNaN(new Date(f.date).getTime()));
+      const lf = ctx.legal_facts || [];
+      if (lf.length === 0) return true;
+      return lf.every(f => f.date && !isNaN(new Date(f.date).getTime()));
     }
   },
 
