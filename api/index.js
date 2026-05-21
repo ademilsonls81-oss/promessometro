@@ -351,7 +351,7 @@ export default async function handler(req, res) {
           const gr = await fetch(`${AI_URL}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 })
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 })
           });
           if (!gr.ok) { errors++; await new Promise(r => setTimeout(r, 2000)); continue; }
           const gd = await gr.json();
@@ -370,7 +370,7 @@ export default async function handler(req, res) {
             o_que_foi_feito: parsed.o_que_foi_feito || '',
             o_que_falta: parsed.o_que_falta || '',
             confianca: evidences.length >= 2 ? 0.80 : 0.60,
-            modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString()
+            modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
           });
           await dbAdmin().from('promises').update({ status: mappedStatus, fulfillment_score: score, last_verified_at: new Date().toISOString() }).eq('id', ev.promise_id);
           upgraded++;
@@ -531,7 +531,7 @@ Resposta SOMENTE JSON:
       const gr = await fetch(`${AI_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 4096 })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 4096 })
       });
       if (!gr.ok) return res.status(500).json({ error: `Groq error: ${gr.status}` });
       const gd = await gr.json();
@@ -1132,7 +1132,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               if (!GROQ_KEY) continue;
               const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência.';
               const prompt = `Avalie a promessa: "${promise.promise_title}" de ${promise.politician_name}. Evidências: ${evText}. Responda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"o que foi realizado mínimo 20 palavras","o_que_falta":"o que ainda falta mínimo 20 palavras"}`;
-              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
+              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
               if (!gr.ok) { failed++; await new Promise(r => setTimeout(r, 2000)); continue; }
               const gd = await gr.json();
               const parsed = JSON.parse(gd.choices[0].message.content);
@@ -1140,7 +1140,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               const cr = { cumprida:[80,100], parcial:[40,79], pendente:[0,39], quebrada:[0,0] }[ms]||[0,39];
               const sc = Math.max(cr[0], Math.min(cr[1], Math.round(parsed.fulfillment_score||cr[0])));
               await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', ev.promise_id);
-              await dbAdmin().from('promise_explanations').insert({ promise_id: ev.promise_id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: new Date().toISOString() });
+              await dbAdmin().from('promise_explanations').insert({ promise_id: ev.promise_id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString() });
               await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, last_verified_at: new Date().toISOString() }).eq('id', ev.promise_id);
               upgraded++;
               await new Promise(r => setTimeout(r, 2500));
@@ -1170,7 +1170,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               if (!GROQ_KEY) { failed++; continue; }
               const evText = evidences.length > 0 ? evidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n') : 'Nenhuma evidência encontrada.';
               const prompt = `Avaliador independente de promessas políticas brasileiras.\nPROMESSA: "${promise.promise_title}"\nPOLÍTICO: ${promise.politician_name}\nEVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 palavras","o_que_foi_feito":"mínimo 20 palavras","o_que_falta":"mínimo 20 palavras"}`;
-              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
+              const gr = await fetch(`${AI_URL}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: 1024 }) });
               if (!gr.ok) { failed++; await new Promise(r => setTimeout(r, 2000)); continue; }
               const gd = await gr.json();
               const parsed = JSON.parse(gd.choices[0].message.content);
@@ -1179,7 +1179,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               const sc = Math.max(cr[0], Math.min(cr[1], Math.round(parsed.fulfillment_score||cr[0])));
               await dbAdmin().from('promises').update({ status: ms, fulfillment_score: sc, ai_evaluation: parsed.justificativa, evidences_used: evidences.slice(0,5), last_verified_at: startTime.toISOString() }).eq('id', promise.id);
               await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
-              await dbAdmin().from('promise_explanations').insert({ promise_id: promise.id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.filter(e => !isSocPipe(e.url)).slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.3-70b-versatile', is_latest: true, gerado_em: startTime.toISOString() });
+              await dbAdmin().from('promise_explanations').insert({ promise_id: promise.id, status: ms, fulfillment_score: sc, criterio_aplicado: 'ai_reavaliation_v2', justificativa: parsed.justificativa||'', evidencias_usadas: evidences.filter(e => !isSocPipe(e.url)).slice(0,5), o_que_foi_feito: parsed.o_que_foi_feito||'', o_que_falta: parsed.o_que_falta||'', confianca: evidences.length >= 2 ? 0.80 : 0.60, modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: startTime.toISOString() });
               await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: ms });
               evaluated++;
               await new Promise(r => setTimeout(r, 2500));
@@ -1259,7 +1259,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
             const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;
             const gr = await fetch(`${AI_URL}/chat/completions`, {
               method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${GROQ_KEY}` },
-              body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
+              body: JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
             });
             if (gr.ok) {
               const gd = await gr.json();
@@ -1269,7 +1269,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               justificativa = parsed.justificativa||'';
               oqFeito = parsed.o_que_foi_feito||'';
               oqFalta = parsed.o_que_falta||'';
-              modelo = 'llama-3.3-70b-versatile';
+              modelo = 'llama-3.1-8b-instant';
             } else {
               const errBody = await gr.text().catch(()=>'');
               console.error('[fix-explanations:create] Groq error', gr.status, errBody.substring(0,200));
@@ -1352,7 +1352,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
               const prompt = `Avaliador de promessas políticas brasileiras. PROMESSA: "${promise.promise_title}". POLÍTICO: ${promise.politician_name}. EVIDÊNCIAS:\n${evText}\nResponda JSON: {"status":"cumprida|parcial|pendente|quebrada","fulfillment_score":0-100,"justificativa":"explicação detalhada mínimo 50 caracteres","o_que_foi_feito":"o que realizou mínimo 20 caracteres","o_que_falta":"o que falta mínimo 20 caracteres"}`;
               const gr = await fetch(`${AI_URL}/chat/completions`, {
                 method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${GROQ_KEY}` },
-                body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
+                body: JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:1024 })
               });
               if (gr.ok) {
                 const gd = await gr.json();
@@ -1364,7 +1364,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
                 updateData.o_que_foi_feito = parsed.o_que_foi_feito || ev.o_que_foi_feito;
                 updateData.o_que_falta = parsed.o_que_falta || ev.o_que_falta;
                 updateData.evidencias_usadas = evidencias.slice(0, 5);
-                updateData.modelo_ia = 'llama-3.3-70b-versatile';
+                updateData.modelo_ia = 'llama-3.1-8b-instant';
                 updateData.confianca = evidencias.length >= 2 ? 0.80 : 0.60;
                 needsUpdate = true;
                 await new Promise(r => setTimeout(r, 2000));

@@ -135,7 +135,7 @@ async function evaluateViaAI(promise, evidences) {
       const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } })
       });
       if (res.status === 429) {
         const retryAfter = parseInt(res.headers.get('retry-after') || '10', 10);

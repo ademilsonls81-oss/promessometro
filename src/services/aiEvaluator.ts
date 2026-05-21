@@ -50,7 +50,7 @@ export interface TrustedSource {
   type: string;
 }
 
-const AI_MODEL = "llama-3.3-70b-versatile";
+const AI_MODEL = "llama-3.1-8b-instant";
 const INCONSISTENCY_THRESHOLD = 30;
 
 function getAIClient() {

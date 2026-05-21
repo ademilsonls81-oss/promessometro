@@ -207,7 +207,7 @@ export async function classifyPromise(promiseId: string): Promise<Classification
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
         max_tokens: 1024,
@@ -415,7 +415,7 @@ export async function applyScore(
         o_que_foi_feito: sanitizedResult.o_que_foi_feito,
         confianca: sanitizedResult.confianca,
         motivo_confianca: sanitizedResult.motivo_confianca,
-        modelo_ia: "llama-3.3-70b-versatile",
+        modelo_ia: "llama-3.1-8b-instant",
       });
 
     if (expError) {

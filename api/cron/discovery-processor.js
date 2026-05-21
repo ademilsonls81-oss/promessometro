@@ -23,7 +23,7 @@ const ELECTION_YEARS = {
   prefeito: 2024, vereador: 2024
 };
 const GROQ_MODEL = 'llama-3.1-8b-instant';
-const GROQ_FALLBACK = 'llama-3.3-70b-versatile';
+const GROQ_FALLBACK = 'llama-3.1-8b-instant';
 const PAGE_SIZE = 3000;      // páginas individuais (menores = mais rápidas)
 const BATCH_PAGES = 3;       // páginas por chamada Groq (3 páginas × 3k chars = 9k chars)
 const ROUNDS = 4;            // batches por chunk (4 batches × 5 páginas = 20 páginas)

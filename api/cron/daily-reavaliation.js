@@ -204,7 +204,7 @@ REGRAS DE AVALIAÇÃO:
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.1,
@@ -389,7 +389,7 @@ export default async function handler(req, res) {
               o_que_falta: result.o_que_falta || 'Monitoramento contínuo',  // FIX B6
               o_que_foi_feito: result.o_que_foi_feito || result.justification, // FIX B6
               confianca: result.evidences.length >= 2 ? 0.80 : 0.60,
-              modelo_ia: 'llama-3.3-70b-versatile',
+              modelo_ia: 'llama-3.1-8b-instant',
               is_latest: true,
               gerado_em: new Date().toISOString()
             });
