@@ -1415,7 +1415,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       return res.json({
         fixed, created, errors, total: relevant.length,
         debug: { promises_count: promiseIds.length, explained_count: explainedIds.size, need_create_count: needCreate.length, has_groq: !!GROQ_KEY, has_serper: !!SERPER_KEY },
-        details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : total > 0 ? `${fixed} avaliações corrigidas` : 'Nenhuma avaliação para processar' });
+        details, message: created > 0 ? `${created} avaliações criadas, ${fixed} corrigidas` : relevant.length > 0 ? `${fixed} avaliações corrigidas` : 'Nenhuma avaliação para processar' });
       } catch (err) { return res.status(500).json({ error: err.message, detail: err.stack }); }
     }
 
