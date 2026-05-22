@@ -393,6 +393,7 @@ export default function Ranking() {
                           <div className="text-green-400">{politician.stats.fulfilled} ✔</div>
                           <div className="text-yellow-400">{politician.stats.partial} ~</div>
                           <div className="text-red-400">{politician.stats.broken} ✘</div>
+                          <div className="text-gray-500">{politician.stats.pending} ⏳</div>
                         </div>
 
                         <div className="text-right">
