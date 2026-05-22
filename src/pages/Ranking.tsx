@@ -106,7 +106,7 @@ export default function Ranking() {
         };
       });
 
-      rankingData.sort((a, b) => b.percentage - a.percentage);
+      rankingData.sort((a, b) => (b.final_score ?? 0) - (a.final_score ?? 0));
       setRanking(rankingData);
 
       const totalPromises = rankingData.reduce((acc, p) => acc + p.stats.total, 0);
