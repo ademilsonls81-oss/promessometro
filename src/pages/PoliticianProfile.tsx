@@ -21,7 +21,8 @@ import {
   Target,
   BarChart3,
   Gavel,
-  Layers
+  Layers,
+  Award
 } from "lucide-react";
 import { Badge, Button } from "../components/ui";
 import ReportPromiseModal from "../components/ReportPromiseModal";
@@ -50,6 +51,7 @@ interface MethodologyData {
   c3_score: number;
   final_score: number;
   grade: string;
+  legacy_score: number;
   version: string;
 }
 
@@ -633,6 +635,26 @@ export default function PoliticianProfile() {
               <div className="flex justify-between text-[10px] text-gray-600 mb-6">
                 <span>F</span><span>D</span><span>C</span><span>B</span><span>A</span>
               </div>
+
+              {/* Legado Historico */}
+              {politician.methodology?.legacy_score != null && (
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Award className="w-5 h-5 text-neon-cyan" />
+                    <h3 className="text-sm font-bold text-gray-300">Legado Histórico</h3>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-display font-bold text-neon-cyan">
+                      {Math.round(politician.methodology.legacy_score)}
+                    </span>
+                    <span className="text-xs text-gray-500">pts acumulados</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 mt-1">
+                    Score cumulativo de todas as promessas entregas, ponderado por complexidade e impacto.
+                    Não influencia a grade A-F do mandato atual.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

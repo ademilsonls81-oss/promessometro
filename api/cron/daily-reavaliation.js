@@ -188,7 +188,9 @@ Com base nas evidências acima, avalie a promessa e responda SOMENTE com este JS
   "fulfillment_score": número entre 0 e 100,
   "justificativa": "Explicação detalhada de mínimo 50 palavras citando as fontes encontradas e o que foi ou não foi feito",
   "o_que_foi_feito": "Descreva concretamente o que já foi realizado ou entregue até agora (mínimo 30 palavras)",
-  "o_que_falta": "Descreva o que ainda precisa ser feito para cumprir completamente a promessa (mínimo 20 palavras)"
+  "o_que_falta": "Descreva o que ainda precisa ser feito para cumprir completamente a promessa (mínimo 20 palavras)",
+  "complexity": número de 1 a 3,
+  "impact": número de 1 a 3
 }
 
 REGRAS DE AVALIAÇÃO:
@@ -196,7 +198,17 @@ REGRAS DE AVALIAÇÃO:
 - parcial (40-79): progresso concreto mas incompleto
 - pendente (0-39): pouco ou nenhum progresso demonstrado
 - quebrada (0): ação contrária à promessa ou prazo expirado sem entrega
-- Sem evidência com URL real: máximo score 25, status pendente`;
+- Sem evidência com URL real: máximo score 25, status pendente
+
+COMPLEXIDADE (1-3):
+1 = Simples: declaração genérica, sem métrica ou prazo
+2 = Médio: meta definida com indicador mensurável
+3 = Complexo: meta com métricas, prazos e impacto estruturante
+
+IMPACTO (1-3):
+1 = Baixo: localizado, afeta grupo restrito
+2 = Médio: abrangente, afeta setor ou região
+3 = Alto: estruturante, afeta toda a população`;
 
   try {
     if (!apiKey) throw new Error('GROQ_API_KEY not configured');
@@ -224,7 +236,9 @@ REGRAS DE AVALIAÇÃO:
       justification: parsed.justificativa || '',
       o_que_foi_feito: parsed.o_que_foi_feito || '',
       o_que_falta: parsed.o_que_falta || '',
-      evidences: dedupedEvidences
+      evidences: dedupedEvidences,
+      complexity: Math.max(1, Math.min(3, Math.round(parsed.complexity || 1))),
+      impact: Math.max(1, Math.min(3, Math.round(parsed.impact || 1)))
     };
   } catch (err) {
     // Fallback: não usar placeholder de herança
@@ -236,18 +250,20 @@ REGRAS DE AVALIAÇÃO:
       justification: `Avaliação baseada no status registrado (${originalStatus}). Sem acesso à IA neste momento: ${err.message}. Reavaliação será feita na próxima execução.`,
       o_que_foi_feito: 'Aguardando reavaliação pela IA na próxima execução do ciclo.',
       o_que_falta: 'Reavaliação completa via IA na próxima execução.',
-      evidences: dedupedEvidences
+      evidences: dedupedEvidences,
+      complexity: 1,
+      impact: 1
     };
   }
 }
 
-// Recalcula e salva C1/C2/C3/grade para um político após reavaliação
+// Recalcula e salva C1/C2/C3/grade/legacy para um político após reavaliação
 async function recalcPoliticianScores(polId) {
   try {
     const { data: pol } = await db().from('politicians').select('*').eq('id', polId).single();
     if (!pol) return;
 
-    const { data: promises } = await db().from('promises').select('id, status').eq('politician_id', polId);
+    const { data: promises } = await db().from('promises').select('id, status, complexity_score, impact_score').eq('politician_id', polId);
     const { data: explanations } = promises?.length
       ? await db().from('promise_explanations').select('promise_id, status, fulfillment_score').in('promise_id', promises.map(p => p.id)).eq('is_latest', true)
       : { data: [] };
@@ -256,12 +272,19 @@ async function recalcPoliticianScores(polId) {
     (explanations || []).forEach(e => evalMap[e.promise_id] = e);
 
     let f = 0, pa = 0;
+    let legacyScore = 0;
     const total = (promises || []).length;
     (promises || []).forEach(p => {
       const ev = evalMap[p.id];
       const s = ev ? (mapStatusToFrontend(ev.status)) : mapStatusToFrontend(p.status);
       if (s === 'cumprida') f++;
       else if (s === 'parcial') pa++;
+
+      const c = p.complexity_score || 1;
+      const i = p.impact_score || 1;
+      const multiplier = Math.pow(2, c + i);
+      if (s === 'cumprida') legacyScore += 1.0 * multiplier;
+      else if (s === 'parcial') legacyScore += 0.5 * multiplier;
     });
 
     const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
@@ -296,7 +319,8 @@ async function recalcPoliticianScores(polId) {
     await db().from('politicians').update({
       c1_score: c1, c2_score: c2, c3_score: c3,
       final_score: finalScore, grade,
-      methodology_version: '1.0',
+      legacy_score: legacyScore,
+      methodology_version: '1.1',
       last_evaluated_at: new Date().toISOString()
     }).eq('id', polId);
   } catch (e) {
@@ -356,6 +380,8 @@ export default async function handler(req, res) {
           fulfillment_score: result.fulfillment_score,
           ai_evaluation: result.justification,
           evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+          complexity_score: result.complexity,
+          impact_score: result.impact,
           last_verified_at: new Date().toISOString()
         }).eq('id', promise.id);
 

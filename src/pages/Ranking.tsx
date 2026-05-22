@@ -57,6 +57,7 @@ interface Politician {
   c2_score: number | null;
   c3_score: number | null;
   evaluated_count: number;
+  legacy_score: number;
   stats: PoliticianStats;
   promise_count: number;
 }
@@ -393,18 +394,12 @@ export default function Ranking() {
                           <div className="text-red-400">{politician.stats.broken} ✘</div>
                         </div>
 
-                        <div className="w-full md:w-48">
-                          <div className="flex justify-between text-xs font-bold mb-2">
-                            <span className="text-gray-500 uppercase tracking-wider">Execução</span>
-                            <span className="text-neon-cyan">{politician.percentage}%</span>
+                        <div className="text-right">
+                          <div className="text-2xl font-display font-bold text-neon-cyan">
+                            {Math.round(politician.legacy_score || 0)}
                           </div>
-                          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${politician.percentage}%` }}
-                              className={`h-full rounded-full ${politician.percentage >= 70 ? "bg-green-500" : politician.percentage >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
-                            />
-                          </div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Legado</div>
+                          <div className="text-xs text-gray-600 mt-1">{politician.percentage}% execução</div>
                         </div>
                       </div>
                     </motion.div>

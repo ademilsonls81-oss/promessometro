@@ -163,8 +163,8 @@ export default async function handler(req, res) {
       const includeAll = url.searchParams.get('include_all') === 'true';
 
       const [polRes, promRes] = await Promise.all([
-        db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score'),
-        db().from('promises').select('id, politician_id, politician_name, status')
+        db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score, legacy_score'),
+        db().from('promises').select('id, politician_id, politician_name, status, complexity_score, impact_score')
       ]);
       if (polRes.error) return res.status(500).json({ error: polRes.error.message });
       const allEvalRes = [];
@@ -194,6 +194,7 @@ export default async function handler(req, res) {
       const ranking = (polRes.data || []).map(pol => {
         const list = promByPol[pol.id] || promByNormName[normName(pol.name)] || [];
         let f = 0, pa = 0, b = 0, pe = 0, totalScore = 0, evalCount = 0, evCount = 0;
+        let legacyScore = 0;
         list.forEach(p => {
           const ev = evalMap[p.id];
           const s = ev ? normStatus(ev.status) : normStatus(p.status);
@@ -203,6 +204,13 @@ export default async function handler(req, res) {
           else if (s === 'parcial') { pa++; totalScore += sc || 50; evalCount++; }
           else if (s === 'quebrada') { b++; evalCount++; }
           else { pe++; if (ev) { totalScore += sc || 20; evalCount++; } }
+
+          // Calculate legacy contribution
+          const c = p.complexity_score || 1;
+          const i = p.impact_score || 1;
+          const multiplier = Math.pow(2, c + i);
+          if (s === 'cumprida') legacyScore += 1.0 * multiplier;
+          else if (s === 'parcial') legacyScore += 0.5 * multiplier;
         });
         const pct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
 
@@ -210,6 +218,7 @@ export default async function handler(req, res) {
           ...pol,
           stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length },
           percentage: pct, promise_count: list.length, evaluated_count: evCount,
+          legacy_score: legacyScore,
           c1_score: pol.c1_score != null ? Number(pol.c1_score) : null,
           c2_score: pol.c2_score, c3_score: pol.c3_score,
           final_score: pol.final_score != null ? Math.round(Number(pol.final_score)) : null,
@@ -217,12 +226,18 @@ export default async function handler(req, res) {
         };
       });
 
-      const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => b.percentage - a.percentage);
+      const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => b.legacy_score - a.legacy_score);
       const mainRanking = withPromises.filter(p => p.evaluated_count >= 5);
       const insufficientSample = withPromises.filter(p => p.evaluated_count < 5);
       const result = includeAll ? ranking : mainRanking;
 
-      return res.json({ ranking: result.slice(0, 50), insufficient_sample: insufficientSample.slice(0, 50), total: result.length });
+      // Save legacy_score for top 50
+      const topSlice = result.slice(0, 50);
+      for (const pol of topSlice) {
+        await dbAdmin().from('politicians').update({ legacy_score: pol.legacy_score }).eq('id', pol.id);
+      }
+
+      return res.json({ ranking: topSlice, insufficient_sample: insufficientSample.slice(0, 50), total: result.length });
     }
 
     if (path === '/api/promises' && method === 'GET') {
@@ -567,8 +582,13 @@ Resposta SOMENTE JSON:
       const cleanPath = path.split('?')[0];
       const slug = cleanPath.replace('/api/politician/', '');
       
-      const { data: pol, error: polErr } = await db().from('politicians').select('*').eq('slug', slug).single();
-      if (polErr || !pol) return res.status(404).json({ error: 'Politico nao encontrado' });
+      let { data: pol, error: polErr } = await db().from('politicians').select('*').eq('slug', slug).maybeSingle();
+      // Fallback: try matching by name converted to slug
+      if (!pol) {
+        const { data: all } = await db().from('politicians').select('*');
+        pol = (all || []).find(p => toSlug(p.name) === slug) || null;
+      }
+      if (!pol) return res.status(404).json({ error: 'Politico nao encontrado' });
 
       const { data: promises } = await db().from('promises').select('*').eq('politician_id', pol.id).order('created_at', { ascending: false });
 
@@ -596,6 +616,18 @@ Resposta SOMENTE JSON:
 
       // Calculate C1
       const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
+
+      // Calculate Legacy Score
+      let legacyScore = 0;
+      (promises || []).forEach(p => {
+        const ev = evalMap[p.id];
+        const s = ev ? normStatus(ev.status) : normStatus(p.status);
+        const c = p.complexity_score || 1;
+        const i = p.impact_score || 1;
+        const multiplier = Math.pow(2, c + i);
+        if (s === 'cumprida') legacyScore += 1.0 * multiplier;
+        else if (s === 'parcial') legacyScore += 0.5 * multiplier;
+      });
 
       // Calculate C2
       let c2 = 0;
@@ -647,13 +679,14 @@ Resposta SOMENTE JSON:
       await dbAdmin().from('politicians').update({
         c1_score: c1, c2_score: c2, c3_score: c3,
         final_score: parseFloat(finalScore.toFixed(1)), grade,
-        methodology_version: '1.0',
+        legacy_score: legacyScore,
+        methodology_version: '1.1',
         last_evaluated_at: new Date().toISOString()
       }).eq('id', pol.id);
 
       return res.json({
         politician: pol,
-        methodology: { c1_score: c1, c2_score: c2, c3_score: c3, final_score: parseFloat(finalScore.toFixed(1)), grade, version: '1.0' },
+        methodology: { c1_score: c1, c2_score: c2, c3_score: c3, final_score: parseFloat(finalScore.toFixed(1)), grade, legacy_score: legacyScore, version: '1.1' },
         stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total },
         percentage: pct,
         mandates: mandate ? [mandate] : [],
@@ -1657,9 +1690,16 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const evalMap = {};
       (explanations||[]).forEach(e => evalMap[e.promise_id] = e);
       let f = 0, pa = 0;
+      let legacyScore = 0;
       (promises||[]).forEach(p => {
         const ev = evalMap[p.id]; const s = ev ? normStatus(ev.status) : normStatus(p.status);
         if (s === 'cumprida') f++; else if (s === 'parcial') pa++;
+
+        const c = p.complexity_score || 1;
+        const i = p.impact_score || 1;
+        const multiplier = Math.pow(2, c + i);
+        if (s === 'cumprida') legacyScore += 1.0 * multiplier;
+        else if (s === 'parcial') legacyScore += 0.5 * multiplier;
       });
       const total = (promises||[]).length;
       const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
@@ -1694,12 +1734,13 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       await dbAdmin().from('politicians').update({
         c1_score: c1, c2_score: c2, c3_score: c3,
         final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade,
-        methodology_version: '1.0', last_evaluated_at: new Date().toISOString()
+        legacy_score: legacyScore,
+        methodology_version: '1.1', last_evaluated_at: new Date().toISOString()
       }).eq('id', politician_id);
 
       return res.json({
         success: true, politician: pol.name,
-        scores: { c1, c2, c3, final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade },
+        scores: { c1, c2, c3, final_score: parseFloat(finalScore.toFixed(1)), grade: cappedGrade, legacy_score: legacyScore },
         breakdown: { promises_total: total, cumpridas: f, parciais: pa, indicators: (indicators||[]).length, legal_facts: (legalFacts||[]).length }
       });
     }

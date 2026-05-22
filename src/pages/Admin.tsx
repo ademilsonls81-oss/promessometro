@@ -5,7 +5,7 @@ import {
   AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download,
   Play, Github, Zap, Search, Database, Clock, TrendingUp, Activity,
   ChevronDown, Loader2, AlertCircle, ArrowRight, Package, Bot, Globe,
-  UserCheck, Scale, SlidersHorizontal, BookOpen
+  UserCheck, Scale, SlidersHorizontal, BookOpen, Award, Calculator
 } from "lucide-react";
 
 interface CriterioFalha { id: string; descricao: string }
@@ -108,10 +108,13 @@ export default function Admin() {
   const [discoveringJob, setDiscoveringJob] = useState<string | null>(null);
   const [discoveryStatus, setDiscoveryStatus] = useState<{[key: string]: any}>({});
   const [discoveryLivePromises, setDiscoveryLivePromises] = useState<{[key: string]: any[]}>({});
+  const [promisesCiData, setPromisesCiData] = useState<{[key: string]: any[]}>({});
+  const [loadingCi, setLoadingCi] = useState<string | null>(null);
   const [fixingExplanations, setFixingExplanations] = useState<string | null>(null);
   const [fixingCadastro, setFixingCadastro] = useState<string | null>(null);
   const [seedingLegalFacts, setSeedingLegalFacts] = useState<string | null>(null);
   const [recalculatingScores, setRecalculatingScores] = useState<string | null>(null);
+  const [recalculatingAll, setRecalculatingAll] = useState(false);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [toolResults, setToolResults] = useState<Record<string, any>>({});
 
@@ -375,6 +378,54 @@ export default function Admin() {
     setRecalculatingScores(null);
   }
 
+  async function loadPromisesCi(pol: Politician) {
+    if (promisesCiData[pol.id]) { setPromisesCiData(r => { const n = { ...r }; delete n[pol.id]; return n; }); return; }
+    setLoadingCi(pol.id);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/politician/${pol.slug || pol.name}?t=${Date.now()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error("Falha ao carregar");
+      const json = await res.json();
+      setPromisesCiData(r => ({ ...r, [pol.id]: (json.promises || []).slice(0, 50).map((p: any) => ({
+        id: p.id,
+        title: p.promise_title,
+        status: p.status,
+        complexity: p.complexity_score || 1,
+        impact: p.impact_score || 1
+      })) }));
+    } catch (e: any) { setErro(e.message); }
+    setLoadingCi(null);
+  }
+
+  async function recalculateAllLegacy() {
+    setRecalculatingAll(true); setErro("");
+    const results = { total: 0, ok: 0, errors: 0, details: [] as any[] };
+    try {
+      for (const pol of politicians) {
+        try {
+          const res = await authFetch("/api/admin/recalculate-scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ politician_id: pol.id })
+          });
+          if (!res) throw new Error("Auth failed");
+          const json = await res.json();
+          results.ok++;
+          results.details.push({ name: pol.name, legacy: json.scores?.legacy_score });
+        } catch (e: any) {
+          results.errors++;
+          results.details.push({ name: pol.name, error: e.message });
+        }
+        results.total++;
+      }
+      setToolResults(r => ({ ...r, recalculate_all: results }));
+      setTimeout(() => fetchAll(), 2000);
+    } catch (e: any) { setErro(e.message); }
+    setRecalculatingAll(false);
+  }
+
   async function adicionarPolitico() {
     if (!novoNome.trim() || !novoEstado.trim()) { setErro("Nome e estado obrigatórios"); return; }
     setAdicionando(true); setErro(""); setResultadoAdd(null);
@@ -528,16 +579,16 @@ export default function Admin() {
         {/* ── FERRAMENTAS ──────────────────────────────────────────────────── */}
 
         {/* Pipeline & Reavaliação */}
-        <Section title="🤖 Pipeline de Avaliação" icon={Bot}>
+        <Section title="🤖 Pipeline de Avaliação (Metodologia v1.1)" icon={Bot}>
           <div className="pt-4 space-y-4">
             <p className="text-xs text-gray-400">Dispare manualmente o processo de avaliação de promessas via IA. O cron roda automaticamente às 6h UTC.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="p-4 bg-black/30 rounded-xl border border-white/5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-yellow-400" />
                   <span className="text-sm font-semibold">Reavaliação Diária</span>
                 </div>
-                <p className="text-xs text-gray-400">Reavalia promessas stale (&gt;23h) usando IA + Serper. Preenche justificativa, o_que_foi_feito e o_que_falta reais.</p>
+                <p className="text-xs text-gray-400">Reavalia promessas stale (&gt;23h) usando IA + Serper. Agora extrai complexidade (C) e impacto (I) 1-3.</p>
                 <button onClick={() => runPipeline("daily")} disabled={pipelineRunning}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-sm font-medium hover:bg-yellow-500/20 transition-colors disabled:opacity-50">
                   {pipelineRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
@@ -562,6 +613,30 @@ export default function Admin() {
                     </div>
                   )}
                 </div>
+              </div>
+              <div className="p-4 bg-black/30 rounded-xl border border-white/5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-neon-cyan" />
+                  <span className="text-sm font-semibold">Recalcular Legado (todos)</span>
+                </div>
+                <p className="text-xs text-gray-400">Recalcula o Legado Histórico (Σ 2^(C+I)) para TODOS os políticos de uma vez. Necessário após alterar C/I das promessas.</p>
+                <button onClick={recalculateAllLegacy} disabled={recalculatingAll}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-neon-cyan/10 border border-neon-cyan/30 rounded-xl text-neon-cyan text-sm font-medium hover:bg-neon-cyan/20 transition-colors disabled:opacity-50">
+                  {recalculatingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                  {recalculatingAll ? `Recalculando (${politicians.length} políticos)...` : `Recalcular Legado (${politicians.length})`}
+                </button>
+                {toolResults.recalculate_all && (
+                  <div className="text-xs p-2 bg-white/5 rounded-lg text-gray-300 max-h-40 overflow-y-auto">
+                    <div className="font-bold text-neon-cyan mb-1">✅ {toolResults.recalculate_all.ok}/{toolResults.recalculate_all.total} recalculados ({toolResults.recalculate_all.errors} erros)</div>
+                    {toolResults.recalculate_all.details.slice(0, 20).map((d: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2 py-0.5 border-b border-white/5 last:border-0">
+                        <span className="text-gray-400">{d.name}</span>
+                        {d.legacy != null && <span className="text-neon-cyan font-bold">Legado: {Math.round(d.legacy)}</span>}
+                        {d.error && <span className="text-red-400">Erro: {d.error}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             {toolResults.pipeline && (
@@ -884,7 +959,30 @@ export default function Admin() {
                                 Recalcular Notas
                               </button>
                             )}
+                            <button onClick={() => loadPromisesCi(pol)} disabled={loadingCi === pol.id}
+                              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50">
+                              {loadingCi === pol.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Award className="w-3 h-3" />}
+                              {promisesCiData[pol.id] ? "Fechar C/I" : "Ver C/I"}
+                            </button>
                           </div>
+                          {promisesCiData[pol.id] && (
+                            <div className="mt-2 p-2 bg-cyan-500/5 border border-cyan-500/20 rounded-lg max-h-48 overflow-y-auto">
+                              <div className="text-xs font-bold text-cyan-300 mb-1">📊 Promessas — Complexidade (C) e Impacto (I)</div>
+                              <div className="space-y-0.5">
+                                {promisesCiData[pol.id].map((p: any) => (
+                                  <div key={p.id} className="flex items-center gap-2 text-xs py-0.5 border-b border-white/5 last:border-0">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${p.status === 'cumprida' ? 'bg-green-400' : p.status === 'parcial' ? 'bg-yellow-400' : p.status === 'quebrada' ? 'bg-red-400' : 'bg-gray-500'}`} />
+                                    <span className="text-gray-300 flex-1 truncate">{p.title}</span>
+                                    <span className="text-gray-500 shrink-0">C:{p.complexity}</span>
+                                    <span className="text-gray-500 shrink-0">I:{p.impact}</span>
+                                    <span className={`text-[10px] px-1 rounded shrink-0 ${p.complexity + p.impact >= 5 ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-600'}`}>
+                                      2<sup>{p.complexity + p.impact}</sup>=<strong>{Math.pow(2, p.complexity + p.impact)}</strong>
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {toolResults[`fix_explanations_${pol.id}`] && (
                             <div className="text-xs text-orange-400 mt-2">
                               ✅ {toolResults[`fix_explanations_${pol.id}`].created > 0 ? `${toolResults[`fix_explanations_${pol.id}`].created} criadas, ` : ''}
@@ -944,7 +1042,7 @@ export default function Admin() {
                             <div className="text-xs text-red-400 mt-1">✅ Fatos Jurídicos: {toolResults[`legal_facts_${pol.id}`].inserted} inseridos{toolResults[`legal_facts_${pol.id}`].scores ? ` | C1=${toolResults[`legal_facts_${pol.id}`].scores.c1} C2=${toolResults[`legal_facts_${pol.id}`].scores.c2} C3=${toolResults[`legal_facts_${pol.id}`].scores.c3} Final=${toolResults[`legal_facts_${pol.id}`].scores.final_score} Grade=${toolResults[`legal_facts_${pol.id}`].scores.grade}` : ''}</div>
                           )}
                           {toolResults[`scores_${pol.id}`] && (
-                            <div className="text-xs text-green-400 mt-1">✅ Notas recalculadas: C1={toolResults[`scores_${pol.id}`].scores?.c1} C2={toolResults[`scores_${pol.id}`].scores?.c2} C3={toolResults[`scores_${pol.id}`].scores?.c3} Final={toolResults[`scores_${pol.id}`].scores?.final_score} Grade={toolResults[`scores_${pol.id}`].scores?.grade}</div>
+                            <div className="text-xs text-green-400 mt-1">✅ Notas recalculadas: C1={toolResults[`scores_${pol.id}`].scores?.c1} C2={toolResults[`scores_${pol.id}`].scores?.c2} C3={toolResults[`scores_${pol.id}`].scores?.c3} Final={toolResults[`scores_${pol.id}`].scores?.final_score} Grade={toolResults[`scores_${pol.id}`].scores?.grade} Legado={Math.round(toolResults[`scores_${pol.id}`].scores?.legacy_score || 0)}</div>
                           )}
                         </div>
                       );
