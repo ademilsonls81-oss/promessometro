@@ -252,6 +252,83 @@ export default function Metodologia() {
                 </p>
               </section>
 
+              {/* Alternative Model */}
+              <section className="p-8 border-2 border-dashed border-yellow-500/30 rounded-3xl bg-gradient-to-br from-yellow-500/5 to-transparent">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-yellow-500/20 rounded-xl">
+                    <BarChart3 className="w-5 h-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-yellow-300">Modelo Alternativo — Execução de Promessas (C1)</h2>
+                    <p className="text-gray-500 text-sm">Apenas promessas. Sem indicadores ou fatos jurídicos.</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl mb-4">
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    <strong className="text-yellow-300">Em teste.</strong> Este modelo simplificado ordena o ranking exclusivamente pela taxa de execução de promessas (Camada 1), sem incorporar indicadores objetivos (C2) ou fatos jurídicos (C3). O objetivo é isolar a métrica de cumprimento de promessas como critério único de desempenho.
+                  </p>
+                </div>
+
+                <h3 className="font-bold text-white mb-3 text-sm">Fórmula</h3>
+                <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-xl mb-4">
+                  <code className="text-sm text-yellow-300">
+                    Execução = (Cumpridas × 1.0 + Parciais × 0.5) / Total Avaliadas × 100
+                  </code>
+                </div>
+
+                <h3 className="font-bold text-white mb-3 text-sm">Regras do Ranking</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Amostra mínima', value: 'Apenas políticos com 5 ou mais promessas avaliadas por IA entram no ranking principal.' },
+                    { label: 'Zero dados', value: 'Políticos sem nenhuma promessa avaliada são excluídos do ranking.' },
+                    { label: 'Amostra insuficiente', value: 'Políticos com menos de 5 avaliações são listados à parte como "Amostra Insuficiente".' }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-dark-card border border-white/5 rounded-xl">
+                      <Check className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-300 font-medium">{item.label}</p>
+                        <p className="text-xs text-gray-500">{item.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <h3 className="font-bold text-white mt-6 mb-3 text-sm">Comparação entre os modelos</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left py-2 pr-4 text-gray-400 font-medium">Critério</th>
+                        <th className="text-left py-2 pr-4 text-neon-cyan font-medium">Modelo 3 Camadas</th>
+                        <th className="text-left py-2 text-yellow-300 font-medium">Modelo C1 (teste)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { crit: 'Peso promessas', m1: '40%', m2: '100%' },
+                        { crit: 'Peso indicadores', m1: '35%', m2: '0%' },
+                        { crit: 'Peso fatos jurídicos', m1: '25%', m2: '0%' },
+                        { crit: 'Mínimo de promessas', m1: 'Nenhum', m2: '5 avaliadas' },
+                        { crit: 'Ordem do ranking', m1: 'Nota final (C1+C2+C3)', m2: 'Execução (C1)' },
+                        { crit: 'Penaliza programa de governo vago?', m1: 'Sim (via C2/C3)', m2: 'Não' },
+                      ].map((row, i) => (
+                        <tr key={i} className="border-b border-white/5">
+                          <td className="py-2 pr-4 text-gray-300">{row.crit}</td>
+                          <td className={`py-2 pr-4 ${i === 0 ? 'text-neon-cyan' : 'text-gray-400'}`}>{row.m1}</td>
+                          <td className={`py-2 ${i === 0 ? 'text-yellow-300' : 'text-gray-400'}`}>{row.m2}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-6">
+                  Ambos os modelos estão disponíveis no site. O ranking público atual usa o modelo C1.
+                  Os scores do modelo 3 Camadas continuam disponíveis na página de cada político e no painel admin.
+                </p>
+              </section>
+
             </div>
           )}
         </motion.div>
