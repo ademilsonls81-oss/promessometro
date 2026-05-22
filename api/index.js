@@ -227,8 +227,8 @@ export default async function handler(req, res) {
       });
 
       const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => b.legacy_score - a.legacy_score);
-      const mainRanking = withPromises.filter(p => p.evaluated_count >= 5);
-      const insufficientSample = withPromises.filter(p => p.evaluated_count < 5);
+      const mainRanking = withPromises.filter(p => (p.stats.fulfilled + p.stats.partial + p.stats.broken) >= 5);
+      const insufficientSample = withPromises.filter(p => (p.stats.fulfilled + p.stats.partial + p.stats.broken) < 5);
       const result = includeAll ? ranking : mainRanking;
 
       // Save legacy_score for top 50
