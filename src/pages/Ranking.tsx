@@ -105,6 +105,7 @@ export default function Ranking() {
           final_score: item.final_score || null,
           c1_score: item.c1_score || null, c2_score: item.c2_score || null,
           c3_score: item.c3_score || null,
+          legacy_score: item.legacy_score || 0,
           evaluated_count: item.evaluated_count || 0,
           stats: {
             fulfilled: st.fulfilled || 0, partial: st.partial || 0,
