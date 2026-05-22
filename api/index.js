@@ -1701,6 +1701,10 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         if (s === 'cumprida') legacyScore += 1.0 * multiplier;
         else if (s === 'parcial') legacyScore += 0.5 * multiplier;
       });
+
+      // Populate default C/I for promises without them
+      await dbAdmin().from('promises').update({ complexity_score: 1, impact_score: 1 })
+        .eq('politician_id', politician_id).is('complexity_score', null);
       const total = (promises||[]).length;
       const c1 = total > 0 ? parseFloat(((f * 1.0 + pa * 0.5) / total * 100).toFixed(1)) : 0;
 
@@ -1949,12 +1953,12 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       if (path === '/api/admin/qualidade/run' && method === 'POST') {
         const auditResult = await runAudit({ autoFix: true });
         const qualidade = await runQualidadeAudit();
-        return res.json({ audit: auditResult, qualidade: { metodologia_versao: '1.0', politicos: qualidade } });
+        return res.json({ audit: auditResult, qualidade: { metodologia_versao: '1.1', politicos: qualidade } });
       }
 
       if (path === '/api/admin/qualidade') {
         const report = await runQualidadeAudit();
-        return res.json({ metodologia_versao: '1.0', politicos: report });
+        return res.json({ metodologia_versao: '1.1', politicos: report });
       }
 
       if (method === 'GET') {
@@ -1982,14 +1986,14 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           return res.status(200).send(csv);
         }
 
-        return res.json({ metodologia_versao: '1.0', exportado_em: new Date().toISOString(), politicos: report });
+        return res.json({ metodologia_versao: '1.1', exportado_em: new Date().toISOString(), politicos: report });
       }
 
       const fullReport = await runQualidadeAudit();
       const politico = (fullReport || []).find(p => p.id === slug);
       if (!politico) return res.status(404).json({ error: 'Político não encontrado' });
 
-      return res.json({ metodologia_versao: '1.0', politico });
+      return res.json({ metodologia_versao: '1.1', politico });
       }
     }
 

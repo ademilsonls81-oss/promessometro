@@ -232,6 +232,13 @@ const ALL_CRITERIA = [
     }
   },
 
+  { id: 'B15', bloco: 'B', descricao: 'Promessas com complexidade (C) e impacto (I) preenchidos',
+    tipo: 'indicadores', check: (p, ctx) => {
+      if ((ctx.promises || []).length === 0) return false;
+      return (ctx.promises || []).every(pp => pp.complexity_score != null && pp.impact_score != null);
+    }
+  },
+
   // === BLOCO C: Indicadores (C2) ===
   { id: 'C1', bloco: 'C', descricao: 'Todas as 3 categorias de indicadores populadas',
     tipo: 'indicadores', check: (p, ctx) => {
@@ -345,16 +352,22 @@ const ALL_CRITERIA = [
       return true;
     }
   },
+
+  { id: 'E4', bloco: 'E', descricao: 'Legado Histórico calculado',
+    tipo: 'final', check: (p) => p.legacy_score != null && p.legacy_score >= 0 },
+
+  { id: 'E5', bloco: 'E', descricao: 'Metodologia v1.1 ativa',
+    tipo: 'final', check: (p) => p.methodology_version === '1.1' },
 ];
 
 export async function runQualidadeAudit() {
-  const { data: pols } = await db().from('politicians').select('id, name, slug, role, state, party, photo_url, c1_score, c2_score, c3_score, final_score, grade, last_evaluated_at, legal_facts_checked_at');
+  const { data: pols } = await db().from('politicians').select('id, name, slug, role, state, party, photo_url, c1_score, c2_score, c3_score, final_score, grade, last_evaluated_at, legal_facts_checked_at, legacy_score, methodology_version');
   if (!pols) return [];
 
   const result = [];
 
   for (const pol of pols) {
-    const { data: promises } = await db().from('promises').select('id, status').eq('politician_id', pol.id);
+    const { data: promises } = await db().from('promises').select('id, status, complexity_score, impact_score').eq('politician_id', pol.id);
     const pIds = (promises||[]).map(p => p.id);
     let explanations = [];
     if (pIds.length > 0) {
