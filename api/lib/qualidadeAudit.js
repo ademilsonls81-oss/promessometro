@@ -239,6 +239,15 @@ const ALL_CRITERIA = [
     }
   },
 
+  { id: 'B16', bloco: 'B', descricao: 'Todas as promessas possuem avaliação (promise_explanations)',
+    check: (p, ctx) => {
+      const total = (ctx.promises || []).length;
+      const explicadas = (ctx.explanations || []).length;
+      if (total === 0) return false;
+      return explicadas >= total;
+    }
+  },
+
   // === BLOCO C: Indicadores (C2) ===
   { id: 'C1', bloco: 'C', descricao: 'Todas as 3 categorias de indicadores populadas',
     tipo: 'indicadores', check: (p, ctx) => {

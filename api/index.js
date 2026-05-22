@@ -1981,7 +1981,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             const cOk = (p.criterios_ok || []).filter(id => id.startsWith('C')).length;
             const dOk = (p.criterios_ok || []).filter(id => id.startsWith('D')).length;
             const eOk = (p.criterios_ok || []).filter(id => id.startsWith('E')).length;
-            csv += `"${p.nome}","${p.status}",${p.score_qualidade},${aOk}/${5},${bOk}/${14},${cOk}/${4},${dOk}/${6},${eOk}/${3},"${falhas}"\n`;
+            csv += `"${p.nome}","${p.status}",${p.score_qualidade},${aOk}/${6},${bOk}/${16},${cOk}/${4},${dOk}/${6},${eOk}/${5},"${falhas}"\n`;
           });
           return res.status(200).send(csv);
         }

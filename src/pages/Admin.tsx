@@ -27,7 +27,7 @@ const BLOCO_LABELS: Record<string, string> = {
   D: "Fatos Jurídicos (C3)", E: "Nota Final"
 };
 const BLOCO_ICONS: Record<string, any> = { A: Users, B: FileText, C: BarChart3, D: Gavel, E: Star };
-const BLOCO_TOTALS: Record<string, number> = { A: 6, B: 15, C: 4, D: 6, E: 5 };
+const BLOCO_TOTALS: Record<string, number> = { A: 6, B: 16, C: 4, D: 6, E: 5 };
 
 function getToken() { return localStorage.getItem("admin_token") || ""; }
 
@@ -900,7 +900,7 @@ export default function Admin() {
                       const needsPromises = p.stats.total_promises < 10 || falhasSet.has("B1");
                       const needsDiscovery = p.stats.total_promises < 20;
                       const needsCadastro = ["A1","A2","A3","A4","A5"].some(id => falhasSet.has(id));
-                      const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12","B13"].some(id => falhasSet.has(id));
+                      const needsExplanations = ["B4","B5","B6","B7","B8","B9","B10","B11","B12","B13","B16"].some(id => falhasSet.has(id));
                       const needsLegalFacts = (p.stats.total_legal_facts === 0) || ["D1","D2","D3","D4","D5"].some(id => falhasSet.has(id));
                       const needsRecalculate = ["B14","B15","C3","D1","E1","E2","E3","E4","E5"].some(id => falhasSet.has(id));
 
