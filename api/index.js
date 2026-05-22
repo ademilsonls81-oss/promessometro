@@ -193,11 +193,12 @@ export default async function handler(req, res) {
 
       const ranking = (polRes.data || []).map(pol => {
         const list = promByPol[pol.id] || promByNormName[normName(pol.name)] || [];
-        let f = 0, pa = 0, b = 0, pe = 0, totalScore = 0, evalCount = 0;
+        let f = 0, pa = 0, b = 0, pe = 0, totalScore = 0, evalCount = 0, evCount = 0;
         list.forEach(p => {
           const ev = evalMap[p.id];
           const s = ev ? normStatus(ev.status) : normStatus(p.status);
           const sc = ev ? (ev.fulfillment_score || 0) : 0;
+          if (ev) evCount++;
           if (s === 'cumprida') { f++; totalScore += 100; evalCount++; }
           else if (s === 'parcial') { pa++; totalScore += sc || 50; evalCount++; }
           else if (s === 'quebrada') { b++; evalCount++; }
@@ -205,24 +206,23 @@ export default async function handler(req, res) {
         });
         const pct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
 
-        // Use saved scores from recalculate-scores as source of truth
-        const finalScore = pol.final_score != null ? Number(pol.final_score) : pct;
-        const grade = pol.grade || null;
-
         return {
           ...pol,
           stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length },
-          percentage: pct, promise_count: list.length,
-          grade, final_score: Math.round(finalScore),
-          c1_score: pol.c1_score != null ? Number(pol.c1_score) : pct,
-          c2_score: pol.c2_score, c3_score: pol.c3_score
+          percentage: pct, promise_count: list.length, evaluated_count: evCount,
+          c1_score: pol.c1_score != null ? Number(pol.c1_score) : null,
+          c2_score: pol.c2_score, c3_score: pol.c3_score,
+          final_score: pol.final_score != null ? Math.round(Number(pol.final_score)) : null,
+          grade: pol.grade || null
         };
       });
 
-      let result = ranking.sort((a, b) => b.final_score - a.final_score);
-      if (!includeAll) result = result.filter(p => p.promise_count > 0);
+      const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => b.percentage - a.percentage);
+      const mainRanking = withPromises.filter(p => p.evaluated_count >= 5);
+      const insufficientSample = withPromises.filter(p => p.evaluated_count < 5);
+      const result = includeAll ? ranking : mainRanking;
 
-      return res.json({ ranking: result.slice(0, 50), total: result.length });
+      return res.json({ ranking: result.slice(0, 50), insufficient_sample: insufficientSample.slice(0, 50), total: result.length });
     }
 
     if (path === '/api/promises' && method === 'GET') {

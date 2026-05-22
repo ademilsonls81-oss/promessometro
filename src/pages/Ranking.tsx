@@ -21,6 +21,19 @@ interface PoliticianStats {
   total: number;
 }
 
+interface InsufficientPolitician {
+  name: string;
+  slug: string | null;
+  role: string | null;
+  state: string | null;
+  party: string | null;
+  photo_url: string | null;
+  percentage: number;
+  stats: PoliticianStats;
+  promise_count: number;
+  evaluated_count: number;
+}
+
 const GRADE_STYLES: Record<string, string> = {
   A: 'text-green-400 bg-green-500/10 border-green-500/30',
   B: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
@@ -43,6 +56,7 @@ interface Politician {
   c1_score: number | null;
   c2_score: number | null;
   c3_score: number | null;
+  evaluated_count: number;
   stats: PoliticianStats;
   promise_count: number;
 }
@@ -56,6 +70,7 @@ interface RankingStats {
 
 export default function Ranking() {
   const [ranking, setRanking] = useState<Politician[]>([]);
+  const [insufficientSample, setInsufficientSample] = useState<Politician[]>([]);
   const [stats, setStats] = useState<RankingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -72,52 +87,47 @@ export default function Ranking() {
     try {
       setLoading(true);
       
-       const response = await fetch('/api/politicians/ranking');
+      const response = await fetch('/api/politicians/ranking');
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Erro na API');
       }
       const data = await response.json();
       
-      const rankingData = (data.ranking || []).map((item: any) => {
-        const stats = item.stats || {};
+      const mapItem = (item: any) => {
+        const st = item.stats || {};
         return {
-          name: item.name,
-          slug: item.slug,
-          role: item.role,
-          state: item.state,
-          party: item.party,
-          photo_url: item.photo_url,
+          name: item.name, slug: item.slug, role: item.role, state: item.state,
+          party: item.party, photo_url: item.photo_url,
           is_active: item.is_active !== false,
-          percentage: item.percentage,
-          grade: item.grade || null,
+          percentage: item.percentage, grade: item.grade || null,
           final_score: item.final_score || null,
-          c1_score: item.c1_score || null,
-          c2_score: item.c2_score || null,
+          c1_score: item.c1_score || null, c2_score: item.c2_score || null,
           c3_score: item.c3_score || null,
+          evaluated_count: item.evaluated_count || 0,
           stats: {
-            fulfilled: stats.fulfilled || 0,
-            partial: stats.partial || 0,
-            broken: stats.broken || 0,
-            pending: stats.pending || 0,
+            fulfilled: st.fulfilled || 0, partial: st.partial || 0,
+            broken: st.broken || 0, pending: st.pending || 0,
             total: item.promise_count || 0
           },
           promise_count: item.promise_count || 0
         };
-      });
+      };
 
-      rankingData.sort((a, b) => (b.final_score ?? 0) - (a.final_score ?? 0));
+      const rankingData = (data.ranking || []).map(mapItem);
+      const insufficientData = (data.insufficient_sample || []).map(mapItem);
+
       setRanking(rankingData);
+      setInsufficientSample(insufficientData);
 
-      const totalPromises = rankingData.reduce((acc, p) => acc + p.stats.total, 0);
-      const totalPoliticians = rankingData.length;
-      
-      const fulfilled = rankingData.reduce((acc, p) => acc + p.stats.fulfilled, 0);
-      const broken = rankingData.reduce((acc, p) => acc + p.stats.broken, 0);
+      const all = [...rankingData, ...insufficientData];
+      const totalPromises = all.reduce((acc, p) => acc + p.stats.total, 0);
+      const fulfilled = all.reduce((acc, p) => acc + p.stats.fulfilled, 0);
+      const broken = all.reduce((acc, p) => acc + p.stats.broken, 0);
       
       setStats({
         total_promises: totalPromises,
-        total_politicians: totalPoliticians,
+        total_politicians: rankingData.length,
         fulfilled_percentage: totalPromises > 0 ? Math.round((fulfilled / totalPromises) * 100) : 0,
         broken_percentage: totalPromises > 0 ? Math.round((broken / totalPromises) * 100) : 0
       });
@@ -385,16 +395,14 @@ export default function Ranking() {
 
                         <div className="w-full md:w-48">
                           <div className="flex justify-between text-xs font-bold mb-2">
-                            <span className="text-gray-500 uppercase tracking-wider">
-                              {politician.final_score != null && (politician.c2_score != null || politician.c3_score != null) ? "Score Final" : "C1 Promessas"}
-                            </span>
-                            <span className="text-neon-cyan">{politician.final_score ?? politician.percentage}%</span>
+                            <span className="text-gray-500 uppercase tracking-wider">Execução</span>
+                            <span className="text-neon-cyan">{politician.percentage}%</span>
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
-                              animate={{ width: `${politician.final_score ?? politician.percentage}%` }}
-                              className={`h-full rounded-full ${(politician.final_score ?? politician.percentage) >= 70 ? "bg-green-500" : (politician.final_score ?? politician.percentage) >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                              animate={{ width: `${politician.percentage}%` }}
+                              className={`h-full rounded-full ${politician.percentage >= 70 ? "bg-green-500" : politician.percentage >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
                             />
                           </div>
                         </div>
@@ -413,6 +421,60 @@ export default function Ranking() {
                 >
                   Ver mais ({filteredRanking.length - visibleCount} restantes)
                 </button>
+              </div>
+            )}
+
+            {insufficientSample.length > 0 && (
+              <div className="mt-16 mb-12">
+                <div className="flex items-center gap-2 mb-6">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-2xl font-bold text-gray-300">Amostra Insuficiente</h2>
+                  <span className="text-xs text-gray-500 ml-2">menos de 5 promessas avaliadas</span>
+                </div>
+                <p className="text-gray-500 text-sm mb-6 max-w-2xl">
+                  Estes políticos têm menos de 5 promessas com avaliação por IA. O score exibido é preliminar e será atualizado conforme novas avaliações forem realizadas.
+                </p>
+                <div className="space-y-3">
+                  {insufficientSample.map((politician, idx) => {
+                    const badge = statusBadge(politician.percentage);
+                    return (
+                      <Link key={politician.name} to={`/politico/${politician.slug || toSlug(politician.name)}`} className="block">
+                        <div className="group bg-dark-card/60 border border-dashed border-white/10 hover:border-white/20 p-4 rounded-2xl transition-all">
+                          <div className="flex items-center gap-4">
+                            <div className="text-lg font-display font-bold w-6 text-gray-600">{idx + 1}</div>
+                            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0">
+                              {politician.photo_url ? (
+                                <img src={politician.photo_url} alt={politician.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-bold text-white/40">{politician.name.split(" ").map(n => n[0]).join("").slice(0, 2)}</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm font-bold group-hover:text-neon-cyan transition-colors truncate">{politician.name}</h3>
+                                <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+                                  {politician.evaluated_count}/{politician.promise_count} avaliadas
+                                </span>
+                              </div>
+                              <p className="text-gray-600 text-xs truncate">
+                                {politician.role || "Político"} · {politician.state}{politician.party ? ` · ${politician.party}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className="text-green-400">{politician.stats.fulfilled} ✔</span>
+                              <span className="text-yellow-400">{politician.stats.partial} ~</span>
+                              <span className="text-red-400">{politician.stats.broken} ✘</span>
+                            </div>
+                            <div className="w-24 text-right">
+                              <span className={`text-sm font-bold ${badge.color.split(' ')[0]}`}>{politician.percentage}%</span>
+                              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded border ${badge.color}`}>{badge.label}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -448,7 +510,7 @@ export default function Ranking() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs font-bold text-gray-500 mb-1">Score Final</div>
+                              <div className="text-xs font-bold text-gray-500 mb-1">Execução</div>
                               <div className="text-xl font-display font-bold text-gray-400">{politician.percentage}%</div>
                             </div>
                           </div>
