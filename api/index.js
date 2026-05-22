@@ -106,21 +106,22 @@ function normName(name) {
 
 async function ensurePolitician(name) {
   const trimmed = name.trim();
+  const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   
-  // Try multiple matching strategies
+  // Load all politicians and match by normalized name
   let existing = null;
+  const { data: all } = await db().from('politicians').select('id, name, photo_url, role, state, party');
+  existing = (all || []).find(p => {
+    const pNorm = p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return pNorm === normalized;
+  });
   
-  // 1. Exact accent-insensitive
-  const { data: match1 } = await db().from('politicians').select('id, name, photo_url, role, state, party').ilike('name', trimmed).maybeSingle();
-  if (match1) existing = match1;
-  
-  // 2. First + last name match
+  // 2. First + last name match (fallback)
   if (!existing) {
     const parts = trimmed.split(' ').filter(Boolean);
     if (parts.length >= 2) {
       const firstName = parts[0];
       const lastName = parts[parts.length - 1];
-      const { data: all } = await db().from('politicians').select('id, name, photo_url, role, state, party');
       existing = (all || []).find(p => {
         const pParts = p.name.split(' ').filter(Boolean);
         return pParts.length >= 2 && normName(pParts[0]) === normName(firstName) && normName(pParts[pParts.length - 1]) === normName(lastName);
