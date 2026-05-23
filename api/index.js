@@ -1514,11 +1514,11 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         const ctx = snippets || wikiContext;
         const prompt = ctx
           ? `Extraia dados do político brasileiro. Contexto: ${ctx}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`
-          : `Quem é ${pol.name}? Responda JSON com role (Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual), state (UF), party (sigla).`;
+          : `Dados do político brasileiro ${pol.name}. Responda JSON com role (apenas um destes: Presidente, Governador, Prefeito, Senador, Deputado Federal, Deputado Estadual), state (UF), party (sigla).`;
         try {
           const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
           if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
-            if (p.role && precisaRole && !updates.role) updates.role = p.role;
+            if (p.role && precisaRole && !updates.role && roleValido(p.role)) updates.role = p.role;
             if (p.state && precisaState) updates.state = p.state.toUpperCase().substring(0,2);
             if (p.party && precisaParty) updates.party = p.party.toUpperCase();
           }
