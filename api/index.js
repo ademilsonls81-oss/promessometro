@@ -242,21 +242,18 @@ export default async function handler(req, res) {
 
     if (path === '/api/promises' && method === 'GET') {
       const [promisesRes, polRes] = await Promise.all([
-        db().from('promises').select('*, politicians(photo_url)').order('created_at', { ascending: false }).limit(50),
+        db().from('promises').select('*').order('created_at', { ascending: false }).limit(50),
         db().from('politicians').select('name, photo_url')
       ]);
       if (promisesRes.error) return res.status(500).json({ error: promisesRes.error.message });
       const polPhotoMap = {};
       (polRes.data || []).forEach(p => { polPhotoMap[p.name] = p.photo_url; });
       return res.json({
-        promises: (promisesRes.data || []).map(p => {
-          const { politicians, ...promise } = p;
-          return {
-            ...promise,
-            politician_photo_url: politicians?.photo_url || polPhotoMap[p.politician_name] || null,
-            slug: toSlug(p.politician_name)
-          };
-        }),
+        promises: (promisesRes.data || []).map(p => ({
+          ...p,
+          politician_photo_url: polPhotoMap[p.politician_name] || null,
+          slug: toSlug(p.politician_name)
+        })),
         total: promisesRes.data?.length || 0
       });
     }
@@ -735,14 +732,14 @@ Resposta SOMENTE JSON:
       const id = cleanPath.replace('/api/promises/', '');
       if (!id) return res.status(400).json({ error: 'id obrigatorio' });
       const [promiseRes, polRes] = await Promise.all([
-        db().from('promises').select('*, politicians(photo_url)').eq('id', id).maybeSingle(),
+        db().from('promises').select('*').eq('id', id).maybeSingle(),
         db().from('politicians').select('name, photo_url')
       ]);
       if (promiseRes.error || !promiseRes.data) return res.status(404).json({ error: 'Promessa nao encontrada' });
       const polMap = {}; (polRes.data || []).forEach(p => polMap[p.name] = p.photo_url);
-      const { politicians, ...promise } = promiseRes.data;
+      const promise = promiseRes.data;
       const { data: evaluation } = await db().from('promise_explanations').select('*').eq('promise_id', id).eq('is_latest', true).maybeSingle();
-      return res.json({ ...promise, politician_photo_url: politicians?.photo_url || polMap[promise.politician_name] || null, evaluation: evaluation || null });
+      return res.json({ ...promise, politician_photo_url: polMap[promise.politician_name] || null, evaluation: evaluation || null });
     }
 
     if (path === '/api/photos/backfill' && (method === 'POST' || method === 'GET')) {
