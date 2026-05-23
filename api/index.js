@@ -1473,7 +1473,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 
       const ROLE_MAP = { presidente: 'Presidente', governador: 'Governador', prefeito: 'Prefeito', senador: 'Senador', deputado_federal: 'Deputado Federal', deputado_estadual: 'Deputado Estadual', 'Presidente': 'Presidente', 'Governador': 'Governador', 'Prefeito': 'Prefeito', 'Senador': 'Senador', 'Deputado Federal': 'Deputado Federal', 'Deputado Estadual': 'Deputado Estadual' };
       const VALID_ROLES = new Set(['Presidente', 'Governador', 'Prefeito', 'Senador', 'Deputado Federal', 'Deputado Estadual']);
-      function roleValido(r) { if (!r) return false; const n = ROLE_MAP[r.toLowerCase()] || ROLE_MAP[r] || r; return VALID_ROLES.has(n); }
+      function roleValido(r) { if (!r) return false; const rTrim = r.trim(); const n = ROLE_MAP[rTrim.toLowerCase()] || ROLE_MAP[rTrim] || rTrim; return VALID_ROLES.has(n); }
 
       const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
       const SERPER_KEY = process.env.SERPER_API_KEY || '';
@@ -1518,9 +1518,9 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         try {
           const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
           if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
-            if (p.role && precisaRole && !updates.role && roleValido(p.role)) updates.role = p.role;
-            if (p.state && precisaState) updates.state = p.state.toUpperCase().substring(0,2);
-            if (p.party && precisaParty) updates.party = p.party.toUpperCase();
+            if (p.role && precisaRole && !updates.role && roleValido(p.role)) updates.role = p.role.trim();
+            if (p.state && precisaState) updates.state = p.state.trim().toUpperCase().substring(0,2);
+            if (p.party && precisaParty) updates.party = p.party.trim().toUpperCase();
           }
         } catch (_) {}
       }

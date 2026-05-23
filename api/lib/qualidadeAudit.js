@@ -96,7 +96,8 @@ const ALL_CRITERIA = [
   { id: 'A2', bloco: 'A', descricao: 'Cargo preenchido e válido',
     check: (p) => {
       if (!p.role) return false;
-      const normalized = ROLE_MAP[p.role.toLowerCase()] || ROLE_MAP[p.role] || p.role;
+      const rTrimmed = p.role.trim();
+      const normalized = ROLE_MAP[rTrimmed.toLowerCase()] || ROLE_MAP[rTrimmed] || rTrimmed;
       return VALID_ROLES.has(normalized);
     }
   },
