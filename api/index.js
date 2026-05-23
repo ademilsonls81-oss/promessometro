@@ -241,11 +241,8 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/promises' && method === 'GET') {
-      const url = new URL(req.url, 'http://localhost');
-      const limit = parseInt(url.searchParams.get('limit') || '500', 10);
-      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
       const [promisesRes, polRes, countRes] = await Promise.all([
-        db().from('promises').select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1),
+        db().from('promises').select('*').order('created_at', { ascending: false }),
         db().from('politicians').select('name, photo_url'),
         db().from('promises').select('*', { count: 'exact', head: true })
       ]);
