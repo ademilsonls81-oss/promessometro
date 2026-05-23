@@ -241,9 +241,13 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/promises' && method === 'GET') {
-      const [promisesRes, polRes] = await Promise.all([
-        db().from('promises').select('*').order('created_at', { ascending: false }).limit(50),
-        db().from('politicians').select('name, photo_url')
+      const url = new URL(req.url, 'http://localhost');
+      const limit = parseInt(url.searchParams.get('limit') || '500', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      const [promisesRes, polRes, countRes] = await Promise.all([
+        db().from('promises').select('*').order('created_at', { ascending: false }).range(offset, offset + limit - 1),
+        db().from('politicians').select('name, photo_url'),
+        db().from('promises').select('*', { count: 'exact', head: true })
       ]);
       if (promisesRes.error) return res.status(500).json({ error: promisesRes.error.message });
       const polPhotoMap = {};
@@ -254,7 +258,7 @@ export default async function handler(req, res) {
           politician_photo_url: polPhotoMap[p.politician_name] || null,
           slug: toSlug(p.politician_name)
         })),
-        total: promisesRes.data?.length || 0
+        total: countRes.count || 0
       });
     }
 
