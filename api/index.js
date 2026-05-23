@@ -1489,6 +1489,8 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (_) {}
       }
 
+      const updates = {};
+
       const precisaRole = !pol.role || !roleValido(pol.role);
       const precisaState = !pol.state || pol.state.trim().length < 2;
       const precisaParty = !pol.party || pol.party.trim().length === 0;
