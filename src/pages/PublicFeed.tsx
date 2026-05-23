@@ -62,6 +62,7 @@ export default function PublicFeed() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pageStats, setPageStats] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     fetchPromises();
@@ -77,6 +78,9 @@ export default function PublicFeed() {
       }
       const data = await response.json();
       setPromises(data.promises || []);
+      if (data.stats) {
+        setPageStats(data.stats);
+      }
     } catch (err: unknown) {
       console.error("[PublicFeed] fetchPromises error:", err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -106,10 +110,10 @@ export default function PublicFeed() {
     return statusConfig[status] || statusConfig["nao_classificada"];
   };
 
-  const fulfilledCount = promises.filter(p => p.status === "cumprida").length;
-  const partialCount = promises.filter(p => p.status === "parcial").length;
-  const brokenCount = promises.filter(p => p.status === "quebrada").length;
-  const pendingCount = promises.filter(p => p.status === "pendente").length;
+  const fulfilledCount = pageStats?.cumprida ?? promises.filter(p => p.status === "cumprida").length;
+  const partialCount = pageStats?.parcial ?? promises.filter(p => p.status === "parcial").length;
+  const brokenCount = pageStats?.quebrada ?? promises.filter(p => p.status === "quebrada").length;
+  const pendingCount = pageStats?.pendente ?? promises.filter(p => p.status === "pendente").length;
   const totalEvidences = promises.reduce((acc, p) => acc + (p.evidence_count || 0), 0);
 
   if (loading) {

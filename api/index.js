@@ -241,21 +241,29 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/promises' && method === 'GET') {
-      const [promisesRes, polRes, countRes] = await Promise.all([
-        db().from('promises').select('*').order('created_at', { ascending: false }),
+      const [promisesRes, polRes, countRes, statsRes] = await Promise.all([
+        db().from('promises').select('*').order('created_at', { ascending: false }).limit(5000),
         db().from('politicians').select('name, photo_url'),
-        db().from('promises').select('*', { count: 'exact', head: true })
+        db().from('promises').select('*', { count: 'exact', head: true }),
+        db().from('promises').select('status')
       ]);
       if (promisesRes.error) return res.status(500).json({ error: promisesRes.error.message });
       const polPhotoMap = {};
       (polRes.data || []).forEach(p => { polPhotoMap[p.name] = p.photo_url; });
+      const statusCounts = { cumprida: 0, parcial: 0, quebrada: 0, pendente: 0 };
+      (statsRes.data || []).forEach(p => {
+        const s = normStatus(p.status);
+        if (statusCounts[s] !== undefined) statusCounts[s]++;
+        else statusCounts.pendente++;
+      });
       return res.json({
         promises: (promisesRes.data || []).map(p => ({
           ...p,
           politician_photo_url: polPhotoMap[p.politician_name] || null,
           slug: toSlug(p.politician_name)
         })),
-        total: countRes.count || 0
+        total: countRes.count || 0,
+        stats: statusCounts
       });
     }
 
