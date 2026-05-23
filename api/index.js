@@ -1471,6 +1471,10 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       const { data: pol } = await db().from('politicians').select('*').eq('id', politician_id).single();
       if (!pol) return res.status(404).json({ error: 'Político não encontrado' });
 
+      const ROLE_MAP = { presidente: 'Presidente', governador: 'Governador', prefeito: 'Prefeito', senador: 'Senador', deputado_federal: 'Deputado Federal', deputado_estadual: 'Deputado Estadual', 'Presidente': 'Presidente', 'Governador': 'Governador', 'Prefeito': 'Prefeito', 'Senador': 'Senador', 'Deputado Federal': 'Deputado Federal', 'Deputado Estadual': 'Deputado Estadual' };
+      const VALID_ROLES = new Set(['Presidente', 'Governador', 'Prefeito', 'Senador', 'Deputado Federal', 'Deputado Estadual']);
+      function roleValido(r) { if (!r) return false; const n = ROLE_MAP[r.toLowerCase()] || ROLE_MAP[r] || r; return VALID_ROLES.has(n); }
+
       const GROQ_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
       const SERPER_KEY = process.env.SERPER_API_KEY || '';
       const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
@@ -1487,31 +1491,32 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 
       const updates = {};
       if (!pol.name || pol.name.trim().length < 3) {
-        // Try Wikipedia
         try {
           const wikiRes = await fetch(`https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(politician_id)}&format=json&origin=*&srlimit=3`);
           if (wikiRes.ok) { const wikiData = await wikiRes.json(); const first = wikiData?.query?.search?.[0]; if (first) updates.name = first.title; }
         } catch (_) {}
       }
-      if (!pol.role || !pol.state || !pol.party || pol.role === 'politico') {
-        // Fallback 1: se role null e state é UF brasileira, é Governador
-        if (!pol.role && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
-          updates.role = 'governador';
-        }
-        // Fallback 2: tenta Groq com Serper se disponível
-        if ((!pol.role || pol.role === 'politico' || !pol.state || !pol.party) && GROQ_KEY && snippets) {
-          const prompt = `Extraia dados do político brasileiro. Contexto: ${snippets}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`;
-          try {
-            const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
-            if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
-              if (p.role && (!pol.role || pol.role === 'politico')) updates.role = p.role;
-              if (p.state && !pol.state) updates.state = p.state.toUpperCase().substring(0,2);
-              if (p.party && !pol.party) updates.party = p.party.toUpperCase();
-            }
-          } catch (_) {}
-        }
+
+      // Fallback 1: se role null e state é UF brasileira, assume Governador
+      if ((!pol.role || !roleValido(pol.role)) && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
+        updates.role = 'Governador';
       }
-      // A5: Fix photo — tenta Wikipedia diretamente (sem HEAD verification que pode falhar em serverless)
+
+      // Fallback 2: busca via AI (Groq) com snippets do Serper
+      const precisaAI = !roleValido(pol.role) || !pol.state || pol.state.trim().length < 2 || !pol.party || pol.party.trim().length === 0;
+      if (precisaAI && GROQ_KEY && snippets) {
+        const prompt = `Extraia dados do político brasileiro. Contexto: ${snippets}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`;
+        try {
+          const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
+          if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
+            if (p.role && !roleValido(pol.role)) updates.role = p.role;
+            if (p.state && (!pol.state || pol.state.trim().length < 2)) updates.state = p.state.toUpperCase().substring(0,2);
+            if (p.party && (!pol.party || pol.party.trim().length === 0)) updates.party = p.party.toUpperCase();
+          }
+        } catch (_) {}
+      }
+
+      // A5: Fix photo — tenta Wikipedia
       if (!pol.photo_url) {
         try {
           const photoUrl = await fetchWikipediaPhoto(pol.name);
@@ -1523,7 +1528,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         await dbAdmin().from('politicians').update(updates).eq('id', politician_id);
       }
 
-      return res.json({ fixed: Object.keys(updates).length, updates, politician: pol.name });
+      return res.json({ fixed: Object.keys(updates).length, updates, politician: pol.name, updates_applied: Object.keys(updates), missing: { role: !pol.role || !roleValido(pol.role), state: !pol.state || pol.state.trim().length < 2, party: !pol.party || pol.party.trim().length === 0, photo: !pol.photo_url } });
     }
 
     // ─── SEED LEGAL FACTS (D1-D6) ────────────────────────────────────────────
