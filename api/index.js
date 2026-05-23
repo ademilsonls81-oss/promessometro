@@ -1489,29 +1489,36 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         } catch (_) {}
       }
 
-      const updates = {};
-      if (!pol.name || pol.name.trim().length < 3) {
-        try {
-          const wikiRes = await fetch(`https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(politician_id)}&format=json&origin=*&srlimit=3`);
-          if (wikiRes.ok) { const wikiData = await wikiRes.json(); const first = wikiData?.query?.search?.[0]; if (first) updates.name = first.title; }
-        } catch (_) {}
-      }
+      const precisaRole = !pol.role || !roleValido(pol.role);
+      const precisaState = !pol.state || pol.state.trim().length < 2;
+      const precisaParty = !pol.party || pol.party.trim().length === 0;
+      const precisaAI = precisaRole || precisaState || precisaParty;
 
-      // Fallback 1: se role null e state é UF brasileira, assume Governador
-      if ((!pol.role || !roleValido(pol.role)) && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
+      // Busca página na Wikipedia para contexto
+      let wikiContext = '';
+      try {
+        const searchUrl = `${WIKIPEDIA_API}?action=query&list=search&srsearch=${encodeURIComponent(pol.name)}&format=json&origin=*&srlimit=3`;
+        const sr = await fetch(searchUrl, { headers: { 'User-Agent': WIKI_UA } });
+        if (sr.ok) { const sd = await sr.json(); const first = sd?.query?.search?.[0]; if (first) wikiContext = first.snippet.replace(/<[^>]+>/g, ''); }
+      } catch (_) {}
+
+      // Fallback 1: se role invalido e state é UF, assume Governador
+      if (precisaRole && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
         updates.role = 'Governador';
       }
 
-      // Fallback 2: busca via AI (Groq) com snippets do Serper
-      const precisaAI = !roleValido(pol.role) || !pol.state || pol.state.trim().length < 2 || !pol.party || pol.party.trim().length === 0;
-      if (precisaAI && GROQ_KEY && snippets) {
-        const prompt = `Extraia dados do político brasileiro. Contexto: ${snippets}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`;
+      // Fallback 2: AI com Serper, Wikipedia ou conhecimento interno
+      if (precisaAI && GROQ_KEY) {
+        const ctx = snippets || wikiContext;
+        const prompt = ctx
+          ? `Extraia dados do político brasileiro. Contexto: ${ctx}\nResponda JSON: ${JSON.stringify({name: pol.name, role:'Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual', state:'sigla UF ou BR', party:'sigla partido'})}`
+          : `Quem é ${pol.name}? Responda JSON com role (Presidente|Governador|Prefeito|Senador|Deputado Federal|Deputado Estadual), state (UF), party (sigla).`;
         try {
           const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
           if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
-            if (p.role && !roleValido(pol.role)) updates.role = p.role;
-            if (p.state && (!pol.state || pol.state.trim().length < 2)) updates.state = p.state.toUpperCase().substring(0,2);
-            if (p.party && (!pol.party || pol.party.trim().length === 0)) updates.party = p.party.toUpperCase();
+            if (p.role && precisaRole && !updates.role) updates.role = p.role;
+            if (p.state && precisaState) updates.state = p.state.toUpperCase().substring(0,2);
+            if (p.party && precisaParty) updates.party = p.party.toUpperCase();
           }
         } catch (_) {}
       }
