@@ -122,45 +122,35 @@ export async function evaluateWithAI(promise) {
   if (SERPER_API_KEY) {
     try {
       const queries = [
-        `"${name}" "${shortTitle}"`,
         `${name} ${keywords}`,
-        `${name} ${keywords.substring(0, 40)} resultado`,
-        `"${name}" promessa ${keywords}`,
+        `${name} ${shortTitle.substring(0, 50)}`,
+        `${name} ${keywords} promessa governo`,
       ];
 
       for (const query of queries) {
-        const [webRes, newsRes] = await Promise.all([
-          fetch('https://google.serper.dev/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 8 })
-          }),
-          fetch('https://google.serper.dev/news', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 8 })
-          })
-        ]);
-        for (const res of [webRes, newsRes]) {
-          if (res.ok) {
-            const d = await res.json();
-            const results = (d.organic || d.news || [])
-              .filter(r => !isSocialMedia(r.link || ''))
-              .map(r => ({
-                descricao: r.snippet || '',
-                fonte: r.source || extractHostname(r.link) || '',
-                url: r.link || '',
-                data: parseSerperDate(r.date)
-              }));
-            evidences.push(...results);
-          }
+        const res = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+          body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 10 })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const results = (d.organic || [])
+            .filter(r => !isSocialMedia(r.link || ''))
+            .map(r => ({
+              descricao: r.snippet || '',
+              fonte: r.source || extractHostname(r.link) || '',
+              url: r.link || '',
+              data: parseSerperDate(r.date)
+            }));
+          evidences.push(...results);
         }
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 300));
       }
 
-      // Busca adicional nas fontes da metodologia
-      try {
-        const siteQuery = `site:(${METODOLOGIA_SOURCES.slice(0, 6).join(' OR site:')}) ${name} ${keywords}`;
+      // Busca nas fontes da metodologia
+      if (evidences.filter(e => e.url && e.url !== '#').length < 2) {
+        const siteQuery = `(site:g1.globo.com OR site:folha.uol.com.br OR site:estadao.com.br OR site:cnnbrasil.com.br OR site:metropoles.com) ${name} ${keywords}`;
         const srcRes = await fetch('https://google.serper.dev/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
@@ -176,35 +166,8 @@ export async function evaluateWithAI(promise) {
           }));
           evidences.push(...results);
         }
-      } catch (_) {}
-    } catch (_) { }
-  }
-
-  // Fallback: Serper busca na metodologia (fontes confiáveis) quando resultado genérico não acha nada
-  const hasRealEvidence = evidences.some(e => e.url && e.url !== '#' && e.url.length > 5);
-  if (!hasRealEvidence && SERPER_API_KEY) {
-    try {
-      for (const source of METODOLOGIA_SOURCES.slice(0, 10)) {
-        const q = `site:${source} ${name} ${keywords}`;
-        const srcRes = await fetch('https://google.serper.dev/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-          body: JSON.stringify({ q, gl: 'br', hl: 'pt-br', num: 3 })
-        });
-        if (srcRes.ok) {
-          const d = await srcRes.json();
-          const results = (d.organic || []).map(r => ({
-            descricao: r.snippet || '',
-            fonte: r.source || extractHostname(r.link) || '',
-            url: r.link || '',
-            data: parseSerperDate(r.date)
-          }));
-          evidences.push(...results);
-          if (results.length > 0) break;
-        }
-        await new Promise(r => setTimeout(r, 100));
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const seenUrls = new Set();
