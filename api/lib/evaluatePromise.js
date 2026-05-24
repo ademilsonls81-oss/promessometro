@@ -1,5 +1,4 @@
 import { getUrlDomain } from './sourceLevel.js';
-import { searchNews, SafeSearchType } from 'duck-duck-scrape';
 
 const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
 
@@ -181,25 +180,29 @@ export async function evaluateWithAI(promise) {
     } catch (_) { }
   }
 
-  // Fallback: DuckDuckGo searchNews quando Serper nao acha nada
+  // Fallback: Serper busca na metodologia (fontes confiáveis) quando resultado genérico não acha nada
   const hasRealEvidence = evidences.some(e => e.url && e.url !== '#' && e.url.length > 5);
-  if (!hasRealEvidence) {
+  if (!hasRealEvidence && SERPER_API_KEY) {
     try {
-      const ddgQueries = [
-        `${name} ${keywords}`,
-        `${name} ${shortTitle.substring(0, 50)}`,
-      ];
-      for (const q of ddgQueries) {
-        const res = await searchNews(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' });
-        const results = (res.results || []).filter(r => !isSocialMedia(r.url) && r.url !== 'https://duckduckgo.com/')
-          .map(r => ({
-            descricao: r.snippet || r.excerpt || '',
-            fonte: extractHostname(r.url) || '',
-            url: r.url || '',
-            data: new Date(r.date || Date.now()).toISOString()
+      for (const source of METODOLOGIA_SOURCES.slice(0, 10)) {
+        const q = `site:${source} ${name} ${keywords}`;
+        const srcRes = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+          body: JSON.stringify({ q, gl: 'br', hl: 'pt-br', num: 3 })
+        });
+        if (srcRes.ok) {
+          const d = await srcRes.json();
+          const results = (d.organic || []).map(r => ({
+            descricao: r.snippet || '',
+            fonte: r.source || extractHostname(r.link) || '',
+            url: r.link || '',
+            data: parseSerperDate(r.date)
           }));
-        evidences.push(...results);
-        if (results.length > 0) break;
+          evidences.push(...results);
+          if (results.length > 0) break;
+        }
+        await new Promise(r => setTimeout(r, 100));
       }
     } catch (_) {}
   }
