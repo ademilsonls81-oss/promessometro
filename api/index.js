@@ -602,26 +602,28 @@ Resposta SOMENTE JSON:
     }
 
     if (path === '/api/test-search' && method === 'GET') {
+      const SERPER = process.env.SERPER_API_KEY;
+      const TAVILY = process.env.TAVILY_API_KEY;
       const p = new URL(req.url, 'http://localhost').searchParams.get('q') || 'Tarcísio de Freitas escola';
       const tests = {};
-      if (SERPER_KEY) {
+      if (SERPER) {
         try {
           const r = await fetch('https://google.serper.dev/search', {
-            method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER_KEY},
+            method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER},
             body: JSON.stringify({ q: p, gl:'br', hl:'pt-br', num:5 })
           });
           const d = await r.json();
-          tests.serper = { ok: r.ok, count: (d.organic||[]).length, first: d.organic?.[0]?.title?.substring(0,50) };
+          tests.serper = { ok: r.ok, count: (d.organic||[]).length, first: d.organic?.[0]?.title?.substring(0,50), key_prefix: SERPER.substring(0,8) };
         } catch(e) { tests.serper = { error: e.message }; }
       } else { tests.serper = { error: 'SERPER_KEY not configured' }; }
-      if (process.env.TAVILY_API_KEY) {
+      if (TAVILY) {
         try {
           const r = await fetch('https://api.tavily.com/search', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: p, max_results:5 })
+            body: JSON.stringify({ api_key: TAVILY, query: p, max_results:5 })
           });
           const d = await r.json();
-          tests.tavily = { ok: r.ok, count: (d.results||[]).length, first: d.results?.[0]?.title?.substring(0,50) };
+          tests.tavily = { ok: r.ok, count: (d.results||[]).length, first: d.results?.[0]?.title?.substring(0,50), key_prefix: TAVILY.substring(0,8) };
         } catch(e) { tests.tavily = { error: e.message }; }
       } else { tests.tavily = { error: 'TAVILY_KEY not configured' }; }
       return res.json(tests);
