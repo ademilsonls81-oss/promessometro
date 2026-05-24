@@ -250,23 +250,36 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/promises' && method === 'GET') {
-      const [promisesRes, polRes, countRes, statsRes] = await Promise.all([
-        db().from('promises').select('*').order('created_at', { ascending: false }).limit(5000),
+      const [polRes, countRes] = await Promise.all([
         db().from('politicians').select('name, photo_url'),
-        db().from('promises').select('*', { count: 'exact', head: true }),
-        db().from('promises').select('status')
+        db().from('promises').select('*', { count: 'exact', head: true })
       ]);
-      if (promisesRes.error) return res.status(500).json({ error: promisesRes.error.message });
+      const allPromiseRes = [];
+      let promOffset = 0;
+      while (true) {
+        const { data: batch, error } = await db().from('promises').select('*').order('created_at', { ascending: false }).range(promOffset, promOffset + 999);
+        if (error || !batch || batch.length === 0) break;
+        allPromiseRes.push(...batch);
+        if (batch.length < 1000) break;
+        promOffset += 1000;
+      }
       const polPhotoMap = {};
       (polRes.data || []).forEach(p => { polPhotoMap[p.name] = p.photo_url; });
       const statusCounts = { cumprida: 0, parcial: 0, quebrada: 0, pendente: 0 };
-      (statsRes.data || []).forEach(p => {
-        const s = normStatus(p.status);
-        if (statusCounts[s] !== undefined) statusCounts[s]++;
-        else statusCounts.pendente++;
-      });
+      let statsOffset = 0;
+      while (true) {
+        const { data: batch, error } = await db().from('promises').select('status').range(statsOffset, statsOffset + 999);
+        if (error || !batch || batch.length === 0) break;
+        batch.forEach(p => {
+          const s = normStatus(p.status);
+          if (statusCounts[s] !== undefined) statusCounts[s]++;
+          else statusCounts.pendente++;
+        });
+        if (batch.length < 1000) break;
+        statsOffset += 1000;
+      }
       return res.json({
-        promises: (promisesRes.data || []).map(p => ({
+        promises: (allPromiseRes).map(p => ({
           ...p,
           politician_photo_url: polPhotoMap[p.politician_name] || null,
           slug: toSlug(p.politician_name)
