@@ -604,6 +604,8 @@ Resposta SOMENTE JSON:
     if (path === '/api/debug-search' && method === 'GET') {
       const SERPER = process.env.SERPER_API_KEY;
       const TAVILY = process.env.TAVILY_API_KEY;
+      const GKEY = process.env.GOOGLE_CSE_KEY;
+      const GCX = process.env.GOOGLE_CSE_CX;
       const qs = new URL(req.url, 'http://localhost').searchParams;
       const promiseId = qs.get('promise_id');
       let promise;
@@ -619,9 +621,29 @@ Resposta SOMENTE JSON:
       if (!promise) return res.json({ error: 'Nenhuma promessa encontrada' });
 
       const query = `${promise.politician_name} ${(promise.promise_title||'').substring(0, 60)}`;
-      const result = { promise, query, serper: null, tavily: null };
+      const result = { promise, query, motor_usado: null, serper: null, tavily: null, google: null };
 
-      if (SERPER) {
+      const engines = [];
+      if (TAVILY) engines.push({ name: 'tavily', fn: async () => {
+        const r = await fetch('https://api.tavily.com/search', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ api_key: TAVILY, query, max_results:5, search_depth:'basic' })
+        });
+        const body = await r.text();
+        result.tavily = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
+        return r.ok && body.includes('"results"') ? JSON.parse(body).results?.length || 0 : 0;
+      }});
+      if (GKEY && GCX) engines.push({ name: 'google', fn: async () => {
+        try {
+          const url = `https://www.googleapis.com/customsearch/v1?key=${GKEY}&cx=${GCX}&q=${encodeURIComponent(query)}&gl=br&hl=pt&num=5`;
+          const r = await fetch(url);
+          const body = await r.text();
+          result.google = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
+          if (r.ok) { const d = JSON.parse(body); return d.items?.length || 0; }
+          return 0;
+        } catch(e) { result.google = { error: e.message }; return 0; }
+      }});
+      if (SERPER) engines.push({ name: 'serper', fn: async () => {
         try {
           const r = await fetch('https://google.serper.dev/search', {
             method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER},
@@ -629,18 +651,17 @@ Resposta SOMENTE JSON:
           });
           const body = await r.text();
           result.serper = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
-        } catch(e) { result.serper = { error: e.message }; }
-      }
+          if (r.ok) { const d = JSON.parse(body); return d.organic?.length || 0; }
+          return 0;
+        } catch(e) { result.serper = { error: e.message }; return 0; }
+      }});
 
-      if (TAVILY) {
-        try {
-          const r = await fetch('https://api.tavily.com/search', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ api_key: TAVILY, query, max_results:5, search_depth:'basic' })
-          });
-          const body = await r.text();
-          result.tavily = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
-        } catch(e) { result.tavily = { error: e.message }; }
+      for (let i = 0; i < engines.length; i++) {
+        const idx = (result.motor_usado === null ? 0 : 1 + i) % engines.length;
+        const count = await engines[idx].fn();
+        if (result.motor_usado === null && count > 0) {
+          result.motor_usado = engines[idx].name;
+        }
       }
 
       return res.json(result);

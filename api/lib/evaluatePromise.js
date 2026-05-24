@@ -51,6 +51,8 @@ const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
 const GROQ_KEY = (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '').replace(/^YOUR_.*_KEY$/, '');
 const SERPER_KEY = process.env.SERPER_API_KEY;
 const TAVILY_KEY = process.env.TAVILY_API_KEY;
+const GOOGLE_CSE_KEY = process.env.GOOGLE_CSE_KEY;
+const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
 let searchCallCount = 0;
 
@@ -95,18 +97,40 @@ async function searchWithTavily(query) {
   } catch { return []; }
 }
 
+async function searchWithGoogle(query) {
+  if (!GOOGLE_CSE_KEY || !GOOGLE_CSE_CX) return [];
+  try {
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_CSE_KEY}&cx=${GOOGLE_CSE_CX}&q=${encodeURIComponent(query)}&gl=br&hl=pt&num=5`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.items) return [];
+    return data.items.map(r => ({
+      descricao: r.snippet || '',
+      fonte: r.displayLink || '',
+      url: r.link || ''
+    }));
+  } catch { return []; }
+}
+
 async function searchEvidence(query) {
   searchCallCount++;
 
-  const engines = searchCallCount % 2 === 0
-    ? [searchWithSerper, searchWithTavily]
-    : [searchWithTavily, searchWithSerper];
+  const engines = [
+    searchWithTavily,
+    searchWithGoogle,
+    searchWithSerper,
+  ];
+
+  const startIndex = searchCallCount % engines.length;
+  const rotated = [...engines.slice(startIndex), ...engines.slice(0, startIndex)];
 
   let results = [];
-  for (const engine of engines) {
+  for (const engine of rotated) {
     results = await engine(query);
     if (results.length > 0) break;
   }
+
+  if (results.length === 0) results = await searchWithTavily(query);
 
   return results;
 }
