@@ -615,7 +615,13 @@ Resposta SOMENTE JSON:
         });
         clearTimeout(timeout);
         const text = await res.text();
-        return res.json({ status: res.status, len: text.length, snippet: text.substring(0, 500) });
+        const results = [];
+        const re = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
+        let m;
+        while ((m = re.exec(text)) !== null) {
+          results.push({ url: m[1], title: m[2].replace(/<[^>]+>/g,'').trim().substring(0,80), snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,150) });
+        }
+        return res.json({ status: res.status, len: text.length, results: results.length, samples: results.slice(0,3) });
       } catch(e) {
         return res.json({ error: e.name, message: e.message });
       }

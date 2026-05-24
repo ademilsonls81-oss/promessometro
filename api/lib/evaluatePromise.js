@@ -1,5 +1,4 @@
 import { getUrlDomain } from './sourceLevel.js';
-import { search, searchNews, SafeSearchType } from 'duck-duck-scrape';
 
 const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
 
@@ -126,23 +125,34 @@ export async function evaluateWithAI(promise) {
     ];
 
     for (const q of ddgQueries) {
-      const [webRes, newsRes] = await Promise.all([
-        search(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' }).catch(() => null),
-        searchNews(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' }).catch(() => null)
-      ]);
-      for (const res of [webRes, newsRes]) {
-        if (res?.results) {
-          const results = res.results
-            .filter(r => !isSocialMedia(r.url) && r.url !== 'https://duckduckgo.com/')
-            .map(r => ({
-              descricao: r.snippet || r.excerpt || '',
-              fonte: extractHostname(r.url) || r.source || '',
-              url: r.url || '',
-              data: new Date(r.date || Date.now()).toISOString()
-            }));
-          evidences.push(...results);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const params = new URLSearchParams({ q });
+        const res = await fetch('https://lite.duckduckgo.com/lite/', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+          body: params.toString()
+        });
+        clearTimeout(timeout);
+        const html = await res.text();
+        const resultRegex = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
+        let m;
+        while ((m = resultRegex.exec(html)) !== null) {
+          const url = m[1];
+          const title = m[2].replace(/<[^>]+>/g, '').trim();
+          const snippet = m[3].replace(/<[^>]+>/g, '').trim();
+          if (title && url && !isSocialMedia(url)) {
+            evidences.push({
+              descricao: snippet,
+              fonte: extractHostname(url),
+              url,
+              data: new Date().toISOString()
+            });
+          }
         }
-      }
+      } catch (_) { clearTimeout(timeout); }
     }
   } catch (_) { }
 
