@@ -123,8 +123,6 @@ export async function evaluateWithAI(promise) {
   try {
     const ddgQueries = [
       `${name} ${keywords}`,
-      `${name} ${shortTitle.substring(0, 50)}`,
-      `${name} ${keywords} promessa governo`,
     ];
 
     for (const q of ddgQueries) {
@@ -145,7 +143,6 @@ export async function evaluateWithAI(promise) {
           evidences.push(...results);
         }
       }
-      await new Promise(r => setTimeout(r, 500));
     }
   } catch (_) { }
 
