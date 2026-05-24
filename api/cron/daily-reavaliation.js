@@ -137,8 +137,8 @@ export default async function handler(req, res) {
 
     // Busca promessas stale (>23h), nunca verificadas, e cumpridas/quebradas (semanal)
     const [staleRes, neverRes, weeklyRes] = await Promise.all([
-      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(8),
-      db().from('promises').select('*').is('last_verified_at', null).limit(10),
+      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")')      .limit(20),
+      db().from('promises').select('*').is('last_verified_at', null).limit(15),
       db().from('promises').select('*').lt('last_verified_at', weeklyCutoff).in('status', ['cumprida', 'quebrada']).limit(5)
     ]);
 

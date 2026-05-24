@@ -82,14 +82,18 @@
             "schedule": "0 6 * * *"
         },
         {
-            "path": "/api/cron/pipeline-orchestrator",
-            "schedule": "0 12 * * *"
-        },
-        {
-            "path": "/api/cron/pipeline-orchestrator",
-            "schedule": "0 18 * * *"
+            "path": "/api/cron/daily-reavaliation",
+            "schedule": "*/30 * * * *"
         }
     ],
+    "functions": {
+        "api/cron/daily-reavaliation.js": {
+            "maxDuration": 60
+        },
+        "api/cron/pipeline-orchestrator.js": {
+            "maxDuration": 60
+        }
+    },
     "headers": [
         {
             "source": "/politico/(.*)",
