@@ -96,6 +96,7 @@ export default function Admin() {
   const [dados, setDados] = useState<PoliticoQualidade[]>([]);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [politicians, setPoliticians] = useState<Politician[]>([]);
+  const [politicianStats, setPoliticianStats] = useState<Record<string, any>>({});
   const [carregando, setCarregando] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [erro, setErro] = useState("");
@@ -162,7 +163,16 @@ export default function Admin() {
       setDados(qual.politicos || []);
       setAutenticado(true);
       if (statusRes) { const s = await statusRes.json(); setSystemStatus(s); }
-      if (polRes) { const p = await polRes.json(); setPoliticians((p.ranking || []).map((r: any) => ({ id: r.id, name: r.name, role: r.role, state: r.state, party: r.party, slug: r.slug }))); }
+      if (polRes) {
+        const p = await polRes.json();
+        const allRanking = [...(p.ranking || []), ...(p.insufficient_sample || [])];
+        setPoliticians(allRanking.map((r: any) => ({ id: r.id, name: r.name, role: r.role, state: r.state, party: r.party, slug: r.slug })));
+        const statsMap: Record<string, any> = {};
+        allRanking.forEach((r: any) => {
+          statsMap[r.name] = { stats: r.stats, evaluated_count: r.evaluated_count };
+        });
+        setPoliticianStats(statsMap);
+      }
     } catch (e: any) { setErro(e.message); }
     setCarregando(false);
   }
@@ -834,47 +844,52 @@ export default function Admin() {
 
         {/* ── Processamento de Promessas ───────────────────────────────────── */}
         <div className="space-y-2">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider px-1">⚙️ Processamento por Político</h2>
-          <p className="text-xs text-gray-500 px-1">Promessas pendentes de avaliação por IA. Processar dispara a reavaliação em lote.</p>
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider px-1">⚙️ Promessas por Classificar</h2>
+          <p className="text-xs text-gray-500 px-1">Promessas com status "pendente" na avaliação (sem classificação final). Processar dispara a reavaliação por IA.</p>
           {carregando && <div className="py-6 flex justify-center"><Loader2 className="w-6 h-6 text-gray-500 animate-spin" /></div>}
-          {!carregando && dados.length === 0 && <div className="text-center py-6 text-gray-500">Nenhum político encontrado</div>}
-          {!carregando && dados.filter(d => d.stats.total_promises > 0).sort((a, b) => (b.stats.total_promises - (b.stats.total_explanations || 0)) - (a.stats.total_promises - (a.stats.total_explanations || 0))).map(p => {
-            const pol = politicians.find(p2 => p2.name === p.nome);
-            const pendentes = p.stats.total_promises - (p.stats.total_explanations || 0);
-            const pct = p.stats.total_promises > 0 ? Math.round(((p.stats.total_explanations || 0) / p.stats.total_promises) * 100) : 0;
-            return (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-white truncate">{p.nome}</div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span>{p.stats.total_promises} promessas</span>
-                      <span className="text-green-400">{p.stats.total_explanations || 0} avaliadas</span>
-                      {pendentes > 0 && <span className="text-yellow-400">{pendentes} pendentes</span>}
+          {!carregando && Object.keys(politicianStats).length === 0 && <div className="text-center py-6 text-gray-500">Nenhum político encontrado</div>}
+          {!carregando && Object.entries(politicianStats)
+            .filter(([, v]) => (v.stats?.total || 0) > 0)
+            .sort(([, a], [, b]) => (b.stats?.pending || 0) - (a.stats?.pending || 0))
+            .map(([nome, data]) => {
+              const pol = politicians.find(p2 => p2.name === nome);
+              const total = data.stats?.total || 0;
+              const classificadas = (data.stats?.fulfilled || 0) + (data.stats?.partial || 0) + (data.stats?.broken || 0);
+              const pendentes = data.stats?.pending || 0;
+              const pct = total > 0 ? Math.round((classificadas / total) * 100) : 0;
+              return (
+                <div key={nome} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
+                      <Bot className="w-4 h-4 text-gray-400" />
                     </div>
-                    <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1.5">
-                      <div className="h-full rounded-full bg-neon-cyan" style={{ width: pct + '%' }} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{nome}</div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>{total} promessas</span>
+                        <span className="text-green-400">{classificadas} classificadas</span>
+                        {pendentes > 0 && <span className="text-yellow-400">{pendentes} pendentes</span>}
+                      </div>
+                      <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1.5">
+                        <div className={`h-full rounded-full ${pendentes > 0 ? 'bg-yellow-400' : 'bg-green-400'}`} style={{ width: pct + '%' }} />
+                      </div>
                     </div>
                   </div>
+                  {pol && (
+                    <button
+                      onClick={() => processPendentes(pol)}
+                      disabled={processingPol === pol.id || pendentes === 0}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {processingPol === pol.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Play className="w-3 h-3" />}
+                      {processingPol === pol.id ? "Processando..." : `Processar ${pendentes}`}
+                    </button>
+                  )}
                 </div>
-                {pol && (
-                  <button
-                    onClick={() => processPendentes(pol)}
-                    disabled={processingPol === pol.id || pendentes === 0}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {processingPol === pol.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <Play className="w-3 h-3" />}
-                    {processingPol === pol.id ? "Processando..." : `Processar ${pendentes}`}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
           {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 1).map(([k, v]) => (
             <div key={k} className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
               {v.message || `${v.evaluated} promessas processadas`}
