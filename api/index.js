@@ -626,9 +626,11 @@ Resposta SOMENTE JSON:
       const pendentes = (promises || []).filter(p => normStatus(p.status) === 'pendente');
       if (!pendentes.length) return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa pendente' });
 
+      const MAX_BATCH = 15;
       let evaluated = 0, failed = 0;
       const results = [];
-      for (const promise of pendentes) {
+      const batch = pendentes.slice(0, MAX_BATCH);
+      for (const promise of batch) {
         try {
           const result = await evaluateWithAI(promise);
           const { error: upErr } = await dbAdmin().from('promises').update({
@@ -664,7 +666,7 @@ Resposta SOMENTE JSON:
             results.push({ id: promise.id, old_status: promise.status, new_status: result.status });
           } else failed++;
         } catch (e) { failed++; }
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 2500));
       }
 
       try {
@@ -673,8 +675,9 @@ Resposta SOMENTE JSON:
       } catch (_) {}
 
       return res.json({
-        status: 'ok', evaluated, failed, total: pendentes.length,
-        politician: pol.name, message: `${evaluated} promessas reavaliadas`,
+        status: 'ok', evaluated, failed, total: pendentes.length, batch_size: MAX_BATCH,
+        remaining: Math.max(0, pendentes.length - MAX_BATCH),
+        politician: pol.name, message: `${evaluated} promessas reavaliadas (lote de ${MAX_BATCH}, restam ${Math.max(0, pendentes.length - MAX_BATCH)})`,
         results: results.slice(0, 10)
       });
     }
