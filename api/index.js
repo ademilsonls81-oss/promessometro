@@ -638,6 +638,7 @@ Resposta SOMENTE JSON:
         try {
           const query = keywordMap[promise.id] || `${promise.politician_name} ${(promise.promise_title||'').substring(0,40)}`;
           const result = await evaluateWithAI(promise, query);
+          const evCount = result.evidences.filter(e => e.url && e.url !== '#').length;
           const { error: upErr } = await dbAdmin().from('promises').update({
             status: result.status,
             fulfillment_score: result.fulfillment_score,
@@ -668,7 +669,7 @@ Resposta SOMENTE JSON:
               action: 'batch_reavaluation', entity_type: 'promises', entity_id: promise.id,
               details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
             }); } catch (_) {}
-            results.push({ id: promise.id, old_status: promise.status, new_status: result.status });
+            results.push({ id: promise.id, query: query.substring(0,60), evCount, old_status: promise.status, new_status: result.status, score: result.fulfillment_score, first_ev: (result.evidences[0]?.url||'').substring(0,60) });
           } else failed++;
         } catch (e) { failed++; }
         await new Promise(r => setTimeout(r, 2500));
