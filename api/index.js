@@ -162,11 +162,20 @@ export default async function handler(req, res) {
       const url = new URL(req.url, 'http://localhost');
       const includeAll = url.searchParams.get('include_all') === 'true';
 
-      const [polRes, promRes] = await Promise.all([
-        db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score, legacy_score'),
-        db().from('promises').select('id, politician_id, politician_name, status, complexity_score, impact_score')
+      const [polRes] = await Promise.all([
+        db().from('politicians').select('id, name, role, state, party, slug, photo_url, grade, final_score, c1_score, c2_score, c3_score, legacy_score')
       ]);
       if (polRes.error) return res.status(500).json({ error: polRes.error.message });
+
+      const allPromRes = [];
+      let promOffset = 0;
+      while (true) {
+        const { data: batch, error } = await db().from('promises').select('id, politician_id, politician_name, status, complexity_score, impact_score').range(promOffset, promOffset + 999);
+        if (error || !batch || batch.length === 0) break;
+        allPromRes.push(...batch);
+        if (batch.length < 1000) break;
+        promOffset += 1000;
+      }
       const allEvalRes = [];
       let evalOffset = 0;
       while (true) {
@@ -180,7 +189,7 @@ export default async function handler(req, res) {
       const evalMap = {}; (allEvalRes || []).forEach(e => evalMap[e.promise_id] = e);
       const promByPol = {};
       const promByNormName = {};
-      (promRes.data || []).forEach(p => {
+      (allPromRes || []).forEach(p => {
         const id = p.politician_id;
         if (!promByPol[id]) promByPol[id] = [];
         promByPol[id].push(p);
