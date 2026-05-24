@@ -137,8 +137,8 @@ export default async function handler(req, res) {
 
     // Busca promessas stale (>23h), nunca verificadas, e cumpridas/quebradas (semanal)
     const [staleRes, neverRes, weeklyRes] = await Promise.all([
-      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(50),
-      db().from('promises').select('*').is('last_verified_at', null).limit(30),
+      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(30),
+      db().from('promises').select('*').is('last_verified_at', null).limit(15),
       db().from('promises').select('*').lt('last_verified_at', weeklyCutoff).in('status', ['cumprida', 'quebrada']).limit(5)
     ]);
 
@@ -154,7 +154,7 @@ export default async function handler(req, res) {
       const ev = p.evidences_used;
       const hasRealEvidence = ev && Array.isArray(ev) && ev.length > 0 && ev.some(e => e.url && e.url !== '#');
       if (hasRealEvidence) continue;
-      if (promises.length >= 40) break;
+      if (promises.length >= 15) break;
       seen.add(p.id); promises.push(p);
     }
     // Priority 3: cumprida/quebrada stale (weekly re-check)
