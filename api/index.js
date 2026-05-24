@@ -600,6 +600,17 @@ Resposta SOMENTE JSON:
       return res.json({ discovered: promessas.length, inserted, duplicates: dupes, total_snippets: allSnippets.length });
     }
 
+    if (path === '/api/debug-ddg' && method === 'GET') {
+      const { search, searchNews, SafeSearchType } = await import('duck-duck-scrape');
+      const q = url.searchParams.get('q') || 'Tarcísio de Freitas SP';
+      try {
+        const webRes = await search(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' });
+        return res.json({ web: { results: (webRes?.results || []).slice(0,5).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })), total: webRes?.results?.length || 0 } });
+      } catch(e) {
+        return res.json({ error: e.message, stack: e.stack?.substring(0,500) });
+      }
+    }
+
     if (path === '/api/stats' && method === 'GET') {
       const [{ count: polCount }, { count: promCount }] = await Promise.all([
         db().from('politicians').select('*', { count: 'exact', head: true }),
