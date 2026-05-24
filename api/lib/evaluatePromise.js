@@ -129,14 +129,14 @@ export async function evaluateWithAI(promise) {
       const timeout = setTimeout(() => controller.abort(), 5000);
       try {
         const params = new URLSearchParams({ q });
-        const res = await fetch('https://lite.duckduckgo.com/lite/', {
+        const ddgRes = await fetch('https://lite.duckduckgo.com/lite/', {
           method: 'POST',
           signal: controller.signal,
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
           body: params.toString()
         });
         clearTimeout(timeout);
-        const html = await res.text();
+        const html = await ddgRes.text();
         const resultRegex = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
         let m;
         while ((m = resultRegex.exec(html)) !== null) {

@@ -605,10 +605,10 @@ Resposta SOMENTE JSON:
       try {
         const controller = new AbortController();
         const id = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch('https://lite.duckduckgo.com/lite/?q=test', { signal: controller.signal });
+        const ddgRes = await fetch('https://lite.duckduckgo.com/lite/?q=test', { signal: controller.signal });
         clearTimeout(id);
-        const text = await res.text();
-        return res.json({ ok: true, status: res.status, len: text.length, snippet: text.substring(0,100) });
+        const text = await ddgRes.text();
+        return res.json({ ok: true, status: ddgRes.status, len: text.length, snippet: text.substring(0,100) });
       } catch(e) {
         return res.json({ ok: false, error: e.name, msg: e.message });
       }
