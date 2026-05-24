@@ -145,7 +145,7 @@ export async function evaluateWithAI(promise) {
           evidences.push(...results);
         }
       }
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 500));
     }
   } catch (_) { }
 

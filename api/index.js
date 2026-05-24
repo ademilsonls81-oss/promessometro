@@ -626,7 +626,7 @@ Resposta SOMENTE JSON:
       const pendentes = (promises || []).filter(p => normStatus(p.status) === 'pendente');
       if (!pendentes.length) return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa pendente' });
 
-      const MAX_BATCH = 15;
+      const MAX_BATCH = 10;
       let evaluated = 0, failed = 0;
       const results = [];
       const batch = pendentes.slice(0, MAX_BATCH);

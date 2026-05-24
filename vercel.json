@@ -87,6 +87,9 @@
         }
     ],
     "functions": {
+        "api/index.js": {
+            "maxDuration": 60
+        },
         "api/cron/daily-reavaliation.js": {
             "maxDuration": 60
         },
