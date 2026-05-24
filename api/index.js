@@ -601,32 +601,49 @@ Resposta SOMENTE JSON:
       return res.json({ discovered: promessas.length, inserted, duplicates: dupes, total_snippets: allSnippets.length });
     }
 
-    if (path === '/api/test-search' && method === 'GET') {
+    if (path === '/api/debug-search' && method === 'GET') {
       const SERPER = process.env.SERPER_API_KEY;
       const TAVILY = process.env.TAVILY_API_KEY;
-      const p = new URL(req.url, 'http://localhost').searchParams.get('q') || 'Tarcísio de Freitas escola';
-      const tests = {};
+      const qs = new URL(req.url, 'http://localhost').searchParams;
+      const promiseId = qs.get('promise_id');
+      let promise;
+
+      if (promiseId) {
+        const { data } = await db().from('promises').select('id,politician_name,promise_title').eq('id', promiseId).maybeSingle();
+        promise = data;
+      } else {
+        const { data } = await db().from('promises').select('id,politician_name,promise_title').limit(1).maybeSingle();
+        promise = data;
+      }
+
+      if (!promise) return res.json({ error: 'Nenhuma promessa encontrada' });
+
+      const query = `${promise.politician_name} ${(promise.promise_title||'').substring(0, 60)}`;
+      const result = { promise, query, serper: null, tavily: null };
+
       if (SERPER) {
         try {
           const r = await fetch('https://google.serper.dev/search', {
             method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER},
-            body: JSON.stringify({ q: p, gl:'br', hl:'pt-br', num:5 })
+            body: JSON.stringify({ q: query, gl:'br', hl:'pt-br', num:5 })
           });
-          const d = await r.json();
-          tests.serper = { ok: r.ok, count: (d.organic||[]).length, first: d.organic?.[0]?.title?.substring(0,50), key_prefix: SERPER.substring(0,8) };
-        } catch(e) { tests.serper = { error: e.message }; }
-      } else { tests.serper = { error: 'SERPER_KEY not configured' }; }
+          const body = await r.text();
+          result.serper = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
+        } catch(e) { result.serper = { error: e.message }; }
+      }
+
       if (TAVILY) {
         try {
           const r = await fetch('https://api.tavily.com/search', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ api_key: TAVILY, query: p, max_results:5 })
+            body: JSON.stringify({ api_key: TAVILY, query, max_results:5, search_depth:'basic' })
           });
-          const d = await r.json();
-          tests.tavily = { ok: r.ok, count: (d.results||[]).length, first: d.results?.[0]?.title?.substring(0,50), key_prefix: TAVILY.substring(0,8) };
-        } catch(e) { tests.tavily = { error: e.message }; }
-      } else { tests.tavily = { error: 'TAVILY_KEY not configured' }; }
-      return res.json(tests);
+          const body = await r.text();
+          result.tavily = { status: r.status, ok: r.ok, body: body.substring(0, 1000) };
+        } catch(e) { result.tavily = { error: e.message }; }
+      }
+
+      return res.json(result);
     }
 
     if (path === '/api/stats' && method === 'GET') {
