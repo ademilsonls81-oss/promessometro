@@ -200,13 +200,14 @@ IMPACTO (1-3):
       impact: Math.max(1, Math.min(3, Math.round(parsed.impact || 1)))
     };
   } catch (err) {
+    console.error(`[evaluateWithAI] Fallback para promessa "${(promise.promise_title||'').substring(0,40)}": ${err.message}`);
     const clampedScore = clampScore(originalStatus, originalScore);
     const mappedFallback = mapStatusToFrontend(originalStatus);
     return {
       status: mappedFallback,
       fulfillment_score: clampedScore,
-      justification: `Avaliação baseada no status registrado (${originalStatus}). Sem acesso à IA neste momento: ${err.message}. Reavaliação será feita na próxima execução.`,
-      o_que_foi_feito: 'Aguardando reavaliação pela IA na próxima execução do ciclo.',
+      justification: 'Aguardando reavaliação por IA.',
+      o_que_foi_feito: 'Aguardando reavaliação pela IA na próxima execução.',
       o_que_falta: 'Reavaliação completa via IA na próxima execução.',
       evidences: dedupedEvidences,
       complexity: 1,
