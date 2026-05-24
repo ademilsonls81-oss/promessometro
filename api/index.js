@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
+import { evaluateWithAI, filterSocialMedia } from './lib/evaluatePromise.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const JWT_SECRET = process.env.NEXTAUTH_SECRET || process.env.ADMIN_SECRET_KEY;
@@ -604,6 +605,77 @@ Resposta SOMENTE JSON:
         db().from('promises').select('*', { count: 'exact', head: true })
       ]);
       return res.json({ total_politicians: polCount || 0, total_promises: promCount || 0 });
+    }
+
+    if (path.startsWith('/api/politician/') && path.endsWith('/evaluate-pending') && (method === 'GET' || method === 'POST')) {
+      const slug = path.replace('/api/politician/', '').replace('/evaluate-pending', '');
+      if (!slug) return res.status(400).json({ error: 'Slug obrigatorio' });
+
+      let { data: pol, error: polErr } = await db().from('politicians').select('id, name, slug').eq('slug', slug).maybeSingle();
+      if (!pol) {
+        const { data: all } = await db().from('politicians').select('id, name, slug');
+        pol = (all || []).find(p => toSlug(p.name) === slug) || null;
+      }
+      if (!pol) return res.status(404).json({ error: 'Politico nao encontrado' });
+
+      const { data: promises } = await db().from('promises')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .eq('politician_id', pol.id);
+
+      const pendentes = (promises || []).filter(p => normStatus(p.status) === 'pendente');
+      if (!pendentes.length) return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa pendente' });
+
+      let evaluated = 0, failed = 0;
+      const results = [];
+      for (const promise of pendentes) {
+        try {
+          const result = await evaluateWithAI(promise);
+          const { error: upErr } = await dbAdmin().from('promises').update({
+            status: result.status,
+            fulfillment_score: result.fulfillment_score,
+            ai_evaluation: result.justification,
+            evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+            complexity_score: result.complexity,
+            impact_score: result.impact,
+            last_verified_at: new Date().toISOString()
+          }).eq('id', promise.id);
+
+          if (!upErr) {
+            evaluated++;
+            try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch (_) {}
+            try {
+              await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              await dbAdmin().from('promise_explanations').insert({
+                promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
+                criterio_aplicado: 'batch_reavaliation',
+                justificativa: result.justification,
+                evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+                o_que_falta: result.o_que_falta || 'Monitoramento continuo',
+                o_que_foi_feito: result.o_que_foi_feito || result.justification,
+                confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+                modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+              });
+            } catch (_) {}
+            try { await dbAdmin().from('audit_logs').insert({
+              action: 'batch_reavaluation', entity_type: 'promises', entity_id: promise.id,
+              details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+            }); } catch (_) {}
+            results.push({ id: promise.id, old_status: promise.status, new_status: result.status });
+          } else failed++;
+        } catch (e) { failed++; }
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      try {
+        const { recalcPoliticianScores } = await import('./cron/daily-reavaliation.js');
+        if (recalcPoliticianScores) await recalcPoliticianScores(pol.id);
+      } catch (_) {}
+
+      return res.json({
+        status: 'ok', evaluated, failed, total: pendentes.length,
+        politician: pol.name, message: `${evaluated} promessas reavaliadas`,
+        results: results.slice(0, 10)
+      });
     }
 
     if (path.startsWith('/api/politician/') && method === 'GET') {
