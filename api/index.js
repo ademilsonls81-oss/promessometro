@@ -601,33 +601,23 @@ Resposta SOMENTE JSON:
     }
 
     if (path === '/api/debug-ddg' && method === 'GET') {
-      const ddgUrl = new URL(req.url, 'http://localhost');
-      const q = ddgUrl.searchParams.get('q') || 'Tarcísio de Freitas SP';
       try {
+        const ddgUrl = new URL(req.url, 'http://localhost');
+        const q = ddgUrl.searchParams.get('q') || 'Tarcísio de Freitas SP';
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
         const params = new URLSearchParams({ q });
         const res = await fetch('https://lite.duckduckgo.com/lite/', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html'
-          },
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
           body: params.toString()
         });
+        clearTimeout(timeout);
         const text = await res.text();
-        const results = [];
-        const re = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
-        let m;
-        while ((m = re.exec(text)) !== null) {
-          results.push({
-            url: m[1],
-            title: m[2].replace(/<[^>]+>/g,'').trim().substring(0,80),
-            snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,150)
-          });
-        }
-        return res.json({ total: results.length, results: results.slice(0,5), snippet: text.substring(0,300) });
+        return res.json({ status: res.status, len: text.length, snippet: text.substring(0, 500) });
       } catch(e) {
-        return res.json({ error: e.message, snippet: e.stack?.substring(0,500) });
+        return res.json({ error: e.name, message: e.message });
       }
     }
 
