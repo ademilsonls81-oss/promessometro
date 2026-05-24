@@ -83,7 +83,7 @@
         },
         {
             "path": "/api/cron/daily-reavaliation",
-            "schedule": "*/30 * * * *"
+            "schedule": "0 6 * * *"
         }
     ],
     "functions": {
