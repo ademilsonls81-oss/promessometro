@@ -117,6 +117,7 @@ export default function Admin() {
   const [recalculatingAll, setRecalculatingAll] = useState(false);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [toolResults, setToolResults] = useState<Record<string, any>>({});
+  const [processingPol, setProcessingPol] = useState<string | null>(null);
 
   // Search politician for tools
   const [searchPol, setSearchPol] = useState("");
@@ -397,6 +398,18 @@ export default function Admin() {
       })) }));
     } catch (e: any) { setErro(e.message); }
     setLoadingCi(null);
+  }
+
+  async function processPendentes(pol: Politician) {
+    setProcessingPol(pol.id); setErro("");
+    try {
+      const res = await authFetch(`/api/politician/${pol.slug}/evaluate-pending`, { method: "POST" });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, [`process_${pol.id}`]: json }));
+      setTimeout(fetchAll, 2000);
+    } catch (e: any) { setErro(e.message); }
+    setProcessingPol(null);
   }
 
   async function recalculateAllLegacy() {
@@ -818,6 +831,56 @@ export default function Admin() {
             </div>
           </div>
         </Section>
+
+        {/* ── Processamento de Promessas ───────────────────────────────────── */}
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider px-1">⚙️ Processamento por Político</h2>
+          <p className="text-xs text-gray-500 px-1">Promessas pendentes de avaliação por IA. Processar dispara a reavaliação em lote.</p>
+          {carregando && <div className="py-6 flex justify-center"><Loader2 className="w-6 h-6 text-gray-500 animate-spin" /></div>}
+          {!carregando && dados.length === 0 && <div className="text-center py-6 text-gray-500">Nenhum político encontrado</div>}
+          {!carregando && dados.filter(d => d.stats.total_promises > 0).sort((a, b) => (b.stats.total_promises - (b.stats.total_explanations || 0)) - (a.stats.total_promises - (a.stats.total_explanations || 0))).map(p => {
+            const pol = politicians.find(p2 => p2.name === p.nome);
+            const pendentes = p.stats.total_promises - (p.stats.total_explanations || 0);
+            const pct = p.stats.total_promises > 0 ? Math.round(((p.stats.total_explanations || 0) / p.stats.total_promises) * 100) : 0;
+            return (
+              <div key={p.id} className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-xl">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white truncate">{p.nome}</div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>{p.stats.total_promises} promessas</span>
+                      <span className="text-green-400">{p.stats.total_explanations || 0} avaliadas</span>
+                      {pendentes > 0 && <span className="text-yellow-400">{pendentes} pendentes</span>}
+                    </div>
+                    <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1.5">
+                      <div className="h-full rounded-full bg-neon-cyan" style={{ width: pct + '%' }} />
+                    </div>
+                  </div>
+                </div>
+                {pol && (
+                  <button
+                    onClick={() => processPendentes(pol)}
+                    disabled={processingPol === pol.id || pendentes === 0}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {processingPol === pol.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <Play className="w-3 h-3" />}
+                    {processingPol === pol.id ? "Processando..." : `Processar ${pendentes}`}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 1).map(([k, v]) => (
+            <div key={k} className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
+              {v.message || `${v.evaluated} promessas processadas`}
+            </div>
+          ))}
+        </div>
 
         {/* ── Lista de Qualidade ────────────────────────────────────────────── */}
         <div className="space-y-2">
