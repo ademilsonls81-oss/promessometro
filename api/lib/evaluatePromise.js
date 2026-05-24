@@ -85,39 +85,53 @@ export async function evaluateWithAI(promise) {
 
   if (SERPER_API_KEY) {
     try {
+      const name = promise.politician_name || '';
+      const title = promise.promise_title || '';
+      const shortTitle = title.substring(0, 60);
+
       const queries = [
-        `"${promise.politician_name}" "${promise.promise_title?.substring(0, 50)}"`,
-        `${promise.politician_name} ${promise.promise_title?.substring(0, 40)} resultado`
+        `"${name}" "${shortTitle}"`,
+        `${name} ${shortTitle}`,
+        `${name} ${shortTitle.substring(0, 40)} resultado promessa`,
       ];
+
       for (const query of queries) {
-        const res = await fetch('https://google.serper.dev/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-          body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 5 })
-        });
-        if (res.ok) {
-          const d = await res.json();
-          const results = (d.organic || [])
-            .filter(r => !isSocialMedia(r.link || ''))
-            .map(r => ({
-              descricao: r.snippet || '',
-              fonte: r.source || extractHostname(r.link) || '',
-              url: r.link || '',
-              data: parseSerperDate(r.date)
-            }));
-          evidences.push(...results);
+        const [webRes, newsRes] = await Promise.all([
+          fetch('https://google.serper.dev/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 8 })
+          }),
+          fetch('https://google.serper.dev/news', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+            body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 8 })
+          })
+        ]);
+        for (const res of [webRes, newsRes]) {
+          if (res.ok) {
+            const d = await res.json();
+            const results = (d.organic || d.news || [])
+              .filter(r => !isSocialMedia(r.link || ''))
+              .map(r => ({
+                descricao: r.snippet || '',
+                fonte: r.source || extractHostname(r.link) || '',
+                url: r.link || '',
+                data: parseSerperDate(r.date)
+              }));
+            evidences.push(...results);
+          }
         }
+        await new Promise(r => setTimeout(r, 200));
       }
     } catch (_) { }
   }
 
-  const seenDomains = new Set();
+  const seenUrls = new Set();
   const dedupedEvidences = evidences.filter(ev => {
-    if (!ev.url) return false;
-    if (isSocialMedia(ev.url)) return false;
-    const domain = getUrlDomain(ev.url);
-    if (!domain || seenDomains.has(domain)) return false;
-    seenDomains.add(domain);
+    if (!ev.url || isSocialMedia(ev.url)) return false;
+    if (seenUrls.has(ev.url)) return false;
+    seenUrls.add(ev.url);
     return true;
   });
 
