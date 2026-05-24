@@ -1506,7 +1506,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
 
       // Fallback 1: se role invalido e state é UF, assume Governador
       if (precisaRole && pol.state && /^[A-Z]{2}$/.test(pol.state)) {
-        updates.role = 'Governador';
+        updates.role = 'governador';
       }
 
       // Fallback 2: AI com Serper, Wikipedia ou conhecimento interno
@@ -1518,7 +1518,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
         try {
           const gr = await fetch(`${AI_URL}/chat/completions`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`}, body:JSON.stringify({ model:'llama-3.1-8b-instant', messages:[{role:'user',content:prompt}], response_format:{type:'json_object'}, temperature:0.1, max_tokens:300 }) });
           if (gr.ok) { const gd = await gr.json(); const p = JSON.parse(gd.choices[0].message.content);
-            if (p.role && precisaRole && !updates.role && roleValido(p.role)) updates.role = p.role.trim();
+            if (p.role && precisaRole && !updates.role && roleValido(p.role)) updates.role = p.role.trim().toLowerCase();
             if (p.state && precisaState) updates.state = p.state.trim().toUpperCase().substring(0,2);
             if (p.party && precisaParty) updates.party = p.party.trim().toUpperCase();
           }
@@ -1534,7 +1534,11 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       }
 
       if (Object.keys(updates).length > 0) {
-        await dbAdmin().from('politicians').update(updates).eq('id', politician_id);
+        const { error: upErr } = await dbAdmin().from('politicians').update(updates).eq('id', politician_id);
+        if (upErr) {
+          console.error('[fix-cadastro] Update error:', upErr.message || upErr);
+          return res.status(500).json({ error: 'Erro ao atualizar: ' + (upErr.message || JSON.stringify(upErr)), updates, politician: pol.name });
+        }
       }
 
       return res.json({ fixed: Object.keys(updates).length, updates, politician: pol.name, updates_applied: Object.keys(updates), missing: { role: !pol.role || !roleValido(pol.role), state: !pol.state || pol.state.trim().length < 2, party: !pol.party || pol.party.trim().length === 0, photo: !pol.photo_url } });
@@ -1782,7 +1786,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       // Create/update politician
       const pol = await ensurePolitician(name);
       // Update with provided data
-      const updates = { state: state.toUpperCase(), role: role || 'Prefeito' };
+      const updates = { state: state.toUpperCase(), role: (role || 'prefeito').toLowerCase() };
       if (city) updates.cidade = city;
       if (party) updates.party = party;
       await dbAdmin().from('politicians').update(updates).eq('id', pol.id);
