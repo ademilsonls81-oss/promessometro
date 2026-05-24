@@ -1,4 +1,5 @@
 import { getUrlDomain } from './sourceLevel.js';
+import { searchNews, SafeSearchType } from 'duck-duck-scrape';
 
 const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
 
@@ -178,6 +179,29 @@ export async function evaluateWithAI(promise) {
         }
       } catch (_) {}
     } catch (_) { }
+  }
+
+  // Fallback: DuckDuckGo searchNews quando Serper nao acha nada
+  const hasRealEvidence = evidences.some(e => e.url && e.url !== '#' && e.url.length > 5);
+  if (!hasRealEvidence) {
+    try {
+      const ddgQueries = [
+        `${name} ${keywords}`,
+        `${name} ${shortTitle.substring(0, 50)}`,
+      ];
+      for (const q of ddgQueries) {
+        const res = await searchNews(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' });
+        const results = (res.results || []).filter(r => !isSocialMedia(r.url) && r.url !== 'https://duckduckgo.com/')
+          .map(r => ({
+            descricao: r.snippet || r.excerpt || '',
+            fonte: extractHostname(r.url) || '',
+            url: r.url || '',
+            data: new Date(r.date || Date.now()).toISOString()
+          }));
+        evidences.push(...results);
+        if (results.length > 0) break;
+      }
+    } catch (_) {}
   }
 
   const seenUrls = new Set();
