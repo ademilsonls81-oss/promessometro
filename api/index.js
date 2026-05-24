@@ -1343,7 +1343,7 @@ Responda SOMENTE JSON array. Nao inclua marcadores de codigo. Apenas o JSON:
       function isSocial(url) { if (!url) return false; try { const h = new URL(url).hostname.replace('www.',''); return SOCIAL_BLOCKED.some(s => h === s || h.endsWith('.'+s)); } catch { return false; } }
       function extractDomain(url) { if (!url) return ''; try { return new URL(url).hostname.replace('www.',''); } catch { return ''; } }
       function dedupDomains(arr) { const best = new Map(); for (const e of arr) { const d = extractDomain(e.url)||'__'; if (!best.has(d)||(e.descricao||'').length>(best.get(d).descricao||'').length) best.set(d, e); } return Array.from(best.values()); }
-      const PROHIBITED = ['Aguardando dados','IA falhou','Avaliacao herdada','Nenhuma avaliação detalhada disponível','Reavaliacao automatica','Herdado do status original','Avaliação automática via pipeline','Avaliacao automatica','Análise IA.','batch-heranca','autonomous_seed','evidence_based_fallback','seed_initial_v1'];
+      const PROHIBITED = ['Aguardando dados','IA falhou','Avaliacao herdada','Nenhuma avaliação detalhada disponível','Reavaliacao automatica','Herdado do status original','Avaliação automática via pipeline','Avaliacao automatica','Análise IA.','batch-heranca','autonomous_seed','evidence_based_fallback','seed_initial_v1','Groq 429','Sem acesso à IA','Avaliação baseada no status registrado'];
       function isPlaceholder(t) { return !t || t.trim().length < 20 || PROHIBITED.some(p => t.includes(p)); }
       function clampScore(st, sc) { const r={cumprida:[80,100],parcial:[40,79],pendente:[0,39],quebrada:[0,0]}[normStatus(st)]||[0,39]; return Math.max(r[0],Math.min(r[1],Math.round(sc||r[0]))); }
 
