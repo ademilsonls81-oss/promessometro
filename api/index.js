@@ -4,6 +4,7 @@ import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
 import { evaluateWithAI, filterSocialMedia } from './lib/evaluatePromise.js';
 
+
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const JWT_SECRET = process.env.NEXTAUTH_SECRET || process.env.ADMIN_SECRET_KEY;
 
@@ -602,28 +603,14 @@ Resposta SOMENTE JSON:
 
     if (path === '/api/debug-ddg' && method === 'GET') {
       try {
-        const ddgUrl = new URL(req.url, 'http://localhost');
-        const q = ddgUrl.searchParams.get('q') || 'Tarcísio de Freitas SP';
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const params = new URLSearchParams({ q });
-        const res = await fetch('https://lite.duckduckgo.com/lite/', {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
-          body: params.toString()
-        });
-        clearTimeout(timeout);
+        const id = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('https://lite.duckduckgo.com/lite/?q=test', { signal: controller.signal });
+        clearTimeout(id);
         const text = await res.text();
-        const results = [];
-        const re = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
-        let m;
-        while ((m = re.exec(text)) !== null) {
-          results.push({ url: m[1], title: m[2].replace(/<[^>]+>/g,'').trim().substring(0,80), snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,150) });
-        }
-        return res.json({ status: res.status, len: text.length, results: results.length, samples: results.slice(0,3) });
+        return res.json({ ok: true, status: res.status, len: text.length, snippet: text.substring(0,100) });
       } catch(e) {
-        return res.json({ error: e.name, message: e.message });
+        return res.json({ ok: false, error: e.name, msg: e.message });
       }
     }
 
