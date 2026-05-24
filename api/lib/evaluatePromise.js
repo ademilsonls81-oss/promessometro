@@ -1,4 +1,5 @@
 import { getUrlDomain } from './sourceLevel.js';
+import { search, searchNews, SafeSearchType } from 'duck-duck-scrape';
 
 const SOCIAL_DOMAINS = ['instagram.com', 'facebook.com', 'tiktok.com', 'twitter.com', 'x.com'];
 
@@ -119,56 +120,34 @@ export async function evaluateWithAI(promise) {
     evidences.push({ descricao: `Fonte original da promessa`, fonte: extractHostname(promise.source_link), url: promise.source_link });
   }
 
-  if (SERPER_API_KEY) {
-    try {
-      const queries = [
-        `${name} ${keywords}`,
-        `${name} ${shortTitle.substring(0, 50)}`,
-        `${name} ${keywords} promessa governo`,
-      ];
+  try {
+    const ddgQueries = [
+      `${name} ${keywords}`,
+      `${name} ${shortTitle.substring(0, 50)}`,
+      `${name} ${keywords} promessa governo`,
+    ];
 
-      for (const query of queries) {
-        const res = await fetch('https://google.serper.dev/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-          body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 10 })
-        });
-        if (res.ok) {
-          const d = await res.json();
-          const results = (d.organic || [])
-            .filter(r => !isSocialMedia(r.link || ''))
+    for (const q of ddgQueries) {
+      const [webRes, newsRes] = await Promise.all([
+        search(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' }).catch(() => null),
+        searchNews(q, { safeSearch: SafeSearchType.STRICT, locale: 'pt-br', region: 'br' }).catch(() => null)
+      ]);
+      for (const res of [webRes, newsRes]) {
+        if (res?.results) {
+          const results = res.results
+            .filter(r => !isSocialMedia(r.url) && r.url !== 'https://duckduckgo.com/')
             .map(r => ({
-              descricao: r.snippet || '',
-              fonte: r.source || extractHostname(r.link) || '',
-              url: r.link || '',
-              data: parseSerperDate(r.date)
+              descricao: r.snippet || r.excerpt || '',
+              fonte: extractHostname(r.url) || r.source || '',
+              url: r.url || '',
+              data: new Date(r.date || Date.now()).toISOString()
             }));
           evidences.push(...results);
         }
-        await new Promise(r => setTimeout(r, 300));
       }
-
-      // Busca nas fontes da metodologia
-      if (evidences.filter(e => e.url && e.url !== '#').length < 2) {
-        const siteQuery = `(site:g1.globo.com OR site:folha.uol.com.br OR site:estadao.com.br OR site:cnnbrasil.com.br OR site:metropoles.com) ${name} ${keywords}`;
-        const srcRes = await fetch('https://google.serper.dev/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
-          body: JSON.stringify({ q: siteQuery, gl: 'br', hl: 'pt-br', num: 5 })
-        });
-        if (srcRes.ok) {
-          const d = await srcRes.json();
-          const results = (d.organic || []).map(r => ({
-            descricao: r.snippet || '',
-            fonte: r.source || extractHostname(r.link) || '',
-            url: r.link || '',
-            data: parseSerperDate(r.date)
-          }));
-          evidences.push(...results);
-        }
-      }
-    } catch (_) { }
-  }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } catch (_) { }
 
   const seenUrls = new Set();
   const dedupedEvidences = evidences.filter(ev => {
