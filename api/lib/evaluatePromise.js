@@ -70,6 +70,38 @@ function parseSerperDate(dateStr) {
 
 export { filterSocialMedia, mapStatusToFrontend };
 
+const STOPWORDS = new Set([
+  'a','ao','aos','aquele','aqueles','as','até','com','como','da','das','de','dela','delas',
+  'dele','deles','depois','do','dos','e','ela','elas','ele','eles','em','entre','era','eram',
+  'essa','essas','esse','esses','esta','estas','este','estes','foi','foram','houver','isso',
+  'isto','já','la','lhe','lhes','lo','mas','me','mesmo','meu','meus','minha','minhas','muito',
+  'na','nas','nem','no','nos','nossa','nossas','nosso','nossos','num','numa','o','os','ou',
+  'para','pela','pelas','pelo','pelos','por','qual','quando','que','quem','são','se','sem',
+  'seu','seus','sido','só','sob','sobre','suas','tal','te','tem','têm','teu','teus','tive',
+  'tiver','toda','todas','todo','todos','tu','tua','tuas','um','uma','umas','uns','vou'
+]);
+
+function extractKeywords(title) {
+  if (!title) return '';
+  const words = title.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOPWORDS.has(w));
+  const seen = new Set();
+  const unique = words.filter(w => { if (seen.has(w)) return false; seen.add(w); return true; });
+  return unique.slice(0, 5).join(' ');
+}
+
+const METODOLOGIA_SOURCES = [
+  'g1.globo.com', 'oglobo.globo.com', 'folha.uol.com.br', 'uol.com.br',
+  'estadao.com.br', 'metropoles.com', 'cnnbrasil.com.br', 'noticias.uol.com.br',
+  'correiobraziliense.com.br', 'agenciabrasil.ebc.com.br', 'veja.abril.com.br',
+  'noticias.r7.com', 'congressoemfoco.uol.com.br', 'brasildefato.com.br',
+  'portaldatransparencia.gov.br', 'www12.senado.leg.br', 'www.camara.leg.br',
+  'www.planalto.gov.br'
+];
+
 export async function evaluateWithAI(promise) {
   const apiKeyRaw = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
   const apiKey = apiKeyRaw.replace(/^YOUR_.*_KEY$/, '');
@@ -77,6 +109,10 @@ export async function evaluateWithAI(promise) {
   const SERPER_API_KEY = process.env.SERPER_API_KEY;
   const originalStatus = promise.status || 'pendente';
   const originalScore = promise.fulfillment_score ?? 20;
+  const name = promise.politician_name || '';
+  const title = promise.promise_title || '';
+  const shortTitle = title.substring(0, 60);
+  const keywords = extractKeywords(title);
 
   const evidences = [];
   if (promise.source_link) {
@@ -85,14 +121,11 @@ export async function evaluateWithAI(promise) {
 
   if (SERPER_API_KEY) {
     try {
-      const name = promise.politician_name || '';
-      const title = promise.promise_title || '';
-      const shortTitle = title.substring(0, 60);
-
       const queries = [
         `"${name}" "${shortTitle}"`,
-        `${name} ${shortTitle}`,
-        `${name} ${shortTitle.substring(0, 40)} resultado promessa`,
+        `${name} ${keywords}`,
+        `${name} ${keywords.substring(0, 40)} resultado`,
+        `"${name}" promessa ${keywords}`,
       ];
 
       for (const query of queries) {
@@ -124,6 +157,26 @@ export async function evaluateWithAI(promise) {
         }
         await new Promise(r => setTimeout(r, 200));
       }
+
+      // Busca adicional nas fontes da metodologia
+      try {
+        const siteQuery = `site:(${METODOLOGIA_SOURCES.slice(0, 6).join(' OR site:')}) ${name} ${keywords}`;
+        const srcRes = await fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_API_KEY },
+          body: JSON.stringify({ q: siteQuery, gl: 'br', hl: 'pt-br', num: 5 })
+        });
+        if (srcRes.ok) {
+          const d = await srcRes.json();
+          const results = (d.organic || []).map(r => ({
+            descricao: r.snippet || '',
+            fonte: r.source || extractHostname(r.link) || '',
+            url: r.link || '',
+            data: parseSerperDate(r.date)
+          }));
+          evidences.push(...results);
+        }
+      } catch (_) {}
     } catch (_) { }
   }
 
@@ -149,8 +202,8 @@ export async function evaluateWithAI(promise) {
 
   const prompt = `Você é um avaliador independente de promessas políticas brasileiras. Analise com rigor.
 
-PROMESSA: "${promise.promise_title}"
-POLÍTICO: ${promise.politician_name}
+PROMESSA: "${title}"
+POLÍTICO: ${name}
 
 EVIDÊNCIAS ENCONTRADAS:
 ${evText}
