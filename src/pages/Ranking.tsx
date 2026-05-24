@@ -397,11 +397,15 @@ export default function Ranking() {
                         </div>
 
                         <div className="text-right">
-                          <div className="text-2xl font-display font-bold text-neon-cyan">
-                            {Math.round(politician.legacy_score || 0)}
+                          <div className={`text-2xl font-display font-bold ${politician.methodology_complete ? 'text-neon-cyan' : 'text-gray-500'}`}>
+                            {politician.final_score ?? Math.round(politician.legacy_score || 0)}
                           </div>
-                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">Legado</div>
-                          <div className="text-xs text-gray-600 mt-1">{politician.percentage}% execução</div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                            {politician.methodology_complete ? 'Nota Final' : 'Legado'}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            {politician.methodology_complete ? `${politician.percentage}%` : `${politician.percentage}% · Metodologia incompleta`}
+                          </div>
                         </div>
                       </div>
                     </motion.div>

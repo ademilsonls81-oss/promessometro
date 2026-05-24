@@ -223,21 +223,30 @@ export default async function handler(req, res) {
           if (s === 'cumprida') legacyScore += 1.0 * multiplier;
           else if (s === 'parcial') legacyScore += 0.5 * multiplier;
         });
-        const pct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
+        const c1OnlyPct = evalCount > 0 ? Math.round((f + pa * 0.5) / evalCount * 100) : 0;
+        const fs = pol.final_score != null ? Math.round(Number(pol.final_score)) : null;
+        const hasMethodology = pol.c1_score != null && pol.c2_score != null && pol.c3_score != null && fs != null;
+        const pct = hasMethodology ? fs : (pol.c1_score != null ? Math.round(Number(pol.c1_score)) : c1OnlyPct);
 
         return {
           ...pol,
           stats: { fulfilled: f, partial: pa, broken: b, pending: pe, total: list.length },
           percentage: pct, promise_count: list.length, evaluated_count: evCount,
+          methodology_complete: hasMethodology,
           legacy_score: legacyScore,
           c1_score: pol.c1_score != null ? Number(pol.c1_score) : null,
           c2_score: pol.c2_score, c3_score: pol.c3_score,
-          final_score: pol.final_score != null ? Math.round(Number(pol.final_score)) : null,
+          final_score: fs,
           grade: pol.grade || null
         };
       });
 
-      const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => b.legacy_score - a.legacy_score);
+      const withPromises = ranking.filter(p => p.promise_count > 0).sort((a, b) => {
+        const aScore = a.final_score ?? -1;
+        const bScore = b.final_score ?? -1;
+        if (aScore !== bScore) return bScore - aScore;
+        return b.legacy_score - a.legacy_score;
+      });
       const mainRanking = withPromises.filter(p => p.evaluated_count >= 5);
       const insufficientSample = withPromises.filter(p => p.evaluated_count < 5);
       const result = includeAll ? ranking : mainRanking;
