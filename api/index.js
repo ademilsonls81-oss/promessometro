@@ -601,6 +601,32 @@ Resposta SOMENTE JSON:
       return res.json({ discovered: promessas.length, inserted, duplicates: dupes, total_snippets: allSnippets.length });
     }
 
+    if (path === '/api/test-search' && method === 'GET') {
+      const p = new URL(req.url, 'http://localhost').searchParams.get('q') || 'Tarcísio de Freitas escola';
+      const tests = {};
+      if (SERPER_KEY) {
+        try {
+          const r = await fetch('https://google.serper.dev/search', {
+            method:'POST', headers:{'Content-Type':'application/json','X-API-KEY':SERPER_KEY},
+            body: JSON.stringify({ q: p, gl:'br', hl:'pt-br', num:5 })
+          });
+          const d = await r.json();
+          tests.serper = { ok: r.ok, count: (d.organic||[]).length, first: d.organic?.[0]?.title?.substring(0,50) };
+        } catch(e) { tests.serper = { error: e.message }; }
+      } else { tests.serper = { error: 'SERPER_KEY not configured' }; }
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          const r = await fetch('https://api.tavily.com/search', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: p, max_results:5 })
+          });
+          const d = await r.json();
+          tests.tavily = { ok: r.ok, count: (d.results||[]).length, first: d.results?.[0]?.title?.substring(0,50) };
+        } catch(e) { tests.tavily = { error: e.message }; }
+      } else { tests.tavily = { error: 'TAVILY_KEY not configured' }; }
+      return res.json(tests);
+    }
+
     if (path === '/api/stats' && method === 'GET') {
       const [{ count: polCount }, { count: promCount }] = await Promise.all([
         db().from('politicians').select('*', { count: 'exact', head: true }),
