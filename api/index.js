@@ -604,29 +604,27 @@ Resposta SOMENTE JSON:
     if (path === '/api/debug-ddg' && method === 'GET') {
       try {
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 8000);
+        const id = setTimeout(() => controller.abort(), 10000);
         const ddgUrl = new URL(req.url, 'http://localhost');
-        const q = ddgUrl.searchParams.get('q') || 'Tarcisio+de+Freitas';
-        // Try multiple DDG endpoints
-        const endpoints = [
-          ['POST', 'https://html.duckduckgo.com/html/', { q }],
-          ['POST', 'https://lite.duckduckgo.com/lite/', { q }],
-          ['GET', `https://duckduckgo.com/?q=${q}`, null],
-        ];
-        const results = [];
-        for (const [method, url, body] of endpoints) {
-          try {
-            const opts = { method, signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } };
-            if (body) { opts.body = new URLSearchParams(body).toString(); opts.headers['Content-Type'] = 'application/x-www-form-urlencoded'; }
-            const r = await fetch(url, opts);
-            const t = await r.text();
-            results.push({ url: url.substring(0,50), status: r.status, len: t.length, snippet: t.substring(0,150) });
-          } catch(e) {
-            results.push({ url: url.substring(0,50), error: e.message });
-          }
-        }
+        const qs = ddgUrl.searchParams.get('q') || 'Tarcisio de Freitas';
+        const params = new URLSearchParams({ q: qs });
+        const r = await fetch('https://html.duckduckgo.com/html/', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+          body: params.toString()
+        });
         clearTimeout(id);
-        return res.json({ ok: true, results });
+        const t = await r.text();
+        const links = [];
+        const re = /<a rel="nofollow" class="result__a" href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+        let m;
+        while ((m = re.exec(t)) !== null) {
+          const url = m[1];
+          const title = m[2].replace(/<[^>]+>/g, '').trim();
+          if (url && !url.includes('duckduckgo.com')) links.push({ title: title.substring(0,60), url: url.substring(0,80) });
+        }
+        return res.json({ ok: true, status: r.status, total: links.length, links, sample: t.substring(1000,2000) });
       } catch(e) {
         return res.json({ ok: false, error: e.name, msg: e.message });
       }
