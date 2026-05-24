@@ -71,13 +71,25 @@ export default function TerminalWidget() {
         return;
       }
 
+      const { data: evals } = await supabase
+        .from("promise_explanations")
+        .select("promise_id, status, fulfillment_score")
+        .eq("is_latest", true);
+      const evalMap = {};
+      if (evals) {
+        evals.forEach(ev => {
+          evalMap[ev.promise_id] = { status: ev.status, score: ev.fulfillment_score };
+        });
+      }
+
       const random = promises[Math.floor(Math.random() * Math.min(promises.length, 20))];
-      const statusKey = (random.status || 'nao_classificada').toLowerCase();
-      const label = statusLabels[statusKey] || statusLabels[random.status?.toLowerCase()] || "NÃO CLASSIFICADA";
+      const ev = evalMap[random.id];
+      const statusKey = (ev?.status || random.status || 'nao_classificada').toLowerCase();
+      const label = statusLabels[statusKey] || "NÃO CLASSIFICADA";
 
       const sourceName = sourceNames[Math.floor(Math.random() * sourceNames.length)];
 
-      const maxScore = Math.max(0, Math.min(100, random.fulfillment_score || 0));
+      const maxScore = Math.max(0, Math.min(100, ev?.score || random.fulfillment_score || 0));
 
       setData({
         politician: random.politician_name || "Desconhecido",

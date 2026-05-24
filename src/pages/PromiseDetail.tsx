@@ -86,7 +86,7 @@ export default function PromiseDetail() {
 
       if (data) {
         const politician = data.politicians;
-        setPromise({
+        const basePromise = {
           id: data.id,
           politician_name: data.politician_name || politician?.name || "",
           politician_photo_url: politician?.photo_url || null,
@@ -104,7 +104,23 @@ export default function PromiseDetail() {
           needs_human_review: data.needs_human_review,
           evidence_count: data.evidence_count,
           evidences_used: data.evidences_used
-        });
+        };
+
+        try {
+          const evalRes = await fetch(`/api/evaluate/${slugText}`);
+          const evalData = await evalRes.json();
+          if (evalData.has_evaluation) {
+            basePromise.status = evalData.status;
+            basePromise.fulfillment_score = evalData.score;
+            basePromise.last_verified_at = evalData.evaluated_at;
+            basePromise.ai_evaluation = evalData.justification;
+            basePromise.evidences_used = evalData.sources;
+          }
+        } catch (e) {
+          // Fallback to promises table data
+        }
+
+        setPromise(basePromise);
       } else {
         setError("Promessa não encontrada");
       }

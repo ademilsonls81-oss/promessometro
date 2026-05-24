@@ -251,9 +251,10 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/promises' && method === 'GET') {
-      const [polRes, countRes] = await Promise.all([
+      const [polRes, countRes, evalRes] = await Promise.all([
         db().from('politicians').select('name, photo_url'),
-        db().from('promises').select('*', { count: 'exact', head: true })
+        db().from('promises').select('*', { count: 'exact', head: true }),
+        db().from('promise_explanations').select('promise_id, status, fulfillment_score').eq('is_latest', true)
       ]);
       const allPromiseRes = [];
       let promOffset = 0;
@@ -264,27 +265,27 @@ export default async function handler(req, res) {
         if (batch.length < 1000) break;
         promOffset += 1000;
       }
+      const evalMap = {};
+      (evalRes.data || []).forEach(ev => {
+        evalMap[ev.promise_id] = { status: normStatus(ev.status), score: ev.fulfillment_score || 0 };
+      });
       const polPhotoMap = {};
       (polRes.data || []).forEach(p => { polPhotoMap[p.name] = p.photo_url; });
       const statusCounts = { cumprida: 0, parcial: 0, quebrada: 0, pendente: 0 };
-      let statsOffset = 0;
-      while (true) {
-        const { data: batch, error } = await db().from('promises').select('status').range(statsOffset, statsOffset + 999);
-        if (error || !batch || batch.length === 0) break;
-        batch.forEach(p => {
-          const s = normStatus(p.status);
-          if (statusCounts[s] !== undefined) statusCounts[s]++;
-          else statusCounts.pendente++;
-        });
-        if (batch.length < 1000) break;
-        statsOffset += 1000;
-      }
-      return res.json({
-        promises: (allPromiseRes).map(p => ({
+      const mappedPromises = allPromiseRes.map(p => {
+        const ev = evalMap[p.id];
+        const s = ev ? ev.status : normStatus(p.status);
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+        return {
           ...p,
+          status: s,
+          fulfillment_score: ev ? ev.score : (p.fulfillment_score || 0),
           politician_photo_url: polPhotoMap[p.politician_name] || null,
           slug: toSlug(p.politician_name)
-        })),
+        };
+      });
+      return res.json({
+        promises: mappedPromises,
         total: countRes.count || 0,
         stats: statusCounts
       });
