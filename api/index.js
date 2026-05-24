@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { runAudit } from './lib/metodologiaAudit.js';
 import { runQualidadeAudit } from './lib/qualidadeAudit.js';
-import { evaluateWithAI, filterSocialMedia } from './lib/evaluatePromise.js';
+import { evaluateWithAI, batchExtractKeywords, filterSocialMedia } from './lib/evaluatePromise.js';
 
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -601,35 +601,6 @@ Resposta SOMENTE JSON:
       return res.json({ discovered: promessas.length, inserted, duplicates: dupes, total_snippets: allSnippets.length });
     }
 
-    if (path === '/api/debug-ddg' && method === 'GET') {
-      try {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 10000);
-        const ddgUrl = new URL(req.url, 'http://localhost');
-        const qs = ddgUrl.searchParams.get('q') || 'Tarcisio de Freitas';
-        const params = new URLSearchParams({ q: qs });
-        const r = await fetch('https://html.duckduckgo.com/html/', {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
-          body: params.toString()
-        });
-        clearTimeout(id);
-        const t = await r.text();
-        const links = [];
-        const re = /<a rel="nofollow" class="result__a" href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
-        let m;
-        while ((m = re.exec(t)) !== null) {
-          const url = m[1];
-          const title = m[2].replace(/<[^>]+>/g, '').trim();
-          if (url && !url.includes('duckduckgo.com')) links.push({ title: title.substring(0,60), url: url.substring(0,80) });
-        }
-        return res.json({ ok: true, status: r.status, total: links.length, links, sample: t.substring(1000,2000) });
-      } catch(e) {
-        return res.json({ ok: false, error: e.name, msg: e.message });
-      }
-    }
-
     if (path === '/api/stats' && method === 'GET') {
       const [{ count: polCount }, { count: promCount }] = await Promise.all([
         db().from('politicians').select('*', { count: 'exact', head: true }),
@@ -660,9 +631,13 @@ Resposta SOMENTE JSON:
       let evaluated = 0, failed = 0;
       const results = [];
       const batch = pendentes.slice(0, MAX_BATCH);
+
+      const keywordMap = await batchExtractKeywords(batch);
+
       for (const promise of batch) {
         try {
-          const result = await evaluateWithAI(promise);
+          const query = keywordMap[promise.id] || `${promise.politician_name} ${(promise.promise_title||'').substring(0,40)}`;
+          const result = await evaluateWithAI(promise, query);
           const { error: upErr } = await dbAdmin().from('promises').update({
             status: result.status,
             fulfillment_score: result.fulfillment_score,

@@ -26,11 +26,8 @@ const STATUS_CONFIG = {
 
 function extractHostname(url) {
   if (!url) return '';
-  try {
-    return new URL(url).hostname.replace('www.', '');
-  } catch {
-    return url.split('/')[2]?.replace('www.', '') || '';
-  }
+  try { return new URL(url).hostname.replace('www.', ''); }
+  catch { return url.split('/')[2]?.replace('www.', '') || ''; }
 }
 
 function mapStatusToFrontend(aiStatus) {
@@ -48,127 +45,143 @@ function clampScore(status, score) {
   return Math.max(cfg.min, Math.min(cfg.max, Math.round(score)));
 }
 
-function parseSerperDate(dateStr) {
-  if (!dateStr || typeof dateStr !== 'string') return new Date().toISOString();
-  const lower = dateStr.toLowerCase();
-  if (lower.includes('ago') || lower.includes('days') || lower.includes('months') || lower.includes('year') || lower.includes('hours')) {
-    return new Date().toISOString();
-  }
-  const ptMonths = { 'jan': 'Jan', 'fev': 'Feb', 'mar': 'Mar', 'abr': 'Apr', 'mai': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug', 'set': 'Sep', 'out': 'Oct', 'nov': 'Nov', 'dez': 'Dec' };
-  const monthMatch = dateStr.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
-  if (monthMatch) {
-    const en = ptMonths[monthMatch[1].toLowerCase()];
-    if (en) {
-      const replaced = dateStr.replace(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/gi, en);
-      const parsed = new Date(replaced);
-      if (!isNaN(parsed.getTime())) return parsed.toISOString();
-    }
-  }
-  const parsed = new Date(dateStr);
-  return !isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
-}
-
 export { filterSocialMedia, mapStatusToFrontend };
 
-const STOPWORDS = new Set([
-  'a','ao','aos','aquele','aqueles','as','até','com','como','da','das','de','dela','delas',
-  'dele','deles','depois','do','dos','e','ela','elas','ele','eles','em','entre','era','eram',
-  'essa','essas','esse','esses','esta','estas','este','estes','foi','foram','houver','isso',
-  'isto','já','la','lhe','lhes','lo','mas','me','mesmo','meu','meus','minha','minhas','muito',
-  'na','nas','nem','no','nos','nossa','nossas','nosso','nossos','num','numa','o','os','ou',
-  'para','pela','pelas','pelo','pelos','por','qual','quando','que','quem','são','se','sem',
-  'seu','seus','sido','só','sob','sobre','suas','tal','te','tem','têm','teu','teus','tive',
-  'tiver','toda','todas','todo','todos','tu','tua','tuas','um','uma','umas','uns','vou'
-]);
+const AI_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
+const GROQ_KEY = (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '').replace(/^YOUR_.*_KEY$/, '');
+const SERPER_KEY = process.env.SERPER_API_KEY;
+const TAVILY_KEY = process.env.TAVILY_API_KEY;
 
-function extractKeywords(title) {
-  if (!title) return '';
-  const words = title.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !STOPWORDS.has(w));
-  const seen = new Set();
-  const unique = words.filter(w => { if (seen.has(w)) return false; seen.add(w); return true; });
-  return unique.slice(0, 5).join(' ');
+let searchCallCount = 0;
+
+async function searchWithSerper(query) {
+  if (!SERPER_KEY) return [];
+  try {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
+      body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 5 })
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.organic || []).map(r => ({
+      descricao: r.snippet || '',
+      fonte: r.source || extractHostname(r.link) || '',
+      url: r.link || ''
+    }));
+  } catch { return []; }
 }
 
-const METODOLOGIA_SOURCES = [
-  'g1.globo.com', 'oglobo.globo.com', 'folha.uol.com.br', 'uol.com.br',
-  'estadao.com.br', 'metropoles.com', 'cnnbrasil.com.br', 'noticias.uol.com.br',
-  'correiobraziliense.com.br', 'agenciabrasil.ebc.com.br', 'veja.abril.com.br',
-  'noticias.r7.com', 'congressoemfoco.uol.com.br', 'brasildefato.com.br',
-  'portaldatransparencia.gov.br', 'www12.senado.leg.br', 'www.camara.leg.br',
-  'www.planalto.gov.br'
-];
+async function searchWithTavily(query) {
+  if (!TAVILY_KEY) return [];
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query,
+        max_results: 5,
+        include_domains: ['g1.globo.com', 'folha.uol.com.br', 'estadao.com.br', 'in.gov.br']
+      })
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.results || []).map(r => ({
+      descricao: r.content || '',
+      fonte: extractHostname(r.url) || '',
+      url: r.url || ''
+    }));
+  } catch { return []; }
+}
 
-export async function evaluateWithAI(promise) {
-  const apiKeyRaw = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
-  const apiKey = apiKeyRaw.replace(/^YOUR_.*_KEY$/, '');
-  const AI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
-  const SERPER_API_KEY = process.env.SERPER_API_KEY;
-  const originalStatus = promise.status || 'pendente';
-  const originalScore = promise.fulfillment_score ?? 20;
-  const name = promise.politician_name || '';
-  const title = promise.promise_title || '';
-  const shortTitle = title.substring(0, 60);
-  const keywords = extractKeywords(title);
+async function searchEvidence(query) {
+  searchCallCount++;
 
-  const evidences = [];
-  if (promise.source_link) {
-    evidences.push({ descricao: `Fonte original da promessa`, fonte: extractHostname(promise.source_link), url: promise.source_link });
+  const engines = searchCallCount % 2 === 0
+    ? [searchWithSerper, searchWithTavily]
+    : [searchWithTavily, searchWithSerper];
+
+  let results = [];
+  for (const engine of engines) {
+    results = await engine(query);
+    if (results.length > 0) break;
   }
 
-  try {
-    const ddgQueries = [
-      `${name} ${keywords}`,
-    ];
+  return results;
+}
 
-    for (const q of ddgQueries) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      try {
-        const params = new URLSearchParams({ q });
-        const ddgRes = await fetch('https://lite.duckduckgo.com/lite/', {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
-          body: params.toString()
-        });
-        clearTimeout(timeout);
-        const html = await ddgRes.text();
-        const resultRegex = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<td[^>]*class="result-snippet">(.*?)<\/td>/gi;
-        let m;
-        while ((m = resultRegex.exec(html)) !== null) {
-          const url = m[1];
-          const title = m[2].replace(/<[^>]+>/g, '').trim();
-          const snippet = m[3].replace(/<[^>]+>/g, '').trim();
-          if (title && url && !isSocialMedia(url)) {
-            evidences.push({
-              descricao: snippet,
-              fonte: extractHostname(url),
-              url,
-              data: new Date().toISOString()
-            });
-          }
-        }
-      } catch (_) { clearTimeout(timeout); }
+export async function batchExtractKeywords(promises) {
+  const map = {};
+  if (!GROQ_KEY) {
+    promises.forEach(p => { map[p.id] = `${p.politician_name} ${(p.promise_title || '').substring(0, 40)}`; });
+    return map;
+  }
+
+  for (let i = 0; i < promises.length; i += 5) {
+    const batch = promises.slice(i, i + 5);
+    const prompt = `Extraia 2 a 3 palavras-chave de cada promessa abaixo para busca no Google. Responda SOMENTE JSON: {"keywords": ["kw1 kw2", "kw3 kw4", ...]}\n\n${
+      batch.map((p, idx) => `${idx + 1}. "${p.promise_title}"`).join('\n')
+    }`;
+
+    try {
+      const gr = await fetch(`${AI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 200
+        })
+      });
+      const data = await gr.json();
+      const kwList = JSON.parse(data.choices[0].message.content).keywords;
+      batch.forEach((p, idx) => {
+        map[p.id] = `${p.politician_name} ${kwList[idx] || (p.promise_title || '').substring(0, 40)}`;
+      });
+    } catch {
+      batch.forEach(p => {
+        map[p.id] = `${p.politician_name} ${(p.promise_title || '').substring(0, 40)}`;
+      });
     }
-  } catch (_) { }
+  }
+
+  return map;
+}
+
+export async function evaluateWithAI(promise, preExtractedQuery) {
+  const originalStatus = promise.status || 'pendente';
+  const originalScore = promise.fulfillment_score ?? 20;
+  const title = promise.promise_title || '';
+  const evidences = [];
+
+  if (promise.source_link) {
+    evidences.push({
+      descricao: 'Fonte original da promessa',
+      fonte: extractHostname(promise.source_link),
+      url: promise.source_link
+    });
+  }
+
+  const query = preExtractedQuery || `${promise.politician_name} ${title.substring(0, 40)}`;
+  const searchResults = await searchEvidence(query);
+  const filtered = searchResults.filter(r => !isSocialMedia(r.url));
 
   const seenUrls = new Set();
-  const dedupedEvidences = evidences.filter(ev => {
+  const dedupedEvidences = filtered.filter(ev => {
     if (!ev.url || isSocialMedia(ev.url)) return false;
     if (seenUrls.has(ev.url)) return false;
     seenUrls.add(ev.url);
     return true;
-  });
+  }).concat(evidences);
 
   if (dedupedEvidences.length === 0) {
     dedupedEvidences.push({
-      fonte: "Ausência de Evidências",
-      descricao: "Nenhuma evidência ou notícia encontrada na web após varredura automática.",
-      url: "#"
+      fonte: 'Ausência de Evidências',
+      descricao: 'Nenhuma evidência ou notícia encontrada na web após varredura automática.',
+      url: '#'
     });
   }
 
@@ -179,7 +192,7 @@ export async function evaluateWithAI(promise) {
   const prompt = `Você é um avaliador independente de promessas políticas brasileiras. Analise com rigor.
 
 PROMESSA: "${title}"
-POLÍTICO: ${name}
+POLÍTICO: ${promise.politician_name || ''}
 
 EVIDÊNCIAS ENCONTRADAS:
 ${evText}
@@ -213,10 +226,10 @@ IMPACTO (1-3):
 3 = Alto: estruturante, afeta toda a população`;
 
   try {
-    if (!apiKey) throw new Error('GROQ_API_KEY not configured');
-    const groqRes = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    if (!GROQ_KEY) throw new Error('GROQ_API_KEY not configured');
+    const groqRes = await fetch(`${AI_URL}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
