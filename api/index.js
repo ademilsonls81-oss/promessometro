@@ -604,11 +604,29 @@ Resposta SOMENTE JSON:
     if (path === '/api/debug-ddg' && method === 'GET') {
       try {
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 5000);
-        const ddgRes = await fetch('https://lite.duckduckgo.com/lite/?q=test', { signal: controller.signal });
+        const id = setTimeout(() => controller.abort(), 8000);
+        const ddgUrl = new URL(req.url, 'http://localhost');
+        const q = ddgUrl.searchParams.get('q') || 'Tarcisio+de+Freitas';
+        // Try multiple DDG endpoints
+        const endpoints = [
+          ['POST', 'https://html.duckduckgo.com/html/', { q }],
+          ['POST', 'https://lite.duckduckgo.com/lite/', { q }],
+          ['GET', `https://duckduckgo.com/?q=${q}`, null],
+        ];
+        const results = [];
+        for (const [method, url, body] of endpoints) {
+          try {
+            const opts = { method, signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } };
+            if (body) { opts.body = new URLSearchParams(body).toString(); opts.headers['Content-Type'] = 'application/x-www-form-urlencoded'; }
+            const r = await fetch(url, opts);
+            const t = await r.text();
+            results.push({ url: url.substring(0,50), status: r.status, len: t.length, snippet: t.substring(0,150) });
+          } catch(e) {
+            results.push({ url: url.substring(0,50), error: e.message });
+          }
+        }
         clearTimeout(id);
-        const text = await ddgRes.text();
-        return res.json({ ok: true, status: ddgRes.status, len: text.length, snippet: text.substring(0,100) });
+        return res.json({ ok: true, results });
       } catch(e) {
         return res.json({ ok: false, error: e.name, msg: e.message });
       }
