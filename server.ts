@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { createClient } from "@supabase/supabase-js";
+import cron from "node-cron";
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.S_URL || 'https://liqutcjzzrqstivvfele.supabase.co',
@@ -336,8 +337,107 @@ async function initHeavyServices() {
     runIngestion();
     
     console.log('✅ All services loaded');
+
+    // Cron para processar promessas pendentes a cada 15 minutos
+    cron.schedule('*/15 * * * *', async () => {
+      await processPendingPromises();
+    });
+    console.log('✅ Cron process-pending agendado (a cada 15 min)');
+
+    // Executa primeiro lote imediatamente
+    processPendingPromises();
   } catch (err: any) {
     console.error(`⚠️ Some services failed to load: ${err.message}`);
+  }
+}
+
+let pendingRunning = false;
+
+async function processPendingPromises() {
+  if (pendingRunning) return;
+  pendingRunning = true;
+  const start = Date.now();
+  const BATCH = 20;
+  let evaluated = 0, failed = 0;
+
+  try {
+    const { data: promises } = await supabase
+      .from('promises')
+      .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, evidences_used')
+      .in('status', ['pendente', 'nao_iniciada', 'nao_classificada'])
+      .order('last_verified_at', { ascending: true, nullsFirst: true })
+      .limit(BATCH);
+
+    if (!promises || promises.length === 0) {
+      console.log(`[cron-pending] Nenhuma promessa pendente encontrada`);
+      return;
+    }
+
+    console.log(`[cron-pending] Processando lote de ${promises.length} promessas pendentes`);
+
+    for (const promise of promises) {
+      try {
+        const { evaluateWithAI, filterSocialMedia } = await import('./api/lib/evaluatePromise.js');
+        const result = await Promise.race([
+          evaluateWithAI(promise),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+        ]);
+
+        await supabase.from('promises').update({
+          status: result.status,
+          fulfillment_score: result.fulfillment_score,
+          ai_evaluation: result.justification,
+          evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+          complexity_score: result.complexity,
+          impact_score: result.impact,
+          last_verified_at: new Date().toISOString()
+        }).eq('id', promise.id);
+        evaluated++;
+
+        try { await supabase.from('status_history').insert({
+          promise_id: promise.id, old_status: promise.status, new_status: result.status
+        }); } catch {}
+
+        try {
+          await supabase.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+          await supabase.from('promise_explanations').insert({
+            promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
+            criterio_aplicado: 'server_cron_pending',
+            justificativa: result.justification,
+            evidencias_usadas: result.evidences.map((e: any) => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+            o_que_falta: result.o_que_falta || 'Monitoramento continuo',
+            o_que_foi_feito: result.o_que_foi_feito || result.justification,
+            confianca: result.evidences.filter((e: any) => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+            modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+          });
+        } catch {}
+
+        try { await supabase.from('audit_logs').insert({
+          action: 'server_cron_pending_reavaliation', entity_type: 'promises', entity_id: promise.id,
+          details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+        }); } catch {}
+      } catch (e: any) {
+        failed++;
+        console.error(`[cron-pending] Erro promessa ${promise.id}: ${e.message}`);
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    // Recalcular scores dos políticos afetados
+    const polIds = [...new Set(promises.filter(p => p.politician_id).map(p => p.politician_id))];
+    for (const polId of polIds) {
+      if (!polId) continue;
+      try {
+        const { recalcPoliticianScores } = await import('./api/cron/daily-reavaliation.js');
+        await recalcPoliticianScores(polId);
+      } catch {}
+    }
+
+    console.log(`[cron-pending] Lote concluído: ${evaluated} avaliadas, ${failed} falhas em ${Date.now()-start}ms`);
+  } catch (err: any) {
+    console.error(`[cron-pending] ERRO: ${err.message}`);
+  } finally {
+    pendingRunning = false;
   }
 }
 
