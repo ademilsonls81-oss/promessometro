@@ -89,6 +89,7 @@ export default function Admin() {
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [toolResults, setToolResults] = useState<Record<string, any>>({});
   const [processingPol, setProcessingPol] = useState<string | null>(null);
+  const [processingAll, setProcessingAll] = useState(false);
 
   // Search politician for tools
   const [searchPol, setSearchPol] = useState("");
@@ -390,6 +391,19 @@ export default function Admin() {
       setTimeout(fetchAll, 2000);
     } catch (e: any) { setErro(e.message); }
     setProcessingPol(null);
+  }
+
+  async function processAllPendentes() {
+    if (!confirm(`Processar TODAS as promessas pendentes de todos os políticos?\n\nIsso pode levar alguns minutos.`)) return;
+    setProcessingAll(true); setErro("");
+    try {
+      const res = await authFetch("/api/admin/process-all-pending", { method: "POST" });
+      if (!res) return;
+      const json = await res.json();
+      setToolResults(r => ({ ...r, process_all: json }));
+      setTimeout(fetchAll, 3000);
+    } catch (e: any) { setErro(e.message); }
+    setProcessingAll(false);
   }
 
   async function recalculateAllLegacy() {
@@ -857,7 +871,22 @@ export default function Admin() {
                 </div>
               );
             })}
-          {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 1).map(([k, v]) => (
+          <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+            <span className="text-xs text-gray-500">
+              Total pendentes: {politicians.reduce((a, p) => a + (p.promises || []).filter(p2 => ['pendente', 'nao_iniciada', 'nao_classificada'].includes(p2.status) || (!p2.status)).length, 0)}
+            </span>
+            <button
+              onClick={processAllPendentes}
+              disabled={processingAll}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-gradient-to-r from-yellow-500 to-orange-500 text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {processingAll
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Zap className="w-4 h-4" />}
+              {processingAll ? "Processando..." : "Processar TODAS as pendentes"}
+            </button>
+          </div>
+          {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 3).map(([k, v]) => (
             <div key={k} className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
               {v.message || `${v.evaluated} promessas processadas`}
             </div>

@@ -2212,6 +2212,90 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       }
     }
 
+    if (path === '/api/admin/process-all-pending' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const MAX_BATCH = 50;
+      const PER_PROMISE_TIMEOUT = 25000;
+      const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
+      let evaluated = 0, failed = 0;
+      const results = [];
+
+      const { data: promises } = await db()
+        .from('promises')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .in('status', PENDENTE_STATUSES)
+        .order('last_verified_at', { ascending: true, nullsFirst: true })
+        .limit(MAX_BATCH);
+
+      if (!promises || promises.length === 0) {
+        return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa pendente' });
+      }
+
+      console.log(`[admin-process-all] Processando ${promises.length} pendentes`);
+
+      for (const promise of promises) {
+        try {
+          const result = await Promise.race([
+            evaluateWithAI(promise),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), PER_PROMISE_TIMEOUT))
+          ]);
+
+          const { error: upErr } = await dbAdmin().from('promises').update({
+            status: result.status,
+            fulfillment_score: result.fulfillment_score,
+            ai_evaluation: result.justification,
+            evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+            complexity_score: result.complexity,
+            impact_score: result.impact,
+            last_verified_at: new Date().toISOString()
+          }).eq('id', promise.id);
+
+          if (!upErr) {
+            evaluated++;
+            try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
+            try {
+              await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              await dbAdmin().from('promise_explanations').insert({
+                promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
+                criterio_aplicado: 'admin_bulk_reavaliation',
+                justificativa: result.justification,
+                evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+                o_que_falta: result.o_que_falta || 'Monitoramento continuo',
+                o_que_foi_feito: result.o_que_foi_feito || result.justification,
+                confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+                modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+              });
+            } catch {}
+            try { await dbAdmin().from('audit_logs').insert({
+              action: 'admin_bulk_reavaliation', entity_type: 'promises', entity_id: promise.id,
+              details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+            }); } catch {}
+            results.push({ id: promise.id, old_status: promise.status, new_status: result.status, score: result.fulfillment_score });
+          } else { failed++; }
+        } catch (e) {
+          failed++;
+          console.error(`[admin-process-all] Erro ${promise.id}: ${e.message}`);
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      // Recalcular scores
+      const polIds = [...new Set(promises.filter(p => p.politician_id).map(p => p.politician_id))];
+      for (const polId of polIds) {
+        try {
+          const { recalcPoliticianScores } = await import('./cron/daily-reavaliation.js');
+          if (recalcPoliticianScores) await recalcPoliticianScores(polId);
+        } catch {}
+      }
+
+      return res.json({
+        status: 'ok', evaluated, failed, total_pendentes: evaluated + failed + (promises.length - evaluated - failed),
+        message: `${evaluated} processadas, ${failed} falhas, restam a processar no proximo clique`
+      });
+    }
+
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });
