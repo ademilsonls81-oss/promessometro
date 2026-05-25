@@ -135,8 +135,12 @@ export default async function handler(req, res) {
     const dailyCutoff = new Date(startTime.getTime() - 23 * 60 * 60 * 1000).toISOString();
     const weeklyCutoff = new Date(startTime.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Busca promessas stale (>23h), nunca verificadas, e cumpridas/quebradas (semanal)
-    const [staleRes, neverRes, weeklyRes] = await Promise.all([
+    const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
+
+    // Busca promessas pendentes (nunca avaliadas + stale), stale (>23h), e cumpridas/quebradas (semanal)
+    const [pendingNew, pendingStale, staleRes, neverRes, weeklyRes] = await Promise.all([
+      db().from('promises').select('*').is('last_verified_at', null).in('status', PENDENTE_STATUSES).limit(10),
+      db().from('promises').select('*').lt('last_verified_at', dailyCutoff).in('status', PENDENTE_STATUSES).limit(5),
       db().from('promises').select('*').lt('last_verified_at', dailyCutoff).not('status', 'in', '("cumprida","quebrada")').limit(30),
       db().from('promises').select('*').is('last_verified_at', null).limit(15),
       db().from('promises').select('*').lt('last_verified_at', weeklyCutoff).in('status', ['cumprida', 'quebrada']).limit(5)
@@ -144,6 +148,14 @@ export default async function handler(req, res) {
 
     const seen = new Set();
     const promises = [];
+    // Priority 0: promessas pendentes nunca avaliadas (são as que mais precisam)
+    for (const p of (pendingNew.data || [])) {
+      if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); }
+    }
+    // Priority 0.5: promessas pendentes stale (já avaliadas mas ainda pendentes)
+    for (const p of (pendingStale.data || [])) {
+      if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); }
+    }
     // Priority 1: never evaluated (last_verified_at = null)
     for (const p of (neverRes.data || [])) {
       if (!seen.has(p.id)) { seen.add(p.id); promises.push(p); }
@@ -154,7 +166,7 @@ export default async function handler(req, res) {
       const ev = p.evidences_used;
       const hasRealEvidence = ev && Array.isArray(ev) && ev.length > 0 && ev.some(e => e.url && e.url !== '#');
       if (hasRealEvidence) continue;
-      if (promises.length >= 15) break;
+      if (promises.length >= 20) break;
       seen.add(p.id); promises.push(p);
     }
     // Priority 3: cumprida/quebrada stale (weekly re-check)
@@ -171,7 +183,10 @@ export default async function handler(req, res) {
 
     for (const promise of promises) {
       try {
-        const result = await evaluateWithAI(promise);
+        const result = await Promise.race([
+          evaluateWithAI(promise),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+        ]);
         const previousStatus = promise.status;
 
         const { error: upErr } = await db().from('promises').update({
