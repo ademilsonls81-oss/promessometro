@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -9,13 +10,13 @@ interface ContestationsFilters {
   offset?: number;
 }
 
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promise_id, nome_contestante, email_contestante, motivo, evidencia_url } = req.body;
 
     if (!promise_id || !nome_contestante || !motivo) {
       return res.status(400).json({ 
-        error: "Campos obrigatórios: promise_id, nome_contestante, motivo" 
+        error: "Campos obrigatÃ³rios: promise_id, nome_contestante, motivo" 
       });
     }
 
@@ -26,7 +27,7 @@ router.post("/", async (req: Request, res: Response) => {
       .single();
 
     if (promiseError || !promise) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     const { data, error } = await supabase
@@ -44,21 +45,21 @@ router.post("/", async (req: Request, res: Response) => {
 
     if (error) {
       console.error("[Contestations] Insert error:", error);
-      return res.status(500).json({ error: "Erro ao submeter contestação" });
+      return res.status(500).json({ error: "Erro ao submeter contestaÃ§Ã£o" });
     }
 
     return res.status(201).json({ 
       success: true, 
-      message: "Contestação registrada com sucesso! Nossa equipe vai analisar.",
+      message: "ContestaÃ§Ã£o registrada com sucesso! Nossa equipe vai analisar.",
       data 
     });
   } catch (err: any) {
     console.error("[Contestations] Error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { status, limit = 20, offset = 0 } = req.query as unknown as ContestationsFilters;
 
@@ -106,9 +107,9 @@ router.get("/", async (req: Request, res: Response) => {
     console.error("[Contestations] Error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/public/:promiseId", async (req: Request, res: Response) => {
+router.get("/public/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promiseId } = req.params;
 
@@ -127,15 +128,15 @@ router.get("/public/:promiseId", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.patch("/:id", async (req: Request, res: Response) => {
+router.patch("/:id", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, resposta_editorial } = req.body;
 
     if (!status || !["pendente", "em_analise", "aceita", "rejeitada"].includes(status)) {
-      return res.status(400).json({ error: "Status inválido" });
+      return res.status(400).json({ error: "Status invÃ¡lido" });
     }
 
     const updateData: any = {
@@ -159,7 +160,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
       .single();
 
     if (error || !data) {
-      return res.status(404).json({ error: "Contestação não encontrada" });
+      return res.status(404).json({ error: "ContestaÃ§Ã£o nÃ£o encontrada" });
     }
 
     console.log(`[Contestations] Updated ${id} to ${status}`);
@@ -167,9 +168,9 @@ router.patch("/:id", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/stats", async (req: Request, res: Response) => {
+router.get("/stats", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { count: pending } = await supabase
       .from("promise_contestations")
@@ -201,6 +202,6 @@ router.get("/stats", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

@@ -1,10 +1,11 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 const BASE_URL = process.env.APP_URL || "https://promessometro-brasil.vercel.app";
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const staticRoutes = [
       { url: "/", changefreq: "weekly", priority: "1.0" },
@@ -92,6 +93,6 @@ ${promiseUrls.map(p => `  <url>
     console.error("[Sitemap] Error:", err);
     res.status(500).send("Error generating sitemap");
   }
-});
+}));
 
 export default router;

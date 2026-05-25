@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { checkAdmin } from "../middleware/auth.js";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-// POST /api/admin/start-discovery-job — cria job discovery
-router.post("/start-discovery-job", checkAdmin, async (req, res) => {
+// POST /api/admin/start-discovery-job â€” cria job discovery
+router.post("/start-discovery-job", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { politician_id, politician_name, role, state, party } = req.body;
-    if (!politician_id) return res.status(400).json({ error: "politician_id obrigatório" });
+    if (!politician_id) return res.status(400).json({ error: "politician_id obrigatÃ³rio" });
 
     // Auto-migrate
     const sql = `CREATE TABLE IF NOT EXISTS discovery_jobs (
@@ -52,16 +53,16 @@ router.post("/start-discovery-job", checkAdmin, async (req, res) => {
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
   }
-});
+}));
 
 // GET /api/admin/discovery-status/:jobId
-router.get("/discovery-status/:jobId", checkAdmin, async (req, res) => {
+router.get("/discovery-status/:jobId", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { jobId } = req.params;
     const { data: job } = await supabase.from("discovery_jobs")
       .select("id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages, partial_promises, last_checkpoint_at")
       .eq("id", jobId).single();
-    if (!job) return res.status(404).json({ error: "Job não encontrado" });
+    if (!job) return res.status(404).json({ error: "Job nÃ£o encontrado" });
     let lastPromises: any[] = [];
     try {
       const all = typeof job.partial_promises === "string"
@@ -73,13 +74,13 @@ router.get("/discovery-status/:jobId", checkAdmin, async (req, res) => {
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
   }
-});
+}));
 
 // POST /api/admin/discovery-run-now
-router.post("/discovery-run-now", checkAdmin, async (req, res) => {
+router.post("/discovery-run-now", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { job_id } = req.body;
-    if (!job_id) return res.status(400).json({ error: "job_id obrigatório" });
+    if (!job_id) return res.status(400).json({ error: "job_id obrigatÃ³rio" });
 
     const { default: processor } = await import("../../api/cron/discovery-processor.js");
     const specificReq = { ...req, _specificJobId: job_id };
@@ -103,6 +104,6 @@ router.post("/discovery-run-now", checkAdmin, async (req, res) => {
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
   }
-});
+}));
 
 export default router;

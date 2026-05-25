@@ -2,11 +2,12 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { searchEvidenceForPromise, saveEvidence, autoSearchAndSaveForPromise, verifyEvidenceIntegrity, logValidation } from "../services/evidenceService.js";
-import { autoCategorizePromise } from "../services/promiseCategorization.js";
+import { autoCategorizePromise } from "../services/promiseCategorization.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.post("/search/:promiseId", async (req: Request, res: Response) => {
+router.post("/search/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promiseId } = req.params;
 
@@ -17,7 +18,7 @@ router.post("/search/:promiseId", async (req: Request, res: Response) => {
       .single();
 
     if (promiseError || !promise) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     console.log(`[Evidence API] Searching evidences for: ${promise.politician_name} - ${promise.promise_title.substring(0, 50)}`);
@@ -38,21 +39,21 @@ router.post("/search/:promiseId", async (req: Request, res: Response) => {
     console.error("[Evidence API] Search error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/save/:promiseId", async (req: Request, res: Response) => {
+router.post("/save/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promiseId } = req.params;
     const { evidence } = req.body;
 
     if (!evidence) {
-      return res.status(400).json({ error: "Evidência é obrigatória" });
+      return res.status(400).json({ error: "EvidÃªncia Ã© obrigatÃ³ria" });
     }
 
     const savedId = await saveEvidence(promiseId, evidence);
 
     if (!savedId) {
-      return res.status(500).json({ error: "Erro ao salvar evidência" });
+      return res.status(500).json({ error: "Erro ao salvar evidÃªncia" });
     }
 
     return res.json({ success: true, evidence_id: savedId });
@@ -60,9 +61,9 @@ router.post("/save/:promiseId", async (req: Request, res: Response) => {
     console.error("[Evidence API] Save error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/auto-search/:promiseId", async (req: Request, res: Response) => {
+router.post("/auto-search/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promiseId } = req.params;
 
@@ -73,15 +74,15 @@ router.post("/auto-search/:promiseId", async (req: Request, res: Response) => {
     return res.json({
       promise_id: promiseId,
       evidences_saved: savedCount,
-      message: `${savedCount} evidências encontradas e salvas`
+      message: `${savedCount} evidÃªncias encontradas e salvas`
     });
   } catch (err: any) {
     console.error("[Evidence API] Auto-search error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/promise/:promiseId", async (req: Request, res: Response) => {
+router.get("/promise/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promiseId } = req.params;
     const { status, type } = req.query;
@@ -109,16 +110,16 @@ router.get("/promise/:promiseId", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.patch("/:evidenceId/validate", checkAdmin, async (req: Request, res: Response) => {
+router.patch("/:evidenceId/validate", checkAdmin, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { evidenceId } = req.params;
     const { status, notes } = req.body;
     const userId = req.headers["x-user-id"] as string;
 
     if (!["approved", "rejected", "disputed"].includes(status)) {
-      return res.status(400).json({ error: "Status inválido" });
+      return res.status(400).json({ error: "Status invÃ¡lido" });
     }
 
     const { data: evidence, error: fetchError } = await supabase
@@ -128,7 +129,7 @@ router.patch("/:evidenceId/validate", checkAdmin, async (req: Request, res: Resp
       .single();
 
     if (fetchError || !evidence) {
-      return res.status(404).json({ error: "Evidência não encontrada" });
+      return res.status(404).json({ error: "EvidÃªncia nÃ£o encontrada" });
     }
 
     const previousStatus = evidence.validation_status;
@@ -166,13 +167,13 @@ router.patch("/:evidenceId/validate", checkAdmin, async (req: Request, res: Resp
       }
     }
 
-    return res.json({ success: true, message: `Evidência ${status}` });
+    return res.json({ success: true, message: `EvidÃªncia ${status}` });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/verify/:evidenceId", async (req: Request, res: Response) => {
+router.post("/verify/:evidenceId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { evidenceId } = req.params;
 
@@ -186,9 +187,9 @@ router.post("/verify/:evidenceId", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promise_id, status, limit = 20, offset = 0 } = req.query;
 
@@ -215,9 +216,9 @@ router.get("/", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/sources", async (_req: Request, res: Response) => {
+router.get("/sources", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const { data: sources } = await supabase
       .from("trusted_sources")
@@ -229,15 +230,15 @@ router.get("/sources", async (_req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/dispute/:evidenceId", async (req: Request, res: Response) => {
+router.post("/dispute/:evidenceId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { evidenceId } = req.params;
     const { disputed_by, dispute_reason, counter_evidence_links } = req.body;
 
     if (!disputed_by || !dispute_reason) {
-      return res.status(400).json({ error: "Campos obrigatórios: disputed_by, dispute_reason" });
+      return res.status(400).json({ error: "Campos obrigatÃ³rios: disputed_by, dispute_reason" });
     }
 
     const { data, error } = await supabase.from("evidence_disputes").insert({
@@ -262,9 +263,9 @@ router.post("/dispute/:evidenceId", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/disputes", async (req: Request, res: Response) => {
+router.get("/disputes", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { evidence_id, status } = req.query;
 
@@ -290,6 +291,6 @@ router.get("/disputes", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

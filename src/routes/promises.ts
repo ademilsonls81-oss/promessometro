@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
 import { fetchPoliticianPhoto } from "../services/politicianPhotoService.js";
-import { autoSearchAndSaveForPromise } from "../services/evidenceService.js";
+import { autoSearchAndSaveForPromise } from "../services/evidenceService.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -14,12 +15,12 @@ export interface PromiseSubmission {
   source_link?: string;
 }
 
-router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
+router.post("/submit", apiKeyRateLimit, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { politician_name, promise_title, promise_description, category, source_link } = req.body;
 
     if (!politician_name || !promise_title) {
-      return res.status(400).json({ error: "Nome do político e título da promessa são obrigatórios" });
+      return res.status(400).json({ error: "Nome do polÃ­tico e tÃ­tulo da promessa sÃ£o obrigatÃ³rios" });
     }
 
     const { data, error } = await supabase.from("promises").insert({
@@ -33,7 +34,7 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
       updated_at: new Date().toISOString()
     }).select().single();
 
-    // Classification automática via IA
+    // Classification automÃ¡tica via IA
     setTimeout(async () => {
       try {
         const { classifyPromise } = await import("../services/promiseAiClassification.js");
@@ -69,21 +70,21 @@ router.post("/submit", apiKeyRateLimit, async (req: Request, res: Response) => {
     console.error("Submit promise error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/photo/:name", async (req: Request, res: Response) => {
+router.get("/photo/:name", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
-    if (!name) return res.status(400).json({ error: "Nome é obrigatório" });
+    if (!name) return res.status(400).json({ error: "Nome Ã© obrigatÃ³rio" });
 
     const result = await fetchPoliticianPhoto(decodeURIComponent(name));
     return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:id", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
@@ -93,16 +94,16 @@ router.get("/:id", async (req: Request, res: Response) => {
       .single();
 
     if (error || !data) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     return res.json(data);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { status, politician, category, limit = 20, offset = 0 } = req.query;
     
@@ -136,15 +137,15 @@ router.get("/", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.patch("/:id/status", async (req: Request, res: Response) => {
+router.patch("/:id/status", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, evidence } = req.body;
 
     if (!status || !["pendente", "parcial", "cumprida", "quebrada"].includes(status)) {
-      return res.status(400).json({ error: "Status inválido" });
+      return res.status(400).json({ error: "Status invÃ¡lido" });
     }
 
     const { data, error } = await supabase
@@ -159,7 +160,7 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
       .single();
 
     if (error || !data) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     console.log(`[Promise] Status atualizado: ${id} -> ${status}`);
@@ -167,10 +168,10 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// Classificar promessa específica
-router.post("/classify/:id", async (req: Request, res: Response) => {
+// Classificar promessa especÃ­fica
+router.post("/classify/:id", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -181,7 +182,7 @@ router.post("/classify/:id", async (req: Request, res: Response) => {
       .single();
 
     if (error || !promise) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     const { classifyPromise } = await import("../services/promiseAiClassification.js");
@@ -195,10 +196,10 @@ router.post("/classify/:id", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // Classificar todas as promessas pendentes
-router.post("/classify-all", async (req: Request, res: Response) => {
+router.post("/classify-all", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { classifyAllPending } = await import("../services/promiseAiClassification.js");
     const count = await classifyAllPending();
@@ -207,6 +208,6 @@ router.post("/classify-all", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

@@ -1,4 +1,5 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response } from "express";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -12,7 +13,7 @@ interface RecaptchaResponse {
   "error-codes"?: string[];
 }
 
-router.post("/recaptcha-verify", async (req: Request, res: Response) => {
+router.post("/recaptcha-verify", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { token, action, secret } = req.body;
 
@@ -56,6 +57,6 @@ router.post("/recaptcha-verify", async (req: Request, res: Response) => {
     console.error("[reCAPTCHA] Verification error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
-});
+}));
 
 export default router;

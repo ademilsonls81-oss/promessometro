@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
-import { logSystemError } from "../middleware/auditLog.js";
+import { logSystemError } from "../middleware/auditLog.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -24,15 +25,15 @@ function requireCronSecret(req: Request, res: Response): boolean {
   return true;
 }
 
-router.get("/daily-reavaliation", async (req: Request, res: Response) => {
+router.get("/daily-reavaliation", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   await runDailyReavaliation(res);
-});
+}));
 
-router.post("/daily-reavaliation", async (req: Request, res: Response) => {
+router.post("/daily-reavaliation", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   await runDailyReavaliation(res);
-});
+}));
 
 async function runDailyReavaliation(res: Response) {
   try {
@@ -55,7 +56,7 @@ async function runDailyReavaliation(res: Response) {
 
     const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error("[Cron] GROQ_API_KEY not configured — aborting reavaliation");
+      console.error("[Cron] GROQ_API_KEY not configured â€” aborting reavaliation");
       res.status(500).json({ error: "GROQ_API_KEY not configured" });
       return;
     }
@@ -86,7 +87,7 @@ async function runDailyReavaliation(res: Response) {
   }
 }
 
-router.get("/update-stats", async (req: Request, res: Response) => {
+router.get("/update-stats", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Stats update started");
@@ -119,9 +120,9 @@ router.get("/update-stats", async (req: Request, res: Response) => {
     await logSystemError("cron_stats", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/backup-export", async (req: Request, res: Response) => {
+router.get("/backup-export", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Backup export started");
@@ -169,7 +170,7 @@ router.get("/backup-export", async (req: Request, res: Response) => {
     await logSystemError("cron_backup", "cron", err.message, err.stack, "critical");
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 async function getOldBackups(): Promise<string[]> {
   try {
@@ -183,7 +184,7 @@ async function getOldBackups(): Promise<string[]> {
   }
 }
 
-router.get("/process-evidences", async (req: Request, res: Response) => {
+router.get("/process-evidences", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Evidence processing started");
@@ -215,9 +216,9 @@ router.get("/process-evidences", async (req: Request, res: Response) => {
     await logSystemError("cron_evidence", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/politician-ranking", async (req: Request, res: Response) => {
+router.get("/politician-ranking", asyncHandler(async (req: Request, res: Response) => {
   if (!requireCronSecret(req, res)) return;
   try {
     console.log("[Cron] Politician ranking snapshot started");
@@ -254,6 +255,6 @@ router.get("/politician-ranking", async (req: Request, res: Response) => {
     await logSystemError("cron_ranking", "cron", err.message, err.stack, "low");
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

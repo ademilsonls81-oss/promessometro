@@ -6,7 +6,8 @@ import { runIngestion } from "../services/ingestionService.js";
 import { logAuditAction } from "../middleware/auditLog.js";
 import rateLimit from "express-rate-limit";
 import { execSync } from "child_process";
-import { sanitizeInput } from "../middleware/security.js";
+import { sanitizeInput } from "../middleware/security.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Rate limiter para endpoints admin: 5 req/min por IP
 
@@ -14,7 +15,7 @@ import { sanitizeInput } from "../middleware/security.js";
 const adminRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
-  message: { error: "Too many admin requests — try again in 1 minute" },
+  message: { error: "Too many admin requests â€” try again in 1 minute" },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || "unknown",
@@ -40,33 +41,33 @@ declare module "express-serve-static-core" {
 }
 
 function cacheInvalidate(pattern?: string) {
-  // Re-export simplificado — o cache vive no server.ts
+  // Re-export simplificado â€” o cache vive no server.ts
   // Aqui apenas sinalizamos via broadcast
 }
 
 function broadcastWsUpdate(_data: any) {
-  // Placeholder — será chamado via server.ts
+  // Placeholder â€” serÃ¡ chamado via server.ts
 }
 
 // GET /api/admin/posts
-router.get("/posts", checkAdmin, async (req, res) => {
+router.get("/posts", checkAdmin, asyncHandler(async (req, res) => {
   const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(100);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // POST /api/admin/process-batch
-router.post("/process-batch", checkAdmin, async (req, res) => {
+router.post("/process-batch", checkAdmin, asyncHandler(async (req, res) => {
   const { data: pending } = await supabase.from("posts").select("id").eq("status", "pending").limit(50);
   if (!pending?.length) return res.json({ message: "No pending posts" });
 
   queueService.addTasks(pending.map(p => p.id));
   logAuditAction((req as any).user.id, "PROCESS_BATCH_MANUAL", req, { count: pending.length });
   res.json({ message: `Queueing ${pending.length} posts` });
-});
+}));
 
 // POST /api/admin/ingest - Manual RSS sync
-router.post("/ingest", checkAdmin, async (req, res) => {
+router.post("/ingest", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const count = await runIngestion();
     logAuditAction((req as any).user.id, "MANUAL_INGESTION", req, { count });
@@ -74,19 +75,19 @@ router.post("/ingest", checkAdmin, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // POST /api/admin/feeds
-router.post("/feeds", checkAdmin, async (req, res) => {
+router.post("/feeds", checkAdmin, asyncHandler(async (req, res) => {
   const { name, url, category } = req.body;
   const { data, error } = await supabase.from("feeds").insert({ name, url, category }).select().single();
   if (error) return res.status(500).json({ error: error.message });
   logAuditAction((req as any).user.id, "ADD_FEED", req, { name, url });
   res.json(data);
-});
+}));
 
 // GET /api/admin/feeds/summary
-router.get("/feeds/summary", checkAdmin, async (req, res) => {
+router.get("/feeds/summary", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { data: feeds } = await supabase.from("feeds").select("id, name, url, category").eq("active", true).order("category");
     const { data: posts } = await supabase.from("posts").select("category, status").eq("status", "published");
@@ -107,10 +108,10 @@ router.get("/feeds/summary", checkAdmin, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // GET /api/admin/feeds/health - Health de todos os feeds
-router.get("/feeds/health", checkAdmin, async (req, res) => {
+router.get("/feeds/health", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { data: feeds } = await supabase.from("feeds").select("*").eq("active", true);
     const { data: health } = await supabase.from("feed_health").select("*");
@@ -148,28 +149,28 @@ router.get("/feeds/health", checkAdmin, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // PATCH /api/admin/feeds/:id
-router.patch("/feeds/:id", checkAdmin, async (req, res) => {
+router.patch("/feeds/:id", checkAdmin, asyncHandler(async (req, res) => {
   const { category } = req.body;
   const validCategories = ["Tech", "Finance", "Science", "Health", "General"];
   if (!validCategories.includes(category)) {
-    return res.status(400).json({ error: "Categoria inválida", valid: validCategories });
+    return res.status(400).json({ error: "Categoria invÃ¡lida", valid: validCategories });
   }
 
   const { data, error } = await supabase.from("feeds").update({ category }).eq("id", req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   logAuditAction((req as any).user.id, "UPDATE_FEED_CATEGORY", req, { feed_id: req.params.id, category });
   res.json(data);
-});
+}));
 
 // ==========================================
 // FASE 11: SYSTEM DASHBOARD ENDPOINTS
 // ==========================================
 
 // GET /api/admin/system/status - Status do sistema
-router.get("/system/status", checkAdmin, async (_req, res) => {
+router.get("/system/status", checkAdmin, asyncHandler(async (_req, res) => {
   try {
     const { count: totalFixes } = await supabase
       .from("auto_fixes")
@@ -183,7 +184,7 @@ router.get("/system/status", checkAdmin, async (_req, res) => {
       .gte("created_at", twentyFourHoursAgo);
 
     res.json({
-      loop_status: { is_running: false, can_execute: false, message: "Sistema autônomo desabilitado" },
+      loop_status: { is_running: false, can_execute: false, message: "Sistema autÃ´nomo desabilitado" },
       circuit_breaker: { is_active: false, consecutive_failures: 0, threshold: 5, cooldown_ends_at: null, message: "Desabilitado" },
       last_loop_execution: null,
       total_fixes_applied: totalFixes || 0,
@@ -193,10 +194,10 @@ router.get("/system/status", checkAdmin, async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// GET /api/admin/system/errors - Últimos erros do sistema
-router.get("/system/errors", checkAdmin, async (req, res) => {
+// GET /api/admin/system/errors - Ãšltimos erros do sistema
+router.get("/system/errors", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -229,10 +230,10 @@ router.get("/system/errors", checkAdmin, async (req, res) => {
     console.error("[Admin/System] Error fetching errors:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// GET /api/admin/system/fixes - Histórico de correções automáticas
-router.get("/system/fixes", checkAdmin, async (req, res) => {
+// GET /api/admin/system/fixes - HistÃ³rico de correÃ§Ãµes automÃ¡ticas
+router.get("/system/fixes", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -265,10 +266,10 @@ router.get("/system/fixes", checkAdmin, async (req, res) => {
     console.error("[Admin/System] Error fetching fixes:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// GET /api/admin/system/decisions - Decisões de risco recentes
-router.get("/system/decisions", checkAdmin, async (req, res) => {
+// GET /api/admin/system/decisions - DecisÃµes de risco recentes
+router.get("/system/decisions", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -306,10 +307,10 @@ router.get("/system/decisions", checkAdmin, async (req, res) => {
     console.error("[Admin/System] Error fetching decisions:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// GET /api/admin/system/metrics - Métricas rápidas do dia
-router.get("/system/metrics", checkAdmin, async (_req, res) => {
+// GET /api/admin/system/metrics - MÃ©tricas rÃ¡pidas do dia
+router.get("/system/metrics", checkAdmin, asyncHandler(async (_req, res) => {
   try {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -319,7 +320,7 @@ router.get("/system/metrics", checkAdmin, async (_req, res) => {
     startOfYesterday.setHours(0, 0, 0, 0);
     const startOfYesterdayISO = startOfYesterday.toISOString();
 
-    // Métricas de hoje
+    // MÃ©tricas de hoje
     const [errorsToday, fixesToday, decisionsToday, postsPublished] = await Promise.all([
       supabase.from("system_errors").select("*", { count: "exact", head: true }).gte("created_at", startOfDayISO),
       supabase.from("auto_fixes").select("*", { count: "exact", head: true }).gte("created_at", startOfDayISO),
@@ -327,7 +328,7 @@ router.get("/system/metrics", checkAdmin, async (_req, res) => {
       supabase.from("posts").select("*", { count: "exact", head: true }).eq("status", "published").gte("created_at", startOfDayISO)
     ]);
 
-    // Métricas de ontem (para comparação)
+    // MÃ©tricas de ontem (para comparaÃ§Ã£o)
     const [errorsYesterday, fixesYesterday] = await Promise.all([
       supabase.from("system_errors").select("*", { count: "exact", head: true }).gte("created_at", startOfYesterdayISO).lt("created_at", startOfDayISO),
       supabase.from("auto_fixes").select("*", { count: "exact", head: true }).gte("created_at", startOfYesterdayISO).lt("created_at", startOfDayISO)
@@ -350,10 +351,10 @@ router.get("/system/metrics", checkAdmin, async (_req, res) => {
     console.error("[Admin/System] Error fetching metrics:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // GET /api/admin/feeds - Lista todos os feeds
-router.get("/feeds", checkAdmin, async (req, res) => {
+router.get("/feeds", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -377,10 +378,10 @@ router.get("/feeds", checkAdmin, async (req, res) => {
     console.error("[Admin/Feeds] Error fetching feeds:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// GET /api/admin/users - Lista todos os usuários
-router.get("/users", checkAdmin, async (req, res) => {
+// GET /api/admin/users - Lista todos os usuÃ¡rios
+router.get("/users", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -409,10 +410,10 @@ router.get("/users", checkAdmin, async (req, res) => {
     console.error("[Admin/Users] Error fetching users:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // GET /api/admin/audit-logs - Logs de auditoria
-router.get("/audit-logs", checkAdmin, async (req, res) => {
+router.get("/audit-logs", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -441,14 +442,14 @@ router.get("/audit-logs", checkAdmin, async (req, res) => {
     console.error("[Admin/AuditLogs] Error fetching audit logs:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // ==========================================
 // SYSTEM BACKUP & ROLLBACK (GIT WRAPPER)
 // ==========================================
 
 // GET /api/admin/backups - Listar snapshots
-router.get("/backups", checkAdmin, async (_req, res) => {
+router.get("/backups", checkAdmin, asyncHandler(async (_req, res) => {
   try {
     const { data, error } = await supabase
       .from("system_snapshots")
@@ -460,10 +461,10 @@ router.get("/backups", checkAdmin, async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-// POST /api/admin/backups/snapshot - Criar novo ponto de restauração
-router.post("/backups/snapshot", checkAdmin, async (req, res) => {
+// POST /api/admin/backups/snapshot - Criar novo ponto de restauraÃ§Ã£o
+router.post("/backups/snapshot", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { message } = req.body;
     const msg = message || `Automatic Snapshot - ${new Date().toISOString()}`;
@@ -499,10 +500,10 @@ router.post("/backups/snapshot", checkAdmin, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // POST /api/admin/backups/restore - Restaurar sistema para um hash
-router.post("/backups/restore", checkAdmin, async (req, res) => {
+router.post("/backups/restore", checkAdmin, asyncHandler(async (req, res) => {
   try {
     const { hash } = req.body;
     if (!hash) return res.status(400).json({ error: "Hash required" });
@@ -522,10 +523,10 @@ router.post("/backups/restore", checkAdmin, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // GET /api/admin/traffic-stats
-router.get("/traffic-stats", checkAdmin, async (_req, res) => {
+router.get("/traffic-stats", checkAdmin, asyncHandler(async (_req, res) => {
   try {
     const { getTrafficStats, getSuspiciousActivityLogs } = await import("../middleware/antiAbuse.js");
     const stats = getTrafficStats();
@@ -534,10 +535,10 @@ router.get("/traffic-stats", checkAdmin, async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // GET /api/admin/suspicious-logs
-router.get("/suspicious-logs", checkAdmin, async (_req, res) => {
+router.get("/suspicious-logs", checkAdmin, asyncHandler(async (_req, res) => {
   try {
     const { getSuspiciousActivityLogs } = await import("../middleware/antiAbuse.js");
     const logs = getSuspiciousActivityLogs();
@@ -545,6 +546,6 @@ router.get("/suspicious-logs", checkAdmin, async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

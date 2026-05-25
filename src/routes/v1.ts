@@ -2,11 +2,12 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { getRanking, getRankingStats, comparePoliticians } from "../services/rankingService.js";
 import { getElectionData, getAvailableElectionYears, getElectionComparison, getPromiseByElection, getPoliticianHistory } from "../services/electionService.js";
-import { search, suggest } from "../services/searchService.js";
+import { search, suggest } from "../services/searchService.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.get("/politicians", async (req: Request, res: Response) => {
+router.get("/politicians", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { state, party, position, year, minScore, maxScore, cursor, limit } = req.query;
     const result = await getRanking(supabase, {
@@ -23,9 +24,9 @@ router.get("/politicians", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/politicians/compare", async (req: Request, res: Response) => {
+router.get("/politicians/compare", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { name1, name2 } = req.query;
     if (!name1 || !name2) return res.status(400).json({ error: "name1 and name2 are required" });
@@ -34,18 +35,18 @@ router.get("/politicians/compare", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(404).json({ error: err.message });
   }
-});
+}));
 
-router.get("/politicians/history/:name", async (req: Request, res: Response) => {
+router.get("/politicians/history/:name", asyncHandler(async (req: Request, res: Response) => {
   try {
     const result = await getPoliticianHistory(supabase, req.params.name);
     res.json({ history: result });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/promises", async (req: Request, res: Response) => {
+router.get("/promises", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { q, state, party, year, status, category, limit } = req.query;
     const result = await search({
@@ -61,9 +62,9 @@ router.get("/promises", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/search", async (req: Request, res: Response) => {
+router.get("/search", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { q, state, party, year, status, limit } = req.query;
     const result = await search({
@@ -78,9 +79,9 @@ router.get("/search", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/suggest", async (req: Request, res: Response) => {
+router.get("/suggest", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { q, limit } = req.query;
     if (!q || (q as string).length < 2) return res.json({ promises: [], politicians: [] });
@@ -89,18 +90,18 @@ router.get("/suggest", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/elections", async (_req: Request, res: Response) => {
+router.get("/elections", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const years = await getAvailableElectionYears(supabase);
     res.json({ years });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/elections/:year", async (req: Request, res: Response) => {
+router.get("/elections/:year", asyncHandler(async (req: Request, res: Response) => {
   try {
     const year = parseInt(req.params.year);
     const { status, party, limit } = req.query;
@@ -116,9 +117,9 @@ router.get("/elections/:year", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/elections/compare", async (req: Request, res: Response) => {
+router.get("/elections/compare", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { years } = req.query;
     const yearList = years ? (years as string).split(",").map(Number) : [2022, 2024];
@@ -127,34 +128,34 @@ router.get("/elections/compare", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/stats", async (_req: Request, res: Response) => {
+router.get("/stats", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const result = await getRankingStats(supabase);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/docs", async (_req: Request, res: Response) => {
+router.get("/docs", asyncHandler(async (_req: Request, res: Response) => {
   res.json({
-    name: "Promessômetro API v1",
+    name: "PromessÃ´metro API v1",
     version: "1.0.0",
-    description: "API pública para consulta de promessas políticas brasileiras",
+    description: "API pÃºblica para consulta de promessas polÃ­ticas brasileiras",
     endpoints: [
-      { method: "GET", path: "/api/v1/politicians", description: "Lista de políticos com ranking" },
-      { method: "GET", path: "/api/v1/politicians/compare", description: "Comparar dois políticos", params: "name1, name2" },
-      { method: "GET", path: "/api/v1/politicians/history/:name", description: "Histórico de um político por eleição" },
+      { method: "GET", path: "/api/v1/politicians", description: "Lista de polÃ­ticos com ranking" },
+      { method: "GET", path: "/api/v1/politicians/compare", description: "Comparar dois polÃ­ticos", params: "name1, name2" },
+      { method: "GET", path: "/api/v1/politicians/history/:name", description: "HistÃ³rico de um polÃ­tico por eleiÃ§Ã£o" },
       { method: "GET", path: "/api/v1/promises", description: "Lista de promessas com filtros" },
       { method: "GET", path: "/api/v1/search", description: "Busca integrada", params: "q, state, party, year, status" },
-      { method: "GET", path: "/api/v1/suggest", description: "Sugestões de autocomplete", params: "q, limit" },
-      { method: "GET", path: "/api/v1/elections", description: "Anos eleitorais disponíveis" },
-      { method: "GET", path: "/api/v1/elections/:year", description: "Dados de uma eleição" },
-      { method: "GET", path: "/api/v1/stats", description: "Estatísticas gerais" }
+      { method: "GET", path: "/api/v1/suggest", description: "SugestÃµes de autocomplete", params: "q, limit" },
+      { method: "GET", path: "/api/v1/elections", description: "Anos eleitorais disponÃ­veis" },
+      { method: "GET", path: "/api/v1/elections/:year", description: "Dados de uma eleiÃ§Ã£o" },
+      { method: "GET", path: "/api/v1/stats", description: "EstatÃ­sticas gerais" }
     ]
   });
-});
+}));
 
 export default router;

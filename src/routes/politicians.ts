@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
-import { get as cacheGet, set as cacheSet, invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { get as cacheGet, set as cacheSet, invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ interface PoliticianStats {
   percentage: number;
 }
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { role, state, search, limit = 20, offset = 0 } = req.query;
 
@@ -48,9 +49,9 @@ router.get("/", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/ranking", async (req: Request, res: Response) => {
+router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
     const cacheKey = `ranking:${limit}:${offset}`;
@@ -159,9 +160,9 @@ router.get("/ranking", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/:name", async (req: Request, res: Response) => {
+router.get("/:name", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
     const decodedName = decodeURIComponent(name);
@@ -187,7 +188,7 @@ router.get("/:name", async (req: Request, res: Response) => {
     }
 
     if (!promises || promises.length === 0) {
-      return res.status(404).json({ error: "Político não encontrado" });
+      return res.status(404).json({ error: "PolÃ­tico nÃ£o encontrado" });
     }
 
     const stats = calculateStats(promises);
@@ -219,7 +220,7 @@ router.get("/:name", async (req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
 async function getPoliticianStats(name: string): Promise<PoliticianStats> {
   const { data: promises } = await supabase

@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
-import Parser from "rss-parser";
+import Parser from "rss-parser";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const parser = new Parser({ customFields: { item: [["content:encoded", "contentEncoded"]] } });
 
@@ -21,9 +22,9 @@ function cacheSet(key: string, data: any, ttl: number) { memoryCache[key] = { da
 // ==========================================
 // VERIFIED SCORE
 // ==========================================
-router.get("/verified", apiKeyRateLimit, async (req, res) => {
+router.get("/verified", apiKeyRateLimit, asyncHandler(async (req, res) => {
   const apiKey = req.header("X-API-Key");
-  if (!apiKey) return res.status(401).json({ error: "API Key required — use header X-API-Key" });
+  if (!apiKey) return res.status(401).json({ error: "API Key required â€” use header X-API-Key" });
 
   const { data: user } = await supabase.from("users").select("*").eq("api_key", apiKey).single();
   if (!user) return res.status(403).json({ error: "Invalid API Key" });
@@ -37,7 +38,7 @@ router.get("/verified", apiKeyRateLimit, async (req, res) => {
   const filtered = scoredPosts.filter((p: any) => p.is_verified);
 
   res.json({ posts: filtered, total_verified: filtered.length, verified_percentage: verifiedPosts?.length ? Math.round((filtered.length / verifiedPosts.length) * 100) : 0 });
-});
+}));
 
 function calcScore(post: any): number {
   let s = 0;
@@ -51,7 +52,7 @@ function calcScore(post: any): number {
 // ==========================================
 // SEARCH
 // ==========================================
-router.get("/search", async (req, res) => {
+router.get("/search", asyncHandler(async (req, res) => {
   const { q, lang, category, limit = 20, offset = 0 } = req.query;
   const apiKey = req.header("X-API-Key");
 
@@ -86,14 +87,14 @@ router.get("/search", async (req, res) => {
   const result = { query: q, total: count || 0, limit: limitNum, offset: offsetNum, posts: filteredPosts, has_more: (offsetNum + limitNum) < (count || 0) };
   cacheSet(cacheKey, result, CACHE_TTL.search);
   res.json(result);
-});
+}));
 
 // ==========================================
 // FEED
 // ==========================================
-router.get("/feed", apiKeyRateLimit, async (req, res) => {
+router.get("/feed", apiKeyRateLimit, asyncHandler(async (req, res) => {
   const apiKey = req.header("X-API-Key");
-  if (!apiKey) return res.status(401).json({ error: "API Key required — use header X-API-Key" });
+  if (!apiKey) return res.status(401).json({ error: "API Key required â€” use header X-API-Key" });
 
   const { data: user } = await supabase.from("users").select("*").eq("api_key", apiKey).single();
   if (!user) return res.status(403).json({ error: "Invalid API Key" });
@@ -125,16 +126,16 @@ router.get("/feed", apiKeyRateLimit, async (req, res) => {
   const result = { total: count || 0, limit: limitNum, offset: offsetNum, posts: filteredPosts, has_more: (offsetNum + limitNum) < (count || 0), user_plan: user.plan, remaining_requests: user.plan === "free" ? Math.max(0, 100 - user.usage_count) : "unlimited" };
   cacheSet(cacheKey, result, CACHE_TTL.feed);
   res.json(result);
-});
+}));
 
 // ==========================================
 // PUBLIC INGESTION - para admins inserirem artigos manualmente
 // ==========================================
-router.post("/ingest", async (req, res) => {
+router.post("/ingest", asyncHandler(async (req, res) => {
   const adminKey = req.headers["x-admin-key"] || req.query.admin_key;
   const expectedKey = process.env.ADMIN_SECRET_KEY;
   if (!expectedKey || adminKey !== expectedKey) {
-    return res.status(401).json({ error: "Unauthorized — admin key required" });
+    return res.status(401).json({ error: "Unauthorized â€” admin key required" });
   }
 
   const limit = Number(req.query.limit) || 100;
@@ -209,12 +210,12 @@ for (const feed of feeds) {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // ==========================================
 // SYSTEM METRICS - para monitoramento de custos
 // ==========================================
-router.get("/metrics", async (_req, res) => {
+router.get("/metrics", asyncHandler(async (_req, res) => {
   const { count: postsCount } = await supabase.from("posts").select("*", { count: "exact", head: true });
   const { count: feedsCount } = await supabase.from("feeds").select("*", { count: "exact", head: true }).eq("active", true);
   const { count: usersCount } = await supabase.from("users").select("*", { count: "exact", head: true });
@@ -233,12 +234,12 @@ router.get("/metrics", async (_req, res) => {
     groq: { note: "Check OpenRouter/Groq dashboard for actual usage" },
     timestamp: new Date().toISOString()
   });
-});
+}));
 
 // ==========================================
 // STATS
 // ==========================================
-router.get("/stats", async (_req, res) => {
+router.get("/stats", asyncHandler(async (_req, res) => {
   const cached = cacheGet("stats");
   if (cached) return res.json(cached);
 
@@ -250,6 +251,6 @@ router.get("/stats", async (_req, res) => {
   const stats = { postsCount: postsCount || 0, feedsCount: feedsCount || 0, languages: 11, cache_enabled: true };
   cacheSet("stats", stats, CACHE_TTL.stats);
   res.json(stats);
-});
+}));
 
 export default router;

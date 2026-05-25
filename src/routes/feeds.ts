@@ -1,13 +1,14 @@
-import { Router } from "express";
+import { Router } from "express";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   try {
     res.json({ feeds: [] });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to fetch feeds" });
   }
-});
+}));
 
 export default router;

@@ -1,26 +1,27 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { uploadEvidence } from "../services/snapshotService.js";
-import { logSystemError } from "../middleware/auditLog.js";
+import { logSystemError } from "../middleware/auditLog.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 const MAX_SIZE = 10 * 1024 * 1024;
 
-router.post("/evidence", async (req: Request, res: Response) => {
+router.post("/evidence", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { promise_id, url, description } = req.body;
 
     if (!promise_id) {
-      return res.status(400).json({ error: "promise_id é obrigatório" });
+      return res.status(400).json({ error: "promise_id Ã© obrigatÃ³rio" });
     }
 
     if (!url && !req.body.base64) {
-      return res.status(400).json({ error: "URL ou arquivo é obrigatório" });
+      return res.status(400).json({ error: "URL ou arquivo Ã© obrigatÃ³rio" });
     }
 
     if (url) {
       if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        return res.status(400).json({ error: "URL inválida" });
+        return res.status(400).json({ error: "URL invÃ¡lida" });
       }
 
       const { data, error } = await supabase.from("promise_evidences").insert({
@@ -60,9 +61,9 @@ router.post("/evidence", async (req: Request, res: Response) => {
     await logSystemError("evidence_upload", "api", err.message, err.stack, "low");
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/evidence/:promiseId", async (req: Request, res: Response) => {
+router.get("/evidence/:promiseId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from("promise_evidences")
@@ -75,6 +76,6 @@ router.get("/evidence/:promiseId", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

@@ -22,3 +22,5 @@ cli/qwen-chat.py
 tmp/
 scripts/
 opencode-tmp/
+
+.vercel

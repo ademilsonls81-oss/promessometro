@@ -88,13 +88,13 @@
     ],
     "functions": {
         "api/index.js": {
-            "maxDuration": 60
+            "maxDuration": 120
         },
         "api/cron/daily-reavaliation.js": {
-            "maxDuration": 60
+            "maxDuration": 120
         },
         "api/cron/pipeline-orchestrator.js": {
-            "maxDuration": 60
+            "maxDuration": 120
         }
     },
     "headers": [

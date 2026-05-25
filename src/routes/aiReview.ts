@@ -3,7 +3,8 @@ import { checkAdmin } from "../middleware/auth.js";
 import { getPendingReviews, approveEvaluation } from "../services/aiEvaluator.js";
 import { supabase } from "../lib/supabase.js";
 import { validateBody } from "../middleware/security.js";
-import { z } from "zod";
+import { z } from "zod";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const reviewSchema = z.object({
   notes: z.string().optional()
 });
 
-router.get("/ai-review", checkAdmin, async (req: Request, res: Response) => {
+router.get("/ai-review", checkAdmin, asyncHandler(async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -54,16 +55,16 @@ router.get("/ai-review", checkAdmin, async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), async (req: Request, res: Response) => {
+router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { explanation_id, action, notes } = req.body;
     const reviewerId = (req as any).user.id;
 
     if (action === "approve") {
       const success = await approveEvaluation(explanation_id, reviewerId, notes);
-      if (!success) return res.status(404).json({ error: "Explicação não encontrada" });
+      if (!success) return res.status(404).json({ error: "ExplicaÃ§Ã£o nÃ£o encontrada" });
 
       const { data: exp } = await supabase
         .from("promise_explanations")
@@ -87,7 +88,7 @@ router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), async (
         }
       }
 
-      res.json({ success: true, message: "Avaliação aprovada e publicada" });
+      res.json({ success: true, message: "AvaliaÃ§Ã£o aprovada e publicada" });
     } else if (action === "recalculate") {
       const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
 
@@ -97,7 +98,7 @@ router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), async (
         .eq("id", explanation_id)
         .single();
 
-      if (!exp) return res.status(404).json({ error: "Explicação não encontrada" });
+      if (!exp) return res.status(404).json({ error: "ExplicaÃ§Ã£o nÃ£o encontrada" });
 
       const { data: promise } = await supabase
         .from("promises")
@@ -105,26 +106,26 @@ router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), async (
         .eq("id", exp.promise_id)
         .single();
 
-      if (!promise) return res.status(404).json({ error: "Promessa não encontrada" });
+      if (!promise) return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
 
       const result = await evaluatePromise(promise, true);
       const saveResult = await saveEvaluation(exp.promise_id, result, result.needsHumanReview, reviewerId);
 
       res.json({
         success: true,
-        message: "Reavaliação iniciada",
+        message: "ReavaliaÃ§Ã£o iniciada",
         needs_human_review: saveResult.requiresHumanReview,
         new_confianca: result.confianca
       });
     } else {
-      res.status(400).json({ error: "Ação não reconhecida" });
+      res.status(400).json({ error: "AÃ§Ã£o nÃ£o reconhecida" });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/ai-review/stats", checkAdmin, async (_req: Request, res: Response) => {
+router.get("/ai-review/stats", checkAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -149,6 +150,6 @@ router.get("/ai-review/stats", checkAdmin, async (_req: Request, res: Response) 
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

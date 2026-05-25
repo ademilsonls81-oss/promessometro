@@ -2,11 +2,12 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { classifyPromise, applyScore, batchClassify, getCriteria, getExplanation } from "../services/scoreService.js";
-import { invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.post("/:id", checkAdmin, async (req: Request, res: Response) => {
+router.post("/:id", checkAdmin, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -17,7 +18,7 @@ router.post("/:id", checkAdmin, async (req: Request, res: Response) => {
       .single();
 
     if (promiseError || !promise) {
-      return res.status(404).json({ error: "Promessa não encontrada" });
+      return res.status(404).json({ error: "Promessa nÃ£o encontrada" });
     }
 
     console.log(`[Score] Classifying: ${promise.politician_name} - ${promise.promise_title?.substring(0, 50)}`);
@@ -35,15 +36,15 @@ router.post("/:id", checkAdmin, async (req: Request, res: Response) => {
     res.json({
       promise_id: id,
       ...result,
-      message: "Classificação aplicada com sucesso",
+      message: "ClassificaÃ§Ã£o aplicada com sucesso",
     });
   } catch (err: any) {
     console.error("[Score API] Error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/batch", checkAdmin, async (_req: Request, res: Response) => {
+router.post("/batch", checkAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
     console.log("[Score] Starting batch classification...");
 
@@ -55,15 +56,15 @@ router.post("/batch", checkAdmin, async (_req: Request, res: Response) => {
 
     res.json({
       ...result,
-      message: "Classificação em lote concluída",
+      message: "ClassificaÃ§Ã£o em lote concluÃ­da",
     });
   } catch (err: any) {
     console.error("[Score API] Batch error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/criteria", async (_req: Request, res: Response) => {
+router.get("/criteria", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const criteria = getCriteria();
     res.json(criteria);
@@ -71,9 +72,9 @@ router.get("/criteria", async (_req: Request, res: Response) => {
     console.error("[Score API] Criteria error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/stats", checkAdmin, async (_req: Request, res: Response) => {
+router.get("/stats", checkAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
     const { data: promises } = await supabase.from("promises").select("status");
 
@@ -92,15 +93,15 @@ router.get("/stats", checkAdmin, async (_req: Request, res: Response) => {
     console.error("[Score API] Stats error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/explanation/:id", async (req: Request, res: Response) => {
+router.get("/explanation/:id", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const explanation = await getExplanation(id);
 
     if (!explanation) {
-      return res.status(404).json({ error: "Explicação não encontrada" });
+      return res.status(404).json({ error: "ExplicaÃ§Ã£o nÃ£o encontrada" });
     }
 
     res.json(explanation);
@@ -108,6 +109,6 @@ router.get("/explanation/:id", async (req: Request, res: Response) => {
     console.error("[Score API] Explanation error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 export default router;

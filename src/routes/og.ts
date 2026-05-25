@@ -1,11 +1,12 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response } from "express";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
-router.get("/og", async (req: Request, res: Response) => {
+router.get("/og", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { 
-      politician = "Político",
+      politician = "PolÃ­tico",
       promise = "Promessa",
       score = "50",
       status = "nao_classificada",
@@ -90,6 +91,6 @@ router.get("/og", async (req: Request, res: Response) => {
     console.error("[OG Image] Error:", err);
     res.status(500).send("Error generating image");
   }
-});
+}));
 
 export default router;

@@ -4,16 +4,16 @@ import { checkAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
-router.post("/scrape/:politicianId", async (req: Request, res: Response) => {
+router.post("/scrape/:politicianId", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { politicianId } = req.params;
     const { sourceUrl } = req.body;
 
     if (!sourceUrl) {
-      return res.status(400).json({ error: "sourceUrl é obrigatório" });
+      return res.status(400).json({ error: "sourceUrl Ã© obrigatÃ³rio" });
     }
 
-    console.log(`[Scraper API] Iniciando scraping para político: ${politicianId}`);
+    console.log(`[Scraper API] Iniciando scraping para polÃ­tico: ${politicianId}`);
 
     const result = await scrapePoliticianFromTSE(politicianId, sourceUrl);
 
@@ -32,9 +32,9 @@ router.post("/scrape/:politicianId", async (req: Request, res: Response) => {
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/scrape-all", checkAdmin, async (_req: Request, res: Response) => {
+router.post("/scrape-all", checkAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
     console.log(`[Scraper API] Executando scraping em massa...`);
 
@@ -51,11 +51,11 @@ router.post("/scrape-all", checkAdmin, async (_req: Request, res: Response) => {
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.post("/daily-monitor", checkAdmin, async (_req: Request, res: Response) => {
+router.post("/daily-monitor", checkAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
-    console.log(`[Scraper API] Executando monitoramento diário...`);
+    console.log(`[Scraper API] Executando monitoramento diÃ¡rio...`);
 
     const result = await runDailyMonitor();
 
@@ -70,9 +70,9 @@ router.post("/daily-monitor", checkAdmin, async (_req: Request, res: Response) =
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/jobs", async (_req: Request, res: Response) => {
+router.get("/jobs", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const { data: jobs } = await supabase
       .from('scrape_jobs')
@@ -85,9 +85,9 @@ router.get("/jobs", async (_req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-router.get("/monitor-logs", async (_req: Request, res: Response) => {
+router.get("/monitor-logs", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const { data: logs } = await supabase
       .from('daily_monitor_log')
@@ -100,8 +100,9 @@ router.get("/monitor-logs", async (_req: Request, res: Response) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
-});
+}));
 
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 export default router;
