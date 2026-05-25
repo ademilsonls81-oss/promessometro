@@ -218,7 +218,10 @@ export async function evaluateWithAI(promise, preExtractedQuery) {
   }
 
   const evText = dedupedEvidences.length > 0
-    ? dedupedEvidences.map(e => `[${e.fonte}]: ${e.descricao} (${e.url})`).join('\n')
+    ? dedupedEvidences.map(e => {
+        const desc = (e.descricao || '').substring(0, 500);
+        return `[${e.fonte}]: ${desc} (${e.url})`;
+      }).join('\n').substring(0, 12000)
     : 'Nenhuma evidência encontrada.';
 
   const prompt = `Você é um avaliador independente de promessas políticas brasileiras. Analise com rigor.
@@ -285,7 +288,8 @@ IMPACTO (1-3):
       o_que_falta: parsed.o_que_falta || '',
       evidences: dedupedEvidences,
       complexity: Math.max(1, Math.min(3, Math.round(parsed.complexity || 1))),
-      impact: Math.max(1, Math.min(3, Math.round(parsed.impact || 1)))
+      impact: Math.max(1, Math.min(3, Math.round(parsed.impact || 1))),
+      evaluated_with_fallback: false
     };
   } catch (err) {
     console.error(`[evaluateWithAI] Fallback para promessa "${(promise.promise_title||'').substring(0,40)}": ${err.message}`);
@@ -299,7 +303,8 @@ IMPACTO (1-3):
       o_que_falta: 'Reavaliação completa via IA na próxima execução.',
       evidences: dedupedEvidences,
       complexity: 1,
-      impact: 1
+      impact: 1,
+      evaluated_with_fallback: true
     };
   }
 }

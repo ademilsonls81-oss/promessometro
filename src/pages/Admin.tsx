@@ -394,20 +394,19 @@ export default function Admin() {
   }
 
   async function processAllPendentes() {
-    const totalPendentes = politicians.reduce((a, p) => {
-      const p2 = p.promises;
-      return a + (p2 ? p2.filter(p3 => ['pendente', 'nao_iniciada', 'nao_classificada'].includes(p3.status) || !p3.status).length : 0);
-    }, 0);
+    const totalPendentes = Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0);
     if (totalPendentes === 0) return;
     if (!confirm(`Processar TODAS as ${totalPendentes} promessas pendentes?\n\nVou chamar a IA 1 promessa por vez em loop automático (~3s cada). Mantenha a página aberta.`)) return;
 
     setProcessingAll(true); setErro("");
-    let done = 0, fail = 0;
+    let done = 0, fail = 0, retryDelay = 2000;
 
     while (true) {
       try {
         const res = await authFetch("/api/admin/process-one-pending", { method: "POST" });
-        if (!res) { fail++; continue; }
+        if (!res) { fail++; await new Promise(r => setTimeout(r, retryDelay)); retryDelay = Math.min(retryDelay * 2, 16000); continue; }
+        if (!res.ok && res.status === 429) { await new Promise(r => setTimeout(r, retryDelay)); retryDelay = Math.min(retryDelay * 2, 16000); continue; }
+        retryDelay = 2000;
         const json = await res.json();
         if (json.remaining === 0 && json.evaluated === 0) {
           setToolResults(r => ({ ...r, process_all: { ok: done, fail, remaining: 0, message: `Concluído! ${done} processadas, ${fail} falhas` } }));
@@ -419,9 +418,10 @@ export default function Admin() {
       } catch (e: any) {
         fail++;
         setErro(e.message);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, retryDelay));
+        retryDelay = Math.min(retryDelay * 2, 16000);
       }
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     setTimeout(fetchAll, 3000);
@@ -895,11 +895,11 @@ export default function Admin() {
             })}
           <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
             <span className="text-xs text-gray-500">
-              Total pendentes: {politicians.reduce((a, p) => a + (p.promises || []).filter(p2 => ['pendente', 'nao_iniciada', 'nao_classificada'].includes(p2.status) || (!p2.status)).length, 0)}
+              Total pendentes: {Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0)}
             </span>
             <button
               onClick={processAllPendentes}
-              disabled={processingAll}
+              disabled={processingAll || Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0) === 0}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-gradient-to-r from-yellow-500 to-orange-500 text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {processingAll

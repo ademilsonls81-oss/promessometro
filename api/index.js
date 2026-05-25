@@ -2216,13 +2216,13 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
 
-      const MAX_BATCH = 50;
+      const Max_BATCH = 50;
       const PER_PROMISE_TIMEOUT = 25000;
       const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
       let evaluated = 0, failed = 0;
       const results = [];
 
-      const { data: promises } = await db()
+      const { data: promises } = await dbAdmin()
         .from('promises')
         .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
         .in('status', PENDENTE_STATUSES)
@@ -2302,17 +2302,16 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
       const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
 
-      const { data: totalCount } = await db()
+      const { count: totalRestantes } = await dbAdmin()
         .from('promises')
         .select('id', { count: 'exact', head: true })
         .in('status', PENDENTE_STATUSES);
-      const totalRestantes = totalCount || 0;
 
-      if (totalRestantes === 0) {
+      if (!totalRestantes || totalRestantes === 0) {
         return res.json({ status: 'ok', evaluated: 0, remaining: 0, message: 'Nenhuma promessa pendente' });
       }
 
-      const { data: promises } = await db()
+      const { data: promises } = await dbAdmin()
         .from('promises')
         .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
         .in('status', PENDENTE_STATUSES)
@@ -2337,6 +2336,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
           complexity_score: result.complexity,
           impact_score: result.impact,
+          evaluated_with_fallback: result.evaluated_with_fallback ?? false,
           last_verified_at: new Date().toISOString()
         }).eq('id', promise.id);
 
@@ -2346,7 +2346,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
             await dbAdmin().from('promise_explanations').insert({
               promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
-              criterio_aplicado: 'admin_one_pending',
+              criterio_aplicado: result.evaluated_with_fallback ? 'admin_one_pending_fallback' : 'admin_one_pending',
               justificativa: result.justification,
               evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
               o_que_falta: result.o_que_falta || 'Monitoramento continuo',
@@ -2357,7 +2357,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           } catch {}
           try { await dbAdmin().from('audit_logs').insert({
             action: 'admin_one_pending', entity_type: 'promises', entity_id: promise.id,
-            details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+            details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score, fallback: result.evaluated_with_fallback })
           }); } catch {}
 
           if (promise.politician_id) {
@@ -2369,8 +2369,8 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
           return res.json({
             status: 'ok', evaluated: 1, failed: 0, remaining: Math.max(0, totalRestantes - 1),
-            new_status: result.status, score: result.fulfillment_score,
-            message: `${promise.politician_name}: "${(promise.promise_title||'').substring(0,40)}" -> ${result.status} (${result.fulfillment_score})`
+            new_status: result.status, score: result.fulfillment_score, fallback: result.evaluated_with_fallback,
+            message: `${promise.politician_name}: "${(promise.promise_title||'').substring(0,40)}" -> ${result.status} (${result.fulfillment_score})${result.evaluated_with_fallback ? ' ⚠ fallback' : ''}`
           });
         } else {
           return res.json({
@@ -2384,6 +2384,59 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           message: `Erro: ${e.message}`
         });
       }
+    }
+
+    if (path === '/api/admin/reprocess-fallbacks' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const { data: promises } = await dbAdmin()
+        .from('promises')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .eq('evaluated_with_fallback', true)
+        .order('last_verified_at', { ascending: true, nullsFirst: true })
+        .limit(20);
+
+      if (!promises || promises.length === 0) {
+        return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa em fallback' });
+      }
+
+      let evaluated = 0, failed = 0;
+      for (const promise of promises) {
+        try {
+          const result = await Promise.race([
+            evaluateWithAI(promise),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+          ]);
+          const { error: upErr } = await dbAdmin().from('promises').update({
+            status: result.status, fulfillment_score: result.fulfillment_score,
+            ai_evaluation: result.justification,
+            evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+            complexity_score: result.complexity, impact_score: result.impact,
+            evaluated_with_fallback: result.evaluated_with_fallback ?? false,
+            last_verified_at: new Date().toISOString()
+          }).eq('id', promise.id);
+          if (!upErr) {
+            evaluated++;
+            try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
+            try {
+              await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+              await dbAdmin().from('promise_explanations').insert({
+                promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
+                criterio_aplicado: result.evaluated_with_fallback ? 'reprocess_fallback' : 'reprocess_fallback_ok',
+                justificativa: result.justification,
+                evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+                o_que_falta: result.o_que_falta || 'Monitoramento continuo',
+                o_que_foi_feito: result.o_que_foi_feito || result.justification,
+                confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+                modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+              });
+            } catch {}
+          } else { failed++; }
+        } catch (e) { failed++; }
+        await new Promise(r => setTimeout(r, 300));
+      }
+      return res.json({ status: 'ok', evaluated, failed, message: `${evaluated} reprocessadas, ${failed} falhas` });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
