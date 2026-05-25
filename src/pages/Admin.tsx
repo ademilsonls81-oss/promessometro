@@ -394,15 +394,37 @@ export default function Admin() {
   }
 
   async function processAllPendentes() {
-    if (!confirm(`Processar TODAS as promessas pendentes de todos os políticos?\n\nIsso pode levar alguns minutos.`)) return;
+    const totalPendentes = politicians.reduce((a, p) => {
+      const p2 = p.promises;
+      return a + (p2 ? p2.filter(p3 => ['pendente', 'nao_iniciada', 'nao_classificada'].includes(p3.status) || !p3.status).length : 0);
+    }, 0);
+    if (totalPendentes === 0) return;
+    if (!confirm(`Processar TODAS as ${totalPendentes} promessas pendentes?\n\nVou chamar a IA 1 promessa por vez em loop automático (~3s cada). Mantenha a página aberta.`)) return;
+
     setProcessingAll(true); setErro("");
-    try {
-      const res = await authFetch("/api/admin/process-all-pending", { method: "POST" });
-      if (!res) return;
-      const json = await res.json();
-      setToolResults(r => ({ ...r, process_all: json }));
-      setTimeout(fetchAll, 3000);
-    } catch (e: any) { setErro(e.message); }
+    let done = 0, fail = 0;
+
+    while (true) {
+      try {
+        const res = await authFetch("/api/admin/process-one-pending", { method: "POST" });
+        if (!res) { fail++; continue; }
+        const json = await res.json();
+        if (json.remaining === 0 && json.evaluated === 0) {
+          setToolResults(r => ({ ...r, process_all: { ok: done, fail, remaining: 0, message: `Concluído! ${done} processadas, ${fail} falhas` } }));
+          break;
+        }
+        done += json.evaluated || 0;
+        fail += json.failed || 0;
+        setToolResults(r => ({ ...r, process_all: { ...json, ok: done, fail, remaining: json.remaining } }));
+      } catch (e: any) {
+        fail++;
+        setErro(e.message);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    setTimeout(fetchAll, 3000);
     setProcessingAll(false);
   }
 
@@ -886,11 +908,23 @@ export default function Admin() {
               {processingAll ? "Processando..." : "Processar TODAS as pendentes"}
             </button>
           </div>
-          {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 3).map(([k, v]) => (
-            <div key={k} className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
-              {v.message || `${v.evaluated} promessas processadas`}
-            </div>
-          ))}
+          {toolResults && Object.entries(toolResults).filter(([k]) => k.startsWith('process_')).slice(0, 3).map(([k, v]) => {
+            const total = v.ok + v.fail + (v.remaining || 0);
+            const pct = total > 0 ? Math.round(((v.ok + v.fail) / total) * 100) : 0;
+            return (
+              <div key={k} className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="flex items-center justify-between text-xs text-yellow-300 mb-1.5">
+                  <span className="truncate mr-2">{v.message || `${v.ok} processadas`}</span>
+                  {v.remaining !== undefined && v.remaining > 0 && <span className="shrink-0 text-yellow-400 font-medium">{v.remaining} restantes</span>}
+                </div>
+                {v.remaining !== undefined && v.remaining > 0 && (
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-yellow-400 to-green-400 transition-all duration-500" style={{ width: pct + '%' }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <QualityAuditTable

@@ -2296,6 +2296,96 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       });
     }
 
+    if (path === '/api/admin/process-one-pending' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
+
+      const { data: totalCount } = await db()
+        .from('promises')
+        .select('id', { count: 'exact', head: true })
+        .in('status', PENDENTE_STATUSES);
+      const totalRestantes = totalCount || 0;
+
+      if (totalRestantes === 0) {
+        return res.json({ status: 'ok', evaluated: 0, remaining: 0, message: 'Nenhuma promessa pendente' });
+      }
+
+      const { data: promises } = await db()
+        .from('promises')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .in('status', PENDENTE_STATUSES)
+        .order('last_verified_at', { ascending: true, nullsFirst: true })
+        .limit(1);
+
+      const promise = promises?.[0];
+      if (!promise) {
+        return res.json({ status: 'ok', evaluated: 0, remaining: 0, message: 'Nenhuma promessa pendente' });
+      }
+
+      try {
+        const result = await Promise.race([
+          evaluateWithAI(promise),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+        ]);
+
+        const { error: upErr } = await dbAdmin().from('promises').update({
+          status: result.status,
+          fulfillment_score: result.fulfillment_score,
+          ai_evaluation: result.justification,
+          evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+          complexity_score: result.complexity,
+          impact_score: result.impact,
+          last_verified_at: new Date().toISOString()
+        }).eq('id', promise.id);
+
+        if (!upErr) {
+          try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
+          try {
+            await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+            await dbAdmin().from('promise_explanations').insert({
+              promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
+              criterio_aplicado: 'admin_one_pending',
+              justificativa: result.justification,
+              evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+              o_que_falta: result.o_que_falta || 'Monitoramento continuo',
+              o_que_foi_feito: result.o_que_foi_feito || result.justification,
+              confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+              modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+            });
+          } catch {}
+          try { await dbAdmin().from('audit_logs').insert({
+            action: 'admin_one_pending', entity_type: 'promises', entity_id: promise.id,
+            details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+          }); } catch {}
+
+          if (promise.politician_id) {
+            try {
+              const { recalcPoliticianScores } = await import('./cron/daily-reavaliation.js');
+              if (recalcPoliticianScores) await recalcPoliticianScores(promise.politician_id);
+            } catch {}
+          }
+
+          return res.json({
+            status: 'ok', evaluated: 1, failed: 0, remaining: Math.max(0, totalRestantes - 1),
+            new_status: result.status, score: result.fulfillment_score,
+            message: `${promise.politician_name}: "${(promise.promise_title||'').substring(0,40)}" -> ${result.status} (${result.fulfillment_score})`
+          });
+        } else {
+          return res.json({
+            status: 'ok', evaluated: 0, failed: 1, remaining: totalRestantes,
+            message: `Erro ao atualizar: ${upErr.message}`
+          });
+        }
+      } catch (e) {
+        return res.json({
+          status: 'ok', evaluated: 0, failed: 1, remaining: totalRestantes,
+          message: `Erro: ${e.message}`
+        });
+      }
+    }
+
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });
