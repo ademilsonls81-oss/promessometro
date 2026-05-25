@@ -702,17 +702,25 @@ Resposta SOMENTE JSON:
       const pendentes = (promises || []).filter(p => normStatus(p.status) === 'pendente');
       if (!pendentes.length) return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa pendente' });
 
-      const MAX_BATCH = 10;
+      const MAX_BATCH = 3;
+      const PER_PROMISE_TIMEOUT = 25000;
       let evaluated = 0, failed = 0;
       const results = [];
       const batch = pendentes.slice(0, MAX_BATCH);
 
+      console.log(`[evaluate-pending] Processando lote de ${batch.length} promessas para ${pol.name}`);
+
       const keywordMap = await batchExtractKeywords(batch);
 
       for (const promise of batch) {
+        const startTime = Date.now();
         try {
           const query = keywordMap[promise.id] || `${promise.politician_name} ${(promise.promise_title||'').substring(0,40)}`;
-          const result = await evaluateWithAI(promise, query);
+          const result = await Promise.race([
+            evaluateWithAI(promise, query),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), PER_PROMISE_TIMEOUT))
+          ]);
+          const elapsed = Date.now() - startTime;
           const evCount = result.evidences.filter(e => e.url && e.url !== '#').length;
           const { error: upErr } = await dbAdmin().from('promises').update({
             status: result.status,
@@ -745,9 +753,13 @@ Resposta SOMENTE JSON:
               details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
             }); } catch (_) {}
             results.push({ id: promise.id, query: query.substring(0,60), evCount, old_status: promise.status, new_status: result.status, score: result.fulfillment_score, first_ev: (result.evidences[0]?.url||'').substring(0,60) });
-          } else failed++;
-        } catch (e) { failed++; }
-        await new Promise(r => setTimeout(r, 2500));
+            console.log(`[evaluate-pending] OK promessa "${(promise.promise_title||'').substring(0,40)}" -> ${result.status} (${result.fulfillment_score}) em ${elapsed}ms`);
+          } else { failed++; console.error(`[evaluate-pending] DB update falhou: ${upErr?.message}`); }
+        } catch (e) {
+          failed++;
+          console.error(`[evaluate-pending] FALHA promessa "${(promise.promise_title||'').substring(0,40)}": ${e.message} (${Date.now()-startTime}ms)`);
+        }
+        await new Promise(r => setTimeout(r, 500));
       }
 
       try {
@@ -756,9 +768,9 @@ Resposta SOMENTE JSON:
       } catch (_) {}
 
       return res.json({
-        status: 'ok', evaluated, failed, total: pendentes.length, batch_size: MAX_BATCH,
-        remaining: Math.max(0, pendentes.length - MAX_BATCH),
-        politician: pol.name, message: `${evaluated} promessas reavaliadas (lote de ${MAX_BATCH}, restam ${Math.max(0, pendentes.length - MAX_BATCH)})`,
+        status: 'ok', evaluated, failed, total: pendentes.length, batch_size: batch.length,
+        remaining: Math.max(0, pendentes.length - batch.length),
+        politician: pol.name, message: `${evaluated} promessas reavaliadas (lote de ${batch.length}, restam ${Math.max(0, pendentes.length - batch.length)})`,
         results: results.slice(0, 10)
       });
     }

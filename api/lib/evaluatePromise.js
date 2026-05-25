@@ -56,10 +56,16 @@ const GOOGLE_CSE_CX = process.env.GOOGLE_CSE_CX;
 
 let searchCallCount = 0;
 
+function fetchWithTimeout(url, options, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
 async function searchWithSerper(query) {
   if (!SERPER_KEY) return [];
   try {
-    const response = await fetch('https://google.serper.dev/search', {
+    const response = await fetchWithTimeout('https://google.serper.dev/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-KEY': SERPER_KEY },
       body: JSON.stringify({ q: query, gl: 'br', hl: 'pt-br', num: 5 })
@@ -77,7 +83,7 @@ async function searchWithSerper(query) {
 async function searchWithTavily(query) {
   if (!TAVILY_KEY) return [];
   try {
-    const response = await fetch('https://api.tavily.com/search', {
+    const response = await fetchWithTimeout('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -100,8 +106,9 @@ async function searchWithTavily(query) {
 async function searchWithGoogle(query) {
   if (!GOOGLE_CSE_KEY || !GOOGLE_CSE_CX) return [];
   try {
-    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_CSE_KEY}&cx=${GOOGLE_CSE_CX}&q=${encodeURIComponent(query)}&gl=br&hl=pt&num=5`;
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(
+      `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_CSE_KEY}&cx=${GOOGLE_CSE_CX}&q=${encodeURIComponent(query)}&gl=br&hl=pt&num=5`
+    );
     const data = await response.json();
     if (!data.items) return [];
     return data.items.map(r => ({
@@ -149,7 +156,7 @@ export async function batchExtractKeywords(promises) {
     }`;
 
     try {
-      const gr = await fetch(`${AI_URL}/chat/completions`, {
+      const gr = await fetchWithTimeout(`${AI_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
@@ -159,7 +166,8 @@ export async function batchExtractKeywords(promises) {
           temperature: 0.1,
           max_tokens: 200
         })
-      });
+      }, 10000);
+      if (!gr.ok) throw new Error(`Groq ${gr.status}`);
       const data = await gr.json();
       const kwList = JSON.parse(data.choices[0].message.content).keywords;
       batch.forEach((p, idx) => {
@@ -251,7 +259,7 @@ IMPACTO (1-3):
 
   try {
     if (!GROQ_KEY) throw new Error('GROQ_API_KEY not configured');
-    const groqRes = await fetch(`${AI_URL}/chat/completions`, {
+    const groqRes = await fetchWithTimeout(`${AI_URL}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
@@ -261,7 +269,7 @@ IMPACTO (1-3):
         temperature: 0.1,
         max_tokens: 1024
       })
-    });
+    }, 20000);
     if (!groqRes.ok) throw new Error(`Groq ${groqRes.status}`);
     const data = await groqRes.json();
     const parsed = JSON.parse(data.choices[0].message.content);
