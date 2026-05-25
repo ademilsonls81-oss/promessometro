@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
 import { ArrowRight, Sparkles, Shield, Zap, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import TerminalWidget from './TerminalWidget';

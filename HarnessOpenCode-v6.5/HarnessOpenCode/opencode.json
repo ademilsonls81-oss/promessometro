@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.schema.json",
+  "instructions": [
+    "AGENTS.md",
+    ".harness/workflows/develop.md"
+  ],
+  "model": "deepseek/deepseek-chat"
+}

@@ -13,7 +13,9 @@ import {
   CheckCircle, XCircle, Clock, RefreshCw, Zap, GitCommit, 
   Play, AlertCircle, Terminal, Rocket, Brain 
 } from "lucide-react";
-import { Badge, EmptyState, Spinner } from "../../components/ui";
+import { Badge } from "../../components/ui/Badge";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Spinner } from "../../components/ui/Spinner";
 
 interface AutoFix {
   id: string;

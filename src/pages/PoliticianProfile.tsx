@@ -24,7 +24,8 @@ import {
   Layers,
   Award
 } from "lucide-react";
-import { Badge, Button } from "../components/ui";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
 import ReportPromiseModal from "../components/ReportPromiseModal";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";

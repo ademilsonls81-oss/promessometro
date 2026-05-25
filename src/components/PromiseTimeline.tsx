@@ -202,7 +202,7 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
         });
       });
 
-      contestations.data?.forEach((cont: any) => {
+      contests.data?.forEach((cont: any) => {
         const statusLabel = cont.status === "aceita" ? "Aceita" : 
                            cont.status === "rejeitada" ? "Rejeitada" : 
                            cont.status === "em_analise" ? "Em Análise" : "Pendente";

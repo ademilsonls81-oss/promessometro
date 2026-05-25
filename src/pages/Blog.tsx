@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, User, ArrowRight, Sparkles, Cpu, Zap, Shield, Rocket } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
 const BLOG_POSTS = [
   {

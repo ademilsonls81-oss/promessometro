@@ -45,7 +45,7 @@ class BudgetController {
 
     if (this.stats.tokensUsed + estimatedTokens > this.config.maxTokensPerRun) {
       this.stats.budgetExceeded = true;
-      console.warn(`[Budget] Token limit would be exceeded: ${this.stats.tokensUsed + estimatedTokens}/${this.config.maxTokensPerRun}`);
+      console.warn("[Budget] Budget limit would be exceeded");
       return false;
     }
 
@@ -55,7 +55,7 @@ class BudgetController {
   recordRequest(tokensUsed: number = 0): void {
     this.stats.requestsUsed++;
     this.stats.tokensUsed += tokensUsed;
-    console.log(`[Budget] Used: ${this.stats.requestsUsed} requests, ${this.stats.tokensUsed} tokens`);
+    console.log(`[Budget] Used: ${this.stats.requestsUsed} requests`);
   }
 
   getStats(): BudgetStats {

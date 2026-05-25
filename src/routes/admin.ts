@@ -115,7 +115,7 @@ router.get("/feeds/health", checkAdmin, async (req, res) => {
     const { data: feeds } = await supabase.from("feeds").select("*").eq("active", true);
     const { data: health } = await supabase.from("feed_health").select("*");
 
-    const healthMap = new Map((health || []).map((h: any) => [h.feed_id, h]));
+    const healthMap = new Map((health as any[] || []).map((h: any) => [h.feed_id, h]));
 
     const enrichedFeeds = (feeds || []).map((feed: any) => {
       const h = healthMap.get(feed.id);

@@ -5,6 +5,7 @@ import { Vote, ChevronLeft, Trophy, TrendingUp, CheckCircle2, AlertCircle, Clock
 import { getElectionData, getAvailableElectionYears } from "../services/electionService.js";
 import SEO from "../components/SEO.js";
 import { ShareButtons } from "../components/ShareButtons.js";
+import { supabase } from "../lib/supabaseClient";
 
 export default function ElectionPage() {
   const [year, setYear] = useState<string>("");
@@ -23,7 +24,7 @@ export default function ElectionPage() {
 
   async function loadYears() {
     try {
-      const years = await getAvailableElectionYears();
+      const years = await getAvailableElectionYears(supabase);
       setAvailableYears(years);
       if (years.length > 0 && !year) {
         setYear(String(years[0]));
@@ -37,7 +38,7 @@ export default function ElectionPage() {
   async function fetchElection(y: string) {
     setLoading(true);
     try {
-      const result = await getElectionData(Number(y));
+      const result = await getElectionData(supabase, Number(y));
       setData(result);
       setError(null);
     } catch (err: any) {

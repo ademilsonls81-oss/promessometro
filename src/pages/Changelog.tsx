@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Zap, Cpu, Sparkles, Database, ShieldCheck } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import { Badge } from '@/components/ui/Badge';
 
 const RELEASES = [
   {

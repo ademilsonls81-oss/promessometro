@@ -4,7 +4,8 @@ import {
   CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, 
   Shield, Filter, RefreshCw, Loader2, FileText, Link2, TrendingUp, TrendingDown
 } from "lucide-react";
-import { Button, Badge } from "../../components/ui";
+import { Button } from "../../components/ui/Button";
+import { Badge } from "../../components/ui/Badge";
 import { supabase } from "../../lib/supabaseClient";
 
 interface Evidence {

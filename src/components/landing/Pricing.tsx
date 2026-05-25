@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Button } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
 import { Check, Sparkles, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../lib/api';

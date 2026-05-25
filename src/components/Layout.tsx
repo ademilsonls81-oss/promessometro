@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { signInWithGoogle } from "../lib/supabaseClient";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Shield, LogOut, Zap, User, Puzzle, Activity, AlertTriangle, Wrench, Database, ListChecks, Cpu, Factory, FileCheck } from "lucide-react";
-import { Button } from "./ui";
+import { Button } from "./ui/Button";
 import Footer from "./layout/Footer";
 
 export default function Layout({ children }: { children: React.ReactNode }) {

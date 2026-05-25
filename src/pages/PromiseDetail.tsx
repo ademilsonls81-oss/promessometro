@@ -14,7 +14,8 @@ import {
   Share2,
   Info
 } from "lucide-react";
-import { Badge, Button } from "../components/ui";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
 import PromiseEvaluation from "../components/PromiseEvaluation";
 import PromiseTimeline from "../components/PromiseTimeline";
 import SEO, { generateSlug, generatePromiseSEO } from "../components/SEO";
@@ -322,6 +323,7 @@ const politicianSlug = generateSlug(promise.politician_name);
               <ShareButtons
                 data={{
                   title: promise.title,
+                  text: promise.title,
                   politician: promise.politician_name,
                   status: promise.status,
                   score: promise.fulfillment_score,

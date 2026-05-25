@@ -29,6 +29,7 @@ interface Promise {
   fulfillment_score: number;
   created_at: string;
   evidence_count?: number;
+  evidences_used?: { url: string }[];
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {

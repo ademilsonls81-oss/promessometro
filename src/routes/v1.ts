@@ -38,7 +38,7 @@ router.get("/politicians/compare", async (req: Request, res: Response) => {
 
 router.get("/politicians/history/:name", async (req: Request, res: Response) => {
   try {
-    const result = await getPoliticianHistory(req.params.name);
+    const result = await getPoliticianHistory(supabase, req.params.name);
     res.json({ history: result });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -93,7 +93,7 @@ router.get("/suggest", async (req: Request, res: Response) => {
 
 router.get("/elections", async (_req: Request, res: Response) => {
   try {
-    const years = await getAvailableElectionYears();
+    const years = await getAvailableElectionYears(supabase);
     res.json({ years });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -105,8 +105,8 @@ router.get("/elections/:year", async (req: Request, res: Response) => {
     const year = parseInt(req.params.year);
     const { status, party, limit } = req.query;
     const [electionData, promises] = await Promise.all([
-      getElectionData(year),
-      getPromiseByElection(year, {
+      getElectionData(supabase, year),
+      getPromiseByElection(supabase, year, {
         status: status as string,
         party: party as string,
         limit: limit ? Number(limit) : 20
@@ -122,7 +122,7 @@ router.get("/elections/compare", async (req: Request, res: Response) => {
   try {
     const { years } = req.query;
     const yearList = years ? (years as string).split(",").map(Number) : [2022, 2024];
-    const result = await getElectionComparison(yearList);
+    const result = await getElectionComparison(supabase, yearList);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

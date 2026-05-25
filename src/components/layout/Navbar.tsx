@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from "@/components/ui";
-import { Sparkles, Menu, X, Trophy, FileText } from 'lucide-react';
+import { Button } from "@/components/ui/Button";
+import { Sparkles, Menu, X, Trophy, FileText, LayoutDashboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [

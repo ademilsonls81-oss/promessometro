@@ -47,11 +47,28 @@ function mapStatus(s: string): "fulfilled" | "partial" | "broken" | "pending" {
 
 export async function getRanking(supabase: any, filters: RankingFilter = {}): Promise<RankingResult> {
   const limit = Math.min(filters.limit || 20, 100);
-  const { data: promises, error } = await supabase
+
+  let queryBuilder = supabase
     .from("promises")
     .select("politician_name, party, state, status, fulfillment_score, ano_eleitoral");
 
+  if (filters.state && filters.state !== "BR") {
+    queryBuilder = queryBuilder.eq("state", filters.state);
+  }
+  if (filters.party) {
+    queryBuilder = queryBuilder.eq("party", filters.party);
+  }
+
+  const [promisesResult, countResult] = await Promise.all([
+    queryBuilder,
+    supabase
+      .from("promises")
+      .select("*", { count: "exact", head: true })
+  ]);
+
+  const error = promisesResult.error || countResult.error;
   if (error) throw error;
+  const promises = promisesResult.data || [];
 
   const statsMap: Record<string, any> = {};
 
@@ -82,22 +99,45 @@ export async function getRanking(supabase: any, filters: RankingFilter = {}): Pr
 
   const entries: PoliticianRankingEntry[] = Object.values(statsMap)
     .filter((data: any) => {
-      if (filters.state && data.state !== filters.state && !(filters.state === "BR" && !data.state)) return false;
-      if (filters.party && data.party !== filters.party) return false;
       if (filters.position && data.position !== filters.position) return false;
       if (filters.year && data.election_year !== filters.year) return false;
       return true;
-    })
-    .map((data: any) => {
+    });
+
+  const names = [...new Set(entries.map(e => e.name))];
+  let polData: any[] | null = null;
+  if (names.length > 0) {
+    const result = await supabase
+      .from("politicians")
+      .select("name, party, position, state, slug, photo_url")
+      .in("name", names);
+    polData = result.data;
+
+    if (polData) {
+      const polMap = Object.fromEntries(polData.map((p: any) => [p.name, p]));
+      entries.forEach(e => {
+        const p = polMap[e.name];
+        if (p) {
+          e.party = p.party || e.party;
+          e.state = p.state || e.state;
+          e.position = p.position || e.position;
+          e.photo_url = p.photo_url || e.photo_url;
+        }
+      });
+    }
+  }
+
+  let mappedEntries: PoliticianRankingEntry[] = entries.map((data: any) => {
       const total = data.fulfilled + data.partial + data.broken + data.pending;
       const percentage = total > 0 ? Math.round((data.fulfilled / total) * 100) : 0;
 
       if (filters.minScore !== undefined && percentage < filters.minScore) return null;
       if (filters.maxScore !== undefined && percentage > filters.maxScore) return null;
 
+      const polInfo = polData?.find((p: any) => p.name === data.name);
       return {
         name: data.name,
-        slug: generateSlug(data.name),
+        slug: polInfo?.slug || generateSlug(data.name),
         party: data.party,
         state: data.state,
         position: data.position,
@@ -116,7 +156,7 @@ export async function getRanking(supabase: any, filters: RankingFilter = {}): Pr
     })
     .filter(Boolean) as PoliticianRankingEntry[];
 
-  entries.sort((a, b) => {
+  mappedEntries.sort((a, b) => {
     const sortBy = filters.sortBy || "percentage";
     const order = filters.sortOrder || "desc";
     let cmp = 0;
@@ -128,17 +168,18 @@ export async function getRanking(supabase: any, filters: RankingFilter = {}): Pr
 
   let cursorIdx = 0;
   if (filters.cursor) {
-    cursorIdx = entries.findIndex(e => e.slug === filters.cursor);
-    if (cursorIdx >= 0) entries.splice(0, cursorIdx + 1);
+    cursorIdx = mappedEntries.findIndex(e => e.slug === filters.cursor);
+    if (cursorIdx >= 0) mappedEntries.splice(0, cursorIdx + 1);
   }
 
-  const page = entries.slice(0, limit);
-  const nextCursor = entries.length > limit ? page[page.length - 1]?.slug || null : null;
+  const page = mappedEntries.slice(0, limit);
+  const nextCursor = mappedEntries.length > limit ? page[page.length - 1]?.slug || null : null;
+  const total = countResult.count ?? mappedEntries.length;
 
   return {
     politicians: page,
     nextCursor,
-    total: entries.length
+    total
   };
 }
 

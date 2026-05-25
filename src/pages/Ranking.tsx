@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Trophy, Search, TrendingUp, TrendingDown, Clock, User, Loader2, Filter } from "lucide-react";
-import { Button } from "../components/ui";
+import { Button } from "../components/ui/Button";
 import { ShareButtons } from "../components/ShareButtons";
 
 function toSlug(name: string): string {
@@ -58,6 +58,7 @@ interface Politician {
   c3_score: number | null;
   evaluated_count: number;
   legacy_score: number;
+  methodology_complete: boolean;
   stats: PoliticianStats;
   promise_count: number;
 }
@@ -101,6 +102,7 @@ export default function Ranking() {
           name: item.name, slug: item.slug, role: item.role, state: item.state,
           party: item.party, photo_url: item.photo_url,
           is_active: item.is_active !== false,
+          methodology_complete: item.methodology_complete === true,
           percentage: item.percentage, grade: item.grade || null,
           final_score: item.final_score || null,
           c1_score: item.c1_score || null, c2_score: item.c2_score || null,

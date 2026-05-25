@@ -13,7 +13,7 @@ function getToken() {
   return localStorage.getItem("admin_token") || "";
 }
 
-async function authFetch(url, options = {}) {
+async function authFetch(url: string, options: Record<string, any> = {}) {
   const token = getToken();
   const headers = { ...options.headers, Authorization: `Bearer ${token}` };
   const res = await fetch(url, { ...options, headers });

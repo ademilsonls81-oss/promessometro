@@ -23,7 +23,7 @@ const BLOCKED_TERMS: Array<{pattern: RegExp; replacement: string; severity: "low
   { pattern: /\b(traidor|traidora|traição)\b/gi, replacement: "posição divergente registrada", severity: "high", type: "acusacao_moral" },
 ];
 
-const IRONY_PATTERNS = [
+const IRONY_PATTERNS: Array<{pattern: RegExp; severity: "low" | "medium" | "high" | "critical"; type: string}> = [
   { pattern: /\bclaro que\b/gi, severity: "medium", type: "ironia" },
   { pattern: /\bclaríssimo\b/gi, severity: "medium", type: "ironia" },
   { pattern: /\bcomo sempre\b/gi, severity: "medium", type: "ironia" },

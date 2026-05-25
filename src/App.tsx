@@ -1,9 +1,8 @@
 import { BrowserRouter, Routes, Route, useLocation, useParams } from "react-router-dom";
 import Layout from "./components/Layout";
 import Landing from "./pages/Landing";
-import PublicFeed from "./pages/PublicFeed";
+import { lazy, Suspense } from "react";
 import Ranking from "./pages/Ranking";
-import PoliticianProfile from "./pages/PoliticianProfile";
 import PromiseDetail from "./pages/PromiseDetail";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -21,8 +20,12 @@ import Reportar from "./pages/Reportar";
 import Mapa from "./pages/Mapa";
 import Transparencia from "./pages/Transparencia";
 import Auditoria from "./pages/Auditoria";
-import AdminPage from "./pages/Admin";
-import AdminDetailPage from "./pages/AdminDetail";
+import LoadingSpinner from "./components/LoadingSpinner";
+
+const PublicFeed = lazy(() => import("./pages/PublicFeed"));
+const PoliticianProfile = lazy(() => import("./pages/PoliticianProfile"));
+const AdminPage = lazy(() => import("./pages/Admin"));
+const AdminDetailPage = lazy(() => import("./pages/AdminDetail"));
 
 import SEO from "./components/SEO";
 
@@ -184,6 +187,7 @@ function NotFoundPage() {
 function AppRoutes() {
   const location = useLocation();
   return (
+    <Suspense fallback={<LoadingSpinner />}>
     <Routes key={location.pathname}>
       <Route path="/" element={<ErrorBoundary context="Landing"><HomePage /></ErrorBoundary>} />
       <Route path="/promessas" element={<ErrorBoundary context="PublicFeed"><PromessasPage /></ErrorBoundary>} />
@@ -211,6 +215,7 @@ function AppRoutes() {
       <Route path="/404" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
       <Route path="*" element={<ErrorBoundary context="NotFound"><NotFoundPage /></ErrorBoundary>} />
     </Routes>
+    </Suspense>
   );
 }
 

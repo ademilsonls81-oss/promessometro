@@ -29,7 +29,7 @@ function generateFingerprint(): string {
   
   let hash = 0;
   for (const comp of components) {
-    const combined = hash + comp;
+    const combined = hash + comp.charCodeAt(0);
     hash = ((combined << 5) - combined) + comp.charCodeAt(0);
     hash = hash & hash;
   }

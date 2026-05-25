@@ -67,7 +67,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   if (err instanceof z.ZodError) {
     return res.status(400).json({
       error: "Validation failed",
-      details: err.errors.map(e => ({ path: e.path.join("."), message: e.message }))
+      details: err.issues.map(e => ({ path: e.path.join("."), message: e.message }))
     });
   }
 
@@ -89,7 +89,7 @@ export function validateBody<T>(schema: ZodSchema<T>) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           error: "Validation failed",
-          details: err.errors.map(e => ({ path: e.path.join("."), message: e.message }))
+          details: err.issues.map(e => ({ path: e.path.join("."), message: e.message }))
         });
       }
       next(err);
@@ -106,7 +106,7 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           error: "Invalid query parameters",
-          details: err.errors.map(e => ({ path: e.path.join("."), message: e.message }))
+          details: err.issues.map(e => ({ path: e.path.join("."), message: e.message }))
         });
       }
       next(err);

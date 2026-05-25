@@ -273,7 +273,6 @@ RESPONDA SOMENTE COM JSON válido (sem markdown, sem texto extra):
   "motivo_confianca": "Motivo do nível de confiança"
 }`;
 }
-};
 
 export async function evaluatePromise(
   promise: PromiseData,

@@ -10,7 +10,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 import { motion } from "framer-motion";
 import { AlertTriangle, AlertCircle, AlertOctagon, RefreshCw, XCircle, Filter } from "lucide-react";
-import { Badge, EmptyState, Spinner } from "../../components/ui";
+import { Badge } from "../../components/ui/Badge";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Spinner } from "../../components/ui/Spinner";
 
 interface SystemError {
   id: string;

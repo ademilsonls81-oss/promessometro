@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
+import { get as cacheGet, set as cacheSet, invalidate as cacheInvalidate } from "../services/cacheService.js";
 
 const router = Router();
 
@@ -52,6 +53,10 @@ router.get("/", async (req: Request, res: Response) => {
 router.get("/ranking", async (req: Request, res: Response) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
+    const cacheKey = `ranking:${limit}:${offset}`;
+
+    const cached = cacheGet<{ ranking: any[]; total: number; stats: any }>(cacheKey);
+    if (cached) return res.json(cached);
 
     const { data: rankingData, error } = await supabase
       .from("politicians_ranking")
@@ -109,14 +114,16 @@ router.get("/ranking", async (req: Request, res: Response) => {
 
       ranking.sort((a, b) => b.percentage - a.percentage);
 
-      return res.json({ 
+      const fallbackResult = { 
         ranking, 
         total: ranking.length,
         stats: {
           total_promises: promises?.length || 0,
           total_politicians: ranking.length
         }
-      });
+      };
+      cacheSet(cacheKey, fallbackResult);
+      return res.json(fallbackResult);
     }
 
     const ranking = (rankingData || []).map((p: any) => ({
@@ -139,14 +146,16 @@ router.get("/ranking", async (req: Request, res: Response) => {
       promise_count: p.total_promises || 0
     }));
 
-    return res.json({ 
+    const result = { 
       ranking, 
       total: ranking.length,
       stats: {
         total_promises: ranking.reduce((sum: number, p: any) => sum + (p.stats?.total || 0), 0),
         total_politicians: ranking.length
       }
-    });
+    };
+    cacheSet(cacheKey, result);
+    return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

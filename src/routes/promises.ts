@@ -120,11 +120,11 @@ router.get("/", async (req: Request, res: Response) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const uniqueNames = [...new Set((data || []).map((p: any) => p.politician_name))];
+    const uniqueNames = [...new Set((data || []).map((p: any) => p.politician_name))] as string[];
     const photoResults = await Promise.allSettled(uniqueNames.map(name => fetchPoliticianPhoto(name)));
     const photoMap: Record<string, string | null> = {};
     photoResults.forEach((result, i) => {
-      photoMap[uniqueNames[i]] = result.status === "fulfilled" ? result.value.photoUrl : null;
+      photoMap[uniqueNames[i]] = result.status === "fulfilled" ? (result.value as any).photoUrl : null;
     });
 
     const promisesWithPhotos = (data || []).map((p: any) => ({

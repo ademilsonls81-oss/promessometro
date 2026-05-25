@@ -124,7 +124,7 @@ router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), async (
   }
 });
 
-router.get("/ai-review/stats", checkAdmin, async (_req: Response, res: Response) => {
+router.get("/ai-review/stats", checkAdmin, async (_req: Request, res: Response) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { classifyPromise, applyScore, batchClassify, getCriteria, getExplanation } from "../services/scoreService.js";
+import { invalidate as cacheInvalidate } from "../services/cacheService.js";
 
 const router = Router();
 
@@ -29,6 +30,8 @@ router.post("/:id", checkAdmin, async (req: Request, res: Response) => {
 
     await applyScore(id, result);
 
+    cacheInvalidate("ranking");
+
     res.json({
       promise_id: id,
       ...result,
@@ -48,12 +51,11 @@ router.post("/batch", checkAdmin, async (_req: Request, res: Response) => {
 
     console.log(`[Score] Batch complete:`, result);
 
+    cacheInvalidate("ranking");
+
     res.json({
-      status: "ok",
-      processed: result.processed,
-      success: result.success,
-      failed: result.failed,
-      message: `Processadas ${result.processed} promessas`,
+      ...result,
+      message: "Classificação em lote concluída",
     });
   } catch (err: any) {
     console.error("[Score API] Batch error:", err);

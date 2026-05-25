@@ -12,7 +12,9 @@ import api from "../../lib/api";
 import { getAuthHeaders } from "../../lib/authHeaders";
 import { motion } from "framer-motion";
 import { Shield, Search, RefreshCw, User, Terminal, Globe, Calendar, Info, Clock, AlertCircle } from "lucide-react";
-import { Badge, EmptyState, Spinner } from "../../components/ui";
+import { Badge } from "../../components/ui/Badge";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Spinner } from "../../components/ui/Spinner";
 
 interface AuditLog {
   id: string;

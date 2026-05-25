@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { History, RotateCcw, Database, HardDrive, CheckCircle2, AlertTriangle, Cloud, DownloadCloud, Loader2 } from "lucide-react";
-import { Button } from "../../components/ui";
+import { Button } from "../../components/ui/Button";
 import api from "../../lib/api";
 
 interface Backup {

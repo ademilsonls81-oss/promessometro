@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Send, AlertCircle, Link as LinkIcon, FileText, User } from "lucide-react";
-import { Button, Input } from "./ui";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ReportPromiseModalProps {
