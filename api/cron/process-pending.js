@@ -7,7 +7,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
 const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
-const BATCH = 2;
+const BATCH = 10;
 
 export default async function handler(req, res) {
   const start = Date.now();
@@ -51,6 +51,9 @@ export default async function handler(req, res) {
         ai_evaluation: result.justification,
         evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
         complexity_score: result.complexity, impact_score: result.impact,
+        o_que_foi_feito: (result.o_que_foi_feito || '').substring(0, 2000),
+        o_que_falta: (result.o_que_falta || '').substring(0, 2000),
+        needs_human_review: result.evaluated_with_fallback || false,
         last_verified_at: new Date().toISOString()
       }).eq('id', promise.id);
       if (!upErr) {
