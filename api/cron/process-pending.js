@@ -8,7 +8,7 @@ function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
 const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
 const BATCH = 10;
-const TIME_BUDGET_MS = 8000;
+const TIME_BUDGET_MS = 7000;
 
 export default async function handler(req, res) {
   const start = Date.now();
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     try {
       const result = await Promise.race([
         evaluateWithAI(promise),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
       ]);
       const pTime = Date.now() - pStart;
       const { error: upErr } = await db().from('promises').update({

@@ -262,7 +262,7 @@ IMPACTO (1-3):
 
   try {
     if (!GROQ_KEY) throw new Error('GROQ_API_KEY not configured');
-    const retryDelays = [2000, 4000, 8000, 15000];
+    const retryDelays = [500, 1000, 2000, 4000];
     let groqRes = null;
     for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
       groqRes = await fetchWithTimeout(`${AI_URL}/chat/completions`, {
@@ -275,7 +275,7 @@ IMPACTO (1-3):
           temperature: 0.1,
           max_tokens: 1024
         })
-      }, 20000);
+      }, 8000);
       if (groqRes.ok) break;
       if (groqRes.status === 429 && attempt < retryDelays.length) {
         const delay = retryDelays[attempt];
