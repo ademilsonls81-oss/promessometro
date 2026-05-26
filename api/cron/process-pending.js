@@ -8,6 +8,7 @@ function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
 const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
 const BATCH = 10;
+const TIME_BUDGET_MS = 8000;
 
 export default async function handler(req, res) {
   const start = Date.now();
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
     .limit(BATCH);
 
   let processed = 0, failed = 0;
+  const budgetStart = Date.now();
   const polIds = new Set();
   const promisesData = [];
 
@@ -105,6 +107,8 @@ export default async function handler(req, res) {
       });
       failed++;
     }
+    // Budget check: stop if we've used more than TIME_BUDGET_MS (prevents 10s Vercel Hobby timeout)
+    if (Date.now() - budgetStart > TIME_BUDGET_MS) break;
   }
 
   for (const polId of polIds) {
