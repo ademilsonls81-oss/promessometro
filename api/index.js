@@ -2504,8 +2504,8 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const { politician_id, promise_id, limit } = req.query;
       let query = dbAdmin().from('promise_evaluations_history').select('*');
 
-      if (promise_id) query = query.eq('promise_id', parseInt(promise_id));
-      if (politician_id) query = query.eq('politician_id', parseInt(politician_id));
+      if (promise_id) query = query.eq('promise_id', promise_id);
+      if (politician_id) query = query.eq('politician_id', politician_id);
       query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 50);
 
       const { data: history } = await query;
