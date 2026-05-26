@@ -274,9 +274,6 @@ IMPACTO (1-3):
       })
     }, 20000);
     if (!groqRes.ok) {
-      if (groqRes.status === 429) {
-        await new Promise(r => setTimeout(r, 3000));
-      }
       throw new Error(`Groq ${groqRes.status}`);
     }
     const data = await groqRes.json();

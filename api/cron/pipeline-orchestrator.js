@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { prioritizeSources, classifySource, getLevelLabel } from '../lib/sourceLevel.js';
+import { evaluateWithAI } from '../lib/evaluatePromise.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -195,115 +196,6 @@ Responda SOMENTE JSON: {"links":["url1","url2"]}`
 
 function normalizeUrl(url) {
   try { return new URL(url).toString().split('?')[0].replace(/\/$/, ''); } catch { return url; }
-}
-
-async function searchAI(query, promise, includeDomains = []) {
-  console.log(`[Pipeline:searchAI] Processing promise: ${promise.promise_title}`);
-  const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-  const BASE = process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1';
-
-  const { data: dbEvidences } = await db()
-    .from('promise_evidences')
-    .select('title, description, url, source_name, published_at')
-    .eq('promise_id', promise.id)
-    .limit(10);
-
-  let evidences = [];
-  if (dbEvidences && dbEvidences.length > 0) {
-    evidences = dbEvidences.map(e => ({
-      titulo: e.title || e.description || '',
-      descricao: e.description || '',
-      fonte: e.source_name || '',
-      url: e.url || '',
-      data: e.published_at || null,
-      credible: isCredible(e.url || ''),
-      relevance: 75,
-      credibility: isCredible(e.url || '') ? 90 : 50
-    }));
-  }
-
-  if (evidences.length === 0) {
-    evidences = await searchEv(`${promise.politician_name || ''} ${promise.promise_title || ''} ${promise.category || ''}`, 8, includeDomains);
-    for (const ev of evidences) {
-      await db().from('promise_evidences').insert({
-        promise_id: promise.id,
-        title: ev.titulo || ev.descricao?.substring(0, 100) || null,
-        description: ev.descricao || null,
-        url: ev.url || null,
-        source_name: ev.fonte || extractHostname(ev.url) || null,
-        evidence_type: 'news',
-        source_type: ev.credible ? 'official' : 'press',
-        validation_status: 'pending',
-        published_at: ev.data || null,
-        confiabilidade: ev.credibility,
-        relevance_score: ev.relevance || 0,
-        credibility_score: ev.credibility || 0,
-        discovered_at: new Date().toISOString(),
-        validated: ev.credible,
-        needs_review: !ev.credible
-      }).catch(() => {});
-    }
-  }
-
-  const evText = evidences.length > 0
-    ? evidences.map(e => `[${e.fonte}]: ${e.descricao || e.titulo} (${e.url || 'sem link'})`).join('\n')
-    : 'Nenhuma evidência encontrada.';
-
-  const prompt = `Você é um avaliador independente de promessas políticas brasileiras.
-
-PROMESSA: ${promise.promise_title || ''}
-POLÍTICO: ${promise.politician_name || ''}
-
-EVIDÊNCIAS ENCONTRADAS (USE ESTAS URLs EXATAS PARA AVALIAR):
-${evText}
-
-CRITÉRIOS:
-| Status | Score | Quando usar |
-| cumprida | 80-100 | Ação concluída com prova verificável |
-| parcialmente_cumprida | 40-79 | Progresso parcial demonstrado |
-| em_andamento | 20-39 | Processo iniciado sem entrega final |
-| nao_iniciada | 0-19 | Nenhuma ação verificável |
-| descumprida | 0 | Ação contrária ou prazo expirado |
-
-IMPORTANTE: Use APENAS as evidências acima. Cada evidência tem uma URL específica - use-a para verificar o status real da promessa.
-
-REGRAS:
-- Sem evidência com URL real: score máximo 30, status "nao_iniciada"
-- Score > 70 exige evidência verificável com URL real das listadas acima
-- Responda SOMENTE com JSON estruturado:
-{"status":"status","fulfillment_score":0-100,"justificativa":"explicação clara citing os titulos das evidencias usadas","evidencias_usadas":[{"fonte":"nome da fonte","url":"url exata da evidencia"}]}`;
-
-  try {
-    const r = await fetch(`${BASE}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.1, max_tokens: 512
-      })
-    });
-    if (!r.ok) {
-      const errText = await r.text();
-      console.error(`[searchAI:Groq] HTTP ${r.status}: ${errText}`);
-      throw new Error(`Groq ${r.status}`);
-    }
-    const d = await r.json();
-    let text = (d.choices?.[0]?.message?.content || '{}').replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-    const match = text.match(/\{[\s\S]*\}/);
-    const p = match ? JSON.parse(match[0]) : {};
-    let status = p.status || 'nao_classificada';
-    let score = p.fulfillment_score ?? 50;
-    if (evidences.length === 0 && score > 30) { status = 'nao_iniciada'; score = 30; }
-    return {
-      status, score: clampScore(status, score),
-      rawScore: score, justification: p.justificativa || '',
-      evidences, needsReview: score > 80 || evidences.length === 0
-    };
-  } catch (err) {
-    throw new Error(`AI failed: ${err.message}`);
-  }
 }
 
 export default async function handler(req, res) {
@@ -537,13 +429,14 @@ await db().from('audit_logs').insert({
           console.log(`[Pipeline:Reavaliate] Processing ${toReavaliate.length} promises`);
           for (const promise of toReavaliate) {
             try {
-              const result = await searchAI(`${promise.politician_name || ''} ${promise.promise_title || ''}`, promise, activeDomains);
-              const frontendStatus = mapToFrontend(result.status);
+              const result = await evaluateWithAI(promise);
+              const frontendStatus = result.status;
 
               const { error: upErr } = await db().from('promises').update({
-                status: frontendStatus, fulfillment_score: result.score,
+                status: frontendStatus, fulfillment_score: result.fulfillment_score,
                 ai_evaluation: result.justification, evidences_used: result.evidences,
-                needs_human_review: result.needsReview, last_verified_at: startTime.toISOString()
+                needs_human_review: result.evaluated_with_fallback, last_verified_at: startTime.toISOString(),
+                complexity_score: result.complexity, impact_score: result.impact
               }).eq('id', promise.id);
 
               if (upErr) {
@@ -563,11 +456,13 @@ await db().from('audit_logs').insert({
 
               try {
                 await db().from('promise_explanations').insert({
-                  promise_id: promise.id, status: frontendStatus, fulfillment_score: result.score,
+                  promise_id: promise.id, status: frontendStatus, fulfillment_score: result.fulfillment_score,
                   criterio_aplicado: 'pipeline_auto_evaluation', justificativa: result.justification || 'Avaliação automática via pipeline',
-                  evidencias_usadas: prioritizeSources(result.evidences || []), o_que_falta: result.needsReview ? 'Revisão humana necessária' : 'Completo',
-                  o_que_foi_feito: result.justification || 'Análise IA.', confianca: result.needsReview ? 0.5 : 0.85,
-                  modelo_ia: 'pipeline-v1-groq', is_latest: true, gerado_em: startTime.toISOString()
+                  evidencias_usadas: prioritizeSources(result.evidences || []),
+                  o_que_falta: result.o_que_falta || (result.evaluated_with_fallback ? 'Revisão humana necessária' : 'Completo'),
+                  o_que_foi_feito: result.o_que_foi_feito || result.justification || 'Análise IA.',
+                  confianca: result.evaluated_with_fallback ? 0.5 : 0.85,
+                  modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: startTime.toISOString()
                 });
               } catch (e) { console.error(`[promise_explanations] ${e.message}`); }
 
@@ -578,8 +473,8 @@ await db().from('audit_logs').insert({
                     promise_id: promise.id, promise_title: promise.promise_title,
                     politician: promise.politician_name,
                     old_status: promise.status, new_status: frontendStatus,
-                    previous_score: promise.fulfillment_score, new_score: result.score,
-                    evidences_count: result.evidences?.length || 0, needs_human_review: result.needsReview
+                    previous_score: promise.fulfillment_score, new_score: result.fulfillment_score,
+                    evidences_count: result.evidences?.length || 0, needs_human_review: result.evaluated_with_fallback
                   })
                 });
               } catch (e) { console.error(`[audit_logs] ${e.message}`); }

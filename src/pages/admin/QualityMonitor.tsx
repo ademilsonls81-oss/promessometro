@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../lib/api";
-import { getAuthHeaders } from "../../lib/authHeaders";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, AlertTriangle, CheckCircle, XCircle, RefreshCw, RotateCcw, ThumbsUp, Filter, Clock, Bug, FileSearch, ListChecks } from "lucide-react";
 
@@ -64,6 +63,17 @@ const categoryLabels: Record<string, string> = {
   notEvaluated: '🔄 Não avaliadas',
 };
 
+function getAdminToken() {
+  return localStorage.getItem("admin_token") || "";
+}
+
+function getAdminHeaders(): Record<string, string> {
+  const token = getAdminToken();
+  return token
+    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    : { "Content-Type": "application/json" };
+}
+
 export default function QualityMonitor() {
   const { user, profile, loading } = useAuth();
   const [items, setItems] = useState<MonitorItem[]>([]);
@@ -76,11 +86,14 @@ export default function QualityMonitor() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const adminToken = getAdminToken();
+  const isAdmin = adminToken || (profile?.role === 'admin');
+
   const fetchData = useCallback(async () => {
     try {
       setLoadingData(true);
       setError(null);
-      const headers = await getAuthHeaders();
+      const headers = getAdminHeaders();
       const res = await api.get('/api/admin/quality-monitor', { headers });
       setItems(res.data?.items || []);
       setCounts(res.data?.counts || { valid: 0, warning: 0, invalid: 0, notEvaluated: 0 });
@@ -94,23 +107,23 @@ export default function QualityMonitor() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = getAdminHeaders();
       const res = await api.get('/api/admin/quality-monitor/log', { headers });
       setCorrectionLogs(res.data?.logs || []);
     } catch {}
   }, []);
 
   useEffect(() => {
-    if (!loading && profile?.role !== 'admin') return;
+    if (!isAdmin) return;
     fetchData();
     fetchLogs();
-  }, [loading, profile, fetchData, fetchLogs]);
+  }, [isAdmin, fetchData, fetchLogs]);
 
   async function handleReprocessAll() {
     if (!window.confirm(`Reavaliar todas as ${counts.invalid} promessas inválidas?`)) return;
     try {
       setActionLoading('reprocess-all');
-      const headers = await getAuthHeaders();
+      const headers = getAdminHeaders();
       const res = await api.post('/api/admin/quality-monitor/reprocess-all', {}, { headers });
       alert(`${res.data?.queued || 0} promessas enfileiradas para reavaliação`);
       fetchData();
@@ -125,7 +138,7 @@ export default function QualityMonitor() {
   async function handleReprocess(promiseId: string) {
     try {
       setActionLoading(`reprocess-${promiseId}`);
-      const headers = await getAuthHeaders();
+      const headers = getAdminHeaders();
       await api.post('/api/admin/quality-monitor/reprocess', { promiseId }, { headers });
       fetchData();
       fetchLogs();
@@ -139,7 +152,7 @@ export default function QualityMonitor() {
   async function handleApprove(evaluationId: string, promiseId: string) {
     try {
       setActionLoading(`approve-${evaluationId}`);
-      const headers = await getAuthHeaders();
+      const headers = getAdminHeaders();
       await api.post('/api/admin/quality-monitor/approve', { evaluationId, promiseId }, { headers });
       fetchData();
       fetchLogs();
@@ -152,8 +165,8 @@ export default function QualityMonitor() {
 
   const filteredItems = activeTab === 'all' ? items : items.filter(i => i.category === activeTab);
 
-  if (loading) return null;
-  if (profile?.role !== 'admin') {
+  if (loading && !adminToken) return null;
+  if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center text-gray-400">
