@@ -2529,6 +2529,110 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       }
     }
 
+    if (path === '/api/admin/quality-monitor' && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        const { qualityScan } = await import('./lib/qualityMonitor.js');
+        const url = new URL(req.url, 'http://localhost');
+        const countsOnly = url.searchParams.get('counts-only') === 'true';
+        const filter = url.searchParams.get('filter') || 'all';
+        const result = await qualityScan(dbAdmin());
+
+        if (countsOnly) return res.json({ needsAttention: result.needsAttention, counts: result.counts });
+
+        let items = result.items;
+        if (filter !== 'all') items = items.filter(i => i.category === filter);
+        items.sort((a, b) => {
+          const order = { invalid: 0, warning: 1, notEvaluated: 2, valid: 3 };
+          return (order[a.category] || 99) - (order[b.category] || 99);
+        });
+
+        return res.json({ counts: result.counts, needsAttention: result.needsAttention, items, total: items.length });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    if (path === '/api/admin/quality-monitor/approve' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+        const { evaluationId, promiseId, problem } = JSON.parse(body || '{}');
+        if (!evaluationId) return res.status(400).json({ error: 'evaluationId obrigatório' });
+        const { logCorrection } = await import('./lib/qualityMonitor.js');
+        await logCorrection(dbAdmin(), {
+          evaluationId, promiseId, problem: problem || 'Aprovado manualmente',
+          action: 'approved', details: `Aprovado por ${admin.email}`,
+          correctedBy: admin.email
+        });
+        return res.json({ status: 'ok', message: 'Avaliação aprovada manualmente' });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    if (path === '/api/admin/quality-monitor/reprocess' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+        const { promiseId } = JSON.parse(body || '{}');
+        if (!promiseId) return res.status(400).json({ error: 'promiseId obrigatório' });
+        const { error: upErr } = await dbAdmin().from('promises').update({ status: 'pendente', fulfillment_score: 20, last_verified_at: null }).eq('id', promiseId);
+        if (upErr) return res.status(500).json({ error: upErr.message });
+        const { logCorrection } = await import('./lib/qualityMonitor.js');
+        await logCorrection(dbAdmin(), {
+          evaluationId: promiseId, promiseId,
+          problem: 'Reavaliação enfileirada',
+          action: 'reprocess', details: `Reprocessado por ${admin.email}`,
+          correctedBy: admin.email
+        });
+        return res.json({ status: 'ok', message: 'Promessa enfileirada para reavaliação' });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    if (path === '/api/admin/quality-monitor/reprocess-all' && method === 'POST') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        const { qualityScan, logCorrection } = await import('./lib/qualityMonitor.js');
+        const result = await qualityScan(dbAdmin());
+        const invalidItems = result.items.filter(i => i.category === 'invalid');
+        let queued = 0;
+        for (const item of invalidItems) {
+          const { error } = await dbAdmin().from('promises').update({ status: 'pendente', fulfillment_score: 20, last_verified_at: null }).eq('id', item.promiseId);
+          if (!error) {
+            queued++;
+            await logCorrection(dbAdmin(), {
+              evaluationId: item.id, promiseId: item.promiseId,
+              problem: item.issues[0] || 'Inválida',
+              action: 'reprocess-all', details: `Reavaliação em lote por ${admin.email}`,
+              correctedBy: admin.email
+            });
+          }
+        }
+        return res.json({ status: 'ok', queued, total: invalidItems.length });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    if (path === '/api/admin/quality-monitor/log' && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        const { fetchCorrectionLog } = await import('./lib/qualityMonitor.js');
+        const logs = await fetchCorrectionLog(dbAdmin());
+        return res.json({ logs });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });

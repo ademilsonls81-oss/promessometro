@@ -3,13 +3,38 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { signInWithGoogle } from "../lib/supabaseClient";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Shield, LogOut, Zap, User, Puzzle, Activity, AlertTriangle, Wrench, Database, ListChecks, Cpu, Factory, FileCheck } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { LayoutDashboard, Shield, LogOut, Zap, User, Puzzle, Activity, AlertTriangle, Wrench, Database, ListChecks, Cpu, Factory, FileCheck, Filter } from "lucide-react";
 import { Button } from "./ui/Button";
 import Footer from "./layout/Footer";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth();
   const location = useLocation();
+  const [monitorBadge, setMonitorBadge] = useState(0);
+  const badgeInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (profile?.role !== 'admin') return;
+    const ac = new AbortController();
+    async function fetchBadge() {
+      try {
+        const token = localStorage.getItem('admin_token');
+        if (!token) return;
+        const res = await fetch('/api/admin/quality-monitor?counts-only=true', {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: ac.signal
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMonitorBadge(data.needsAttention || 0);
+        }
+      } catch {}
+    }
+    fetchBadge();
+    badgeInterval.current = setInterval(fetchBadge, 60000);
+    return () => { ac.abort(); if (badgeInterval.current) clearInterval(badgeInterval.current); };
+  }, [profile]);
 
   // Navigation Items for the main menu
   const navItems = [
@@ -110,6 +135,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     >
                       <FileCheck className="w-3.5 h-3.5" />
                       Evidências
+                    </Link>
+                    <Link
+                      to="/admin/quality-monitor"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                        isActive("/admin/quality-monitor") ? "text-red-400 bg-red-500/10" : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                      title="Quality Monitor"
+                    >
+                      <Filter className="w-3.5 h-3.5" />
+                      Monitor
+                      {monitorBadge > 0 && (
+                        <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full">
+                          {monitorBadge}
+                        </span>
+                      )}
                     </Link>
                     <div className="w-px h-4 bg-white/10 mx-1" />
                     <Link

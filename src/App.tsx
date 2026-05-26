@@ -26,6 +26,7 @@ const PublicFeed = lazy(() => import("./pages/PublicFeed"));
 const PoliticianProfile = lazy(() => import("./pages/PoliticianProfile"));
 const AdminPage = lazy(() => import("./pages/Admin"));
 const AdminDetailPage = lazy(() => import("./pages/AdminDetail"));
+const QualityMonitor = lazy(() => import("./pages/admin/QualityMonitor"));
 
 import SEO from "./components/SEO";
 
@@ -209,6 +210,7 @@ function AppRoutes() {
       <Route path="/mapa" element={<ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>} />
       <Route path="/transparencia" element={<ErrorBoundary context="Transparencia"><Transparencia /></ErrorBoundary>} />
       <Route path="/auditoria" element={<ErrorBoundary context="Auditoria"><Auditoria /></ErrorBoundary>} />
+      <Route path="/admin/quality-monitor" element={<QualityMonitor />} />
       <Route path="/admin/politico/:slug" element={<AdminDetailPage />} />
       <Route path="/admin" element={<AdminPage />} />
       

@@ -189,6 +189,39 @@ C3 = max(0, 100 - penalidades)
 Grade: A(80-100) B(60-79) C(40-59) D(20-39) F(0-19)
 ```
 
+### 6.3.1 Validação de Qualidade (Quality Monitor)
+
+O Quality Monitor é o filtro obrigatório entre a IA e o público. Toda avaliação gerada pela IA deve passar pelas seguintes verificações antes de ser exibida no site:
+
+**CAMADA 1 — Consistência Score × Status:**
+- Score 0-30 → status deve ser `quebrada`
+- Score 31-60 → status deve ser `parcial`
+- Score 61-100 → status deve ser `cumprida`
+- Status `pendente` com score > 0 → BUG (UPDATE não rodou na tabela promises)
+- Score nulo → pendente sem avaliação real
+
+**CAMADA 1 — Evidências:**
+- Mínimo 2 fontes independentes por avaliação
+- "Ausência de Evidências" como única fonte → INVÁLIDA
+- Nenhuma fonte registrada → INVÁLIDA
+
+**CAMADA 3 — Fatos Jurídicos:**
+- Se C3 < 20, a nota máxima do mandato é C (59), mesmo que o cálculo C1+C2 gere nota maior
+
+**QUALIDADE GERAL:**
+- O político da avaliação deve bater com o político da promessa
+- Modelo IA deve estar registrado (llama, deepseek, etc.)
+- Data de avaliação deve estar presente
+- Justificativa não pode conter texto padrão ("Aguardando reavaliação por IA")
+
+**Categorias de saída do monitor:**
+| Categoria | Significado | Ação recomendada |
+|-----------|-------------|------------------|
+| ✅ Válida | Passou em todas as verificações | Nenhuma |
+| ⚠️ Warning | Score × status inconsistente | Reavaliar ou aprovar manualmente |
+| ❌ Inválida | Sem evidências reais | Reavaliar automaticamente |
+| 🔄 Não avaliada | Motivo padrão "Aguardando reavaliação" | Aguardar pipeline
+
 ---
 
 ## 7. Componentes / Módulos
