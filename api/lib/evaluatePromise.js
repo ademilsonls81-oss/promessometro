@@ -273,7 +273,12 @@ IMPACTO (1-3):
         max_tokens: 1024
       })
     }, 20000);
-    if (!groqRes.ok) throw new Error(`Groq ${groqRes.status}`);
+    if (!groqRes.ok) {
+      if (groqRes.status === 429) {
+        await new Promise(r => setTimeout(r, 3000));
+      }
+      throw new Error(`Groq ${groqRes.status}`);
+    }
     const data = await groqRes.json();
     const parsed = JSON.parse(data.choices[0].message.content);
 

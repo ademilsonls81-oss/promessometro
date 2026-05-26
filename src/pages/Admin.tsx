@@ -164,6 +164,7 @@ export default function Admin() {
       const json = await res.json();
       setCronLogs(json.logs || []);
       setCronMetrics(json.metrics || null);
+      if (json.metrics?.cron_ativo !== undefined) setCronActive(json.metrics.cron_ativo);
     } catch {}
   }
 
@@ -203,7 +204,7 @@ export default function Admin() {
       setEvalHistory(history);
       if (json.politicians) setEvalPoliticians(json.politicians);
 
-      setCronActive(cronAtivo);
+      setCronActive(json.cron_ativo || false);
     } catch {}
   }
 

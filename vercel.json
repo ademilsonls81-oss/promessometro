@@ -4,6 +4,10 @@
     "outputDirectory": "dist",
     "rewrites": [
         {
+            "source": "/api/cron/process-pending",
+            "destination": "/api/cron/process-pending.js"
+        },
+        {
             "source": "/api/cron/daily-reavaliation",
             "destination": "/api/cron/daily-reavaliation.js"
         },
@@ -89,6 +93,9 @@
     "functions": {
         "api/index.js": {
             "maxDuration": 120
+        },
+        "api/cron/process-pending.js": {
+            "maxDuration": 60
         },
         "api/cron/daily-reavaliation.js": {
             "maxDuration": 120
