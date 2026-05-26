@@ -262,20 +262,32 @@ IMPACTO (1-3):
 
   try {
     if (!GROQ_KEY) throw new Error('GROQ_API_KEY not configured');
-    const groqRes = await fetchWithTimeout(`${AI_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 1024
-      })
-    }, 20000);
-    if (!groqRes.ok) {
+    const retryDelays = [2000, 4000, 8000, 15000];
+    let groqRes = null;
+    for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+      groqRes = await fetchWithTimeout(`${AI_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 1024
+        })
+      }, 20000);
+      if (groqRes.ok) break;
+      if (groqRes.status === 429 && attempt < retryDelays.length) {
+        const delay = retryDelays[attempt];
+        const retryAfter = groqRes.headers.get('retry-after');
+        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : delay;
+        console.error(`[evaluateWithAI] 429 tentativa ${attempt+1}/${retryDelays.length} — aguardando ${waitMs}ms`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
       throw new Error(`Groq ${groqRes.status}`);
     }
+    if (!groqRes.ok) throw new Error(`Groq ${groqRes.status}`);
     const data = await groqRes.json();
     const parsed = JSON.parse(data.choices[0].message.content);
 

@@ -466,8 +466,13 @@ async function processNextChunk(dbClient, job) {
   // Carregar promessas parciais existentes
   let partialPromises = [];
   try {
-    if (job.partial_promises && Array.isArray(job.partial_promises)) {
-      partialPromises = job.partial_promises;
+    if (job.partial_promises) {
+      if (Array.isArray(job.partial_promises)) {
+        partialPromises = job.partial_promises;
+      } else if (typeof job.partial_promises === 'string') {
+        const parsed = JSON.parse(job.partial_promises);
+        if (Array.isArray(parsed)) partialPromises = parsed;
+      }
     }
   } catch (e) { partialPromises = []; }
 
@@ -527,8 +532,13 @@ async function finalizarJobComSerper(dbClient, job, totalPages) {
   // Carregar promessas parciais do PDF
   try {
     const { data: current } = await dbClient.from('discovery_jobs').select('partial_promises').eq('id', job.id).single();
-    if (current?.partial_promises && Array.isArray(current.partial_promises)) {
-      allPromises.push(...current.partial_promises);
+    if (current?.partial_promises) {
+      if (Array.isArray(current.partial_promises)) {
+        allPromises.push(...current.partial_promises);
+      } else if (typeof current.partial_promises === 'string') {
+        const parsed = JSON.parse(current.partial_promises);
+        if (Array.isArray(parsed)) allPromises.push(...parsed);
+      }
     }
   } catch (e) { console.error('[FINAL] Erro carregando parciais:', e.message); }
 

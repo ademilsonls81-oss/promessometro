@@ -204,7 +204,7 @@ export default async function handler(req, res) {
 
   const executionId = `pipeline_${Date.now()}`;
   const startTime = new Date();
-  const stage = req.query?.stage || 'all';
+  let stage = req.query?.stage || 'all';
   
   // 1. Log START
   try {
@@ -223,6 +223,23 @@ export default async function handler(req, res) {
   let step2Updated = 0;
   let step3Evaluated = 0, step3Failed = 0;
   let summary = {};
+
+  // Cooldown check: se daily_reavaliation rodou nos ultimos 60min, pula reavaliate (rate limit)
+  try {
+    const { data: recentReval } = await db()
+      .from('daily_monitor_log')
+      .select('started_at')
+      .eq('monitor_name', 'daily_reavaliation')
+      .order('started_at', { ascending: false })
+      .limit(1);
+    const lastReval = recentReval?.[0]?.started_at ? new Date(recentReval[0].started_at) : null;
+    const cooldownMinutes = 60;
+    const inCooldown = lastReval && (startTime.getTime() - lastReval.getTime()) < cooldownMinutes * 60 * 1000;
+    if (inCooldown) {
+      console.log(`[Pipeline] Cooldown: daily_reavaliation rodou em ${lastReval.toISOString()} (${Math.round((startTime.getTime() - lastReval.getTime())/60000)}min atras) — pulando reavaliate`);
+      stage = 'discover';
+    }
+  } catch (e) { console.error('[Pipeline] Cooldown check error:', e.message); }
 
   try {
     const dailyCutoff = new Date(startTime.getTime() - 23 * 60 * 60 * 1000).toISOString();
@@ -251,7 +268,7 @@ export default async function handler(req, res) {
         .from('promises')
         .select('id, promise_title, politician_name, category, status, evidence_count')
         .not('status', 'eq', 'cumprida')
-        .limit(5);
+        .limit(50);
 
       if (promises && promises.length > 0) {
         console.log(`[Pipeline:Discover] Processing ${promises.length} promises`);
@@ -494,7 +511,7 @@ await db().from('audit_logs').insert({
       const { data: promises } = await db()
         .from('promises')
         .select('id, status, last_verified_at')
-        .limit(50);
+        .limit(200);
 
       if (promises) {
         console.log(`[Pipeline:Count] Updating ${promises.length} promises`);
