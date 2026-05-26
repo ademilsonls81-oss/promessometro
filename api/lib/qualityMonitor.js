@@ -39,21 +39,29 @@ export async function qualityScan(dbClient) {
   const promiseIds = [...new Set((evaluations || []).map(e => e.promise_id).filter(Boolean))];
   const promisesMap = {};
   if (promiseIds.length > 0) {
-    const { data: promises } = await dbClient
-      .from('promises')
-      .select('id, promise_title, politician_name, politician_id, status')
-      .in('id', promiseIds);
-    for (const p of promises || []) promisesMap[p.id] = p;
+    const chunkSize = 100;
+    for (let i = 0; i < promiseIds.length; i += chunkSize) {
+      const chunk = promiseIds.slice(i, i + chunkSize);
+      const { data: promises } = await dbClient
+        .from('promises')
+        .select('id, promise_title, politician_name, politician_id, status')
+        .in('id', chunk);
+      for (const p of promises || []) promisesMap[p.id] = p;
+    }
   }
 
   const polIds = [...new Set(Object.values(promisesMap).map(p => p.politician_id).filter(Boolean))];
   const polsMap = {};
   if (polIds.length > 0) {
-    const { data: pols } = await dbClient
-      .from('politicians')
-      .select('id, name, state, role')
-      .in('id', polIds);
-    for (const p of pols || []) polsMap[p.id] = p;
+    const chunkSize = 100;
+    for (let i = 0; i < polIds.length; i += chunkSize) {
+      const chunk = polIds.slice(i, i + chunkSize);
+      const { data: pols } = await dbClient
+        .from('politicians')
+        .select('id, name, state, role')
+        .in('id', chunk);
+      for (const p of pols || []) polsMap[p.id] = p;
+    }
   }
 
   const items = [];
