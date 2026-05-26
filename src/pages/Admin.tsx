@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   ShieldCheck, LogOut, RefreshCw, ChevronRight, CheckCircle, XCircle,
   AlertTriangle, BarChart3, FileText, Gavel, Users, Star, Download,
   Play, Github, Zap, Search, Database, Clock, TrendingUp, Activity,
   ChevronDown, Loader2, AlertCircle, ArrowRight, Package, Bot, Globe,
-  UserCheck, Scale, SlidersHorizontal, BookOpen, Award, Calculator
+  UserCheck, Scale, SlidersHorizontal, BookOpen, Award, Calculator,
+  FileSearch
 } from "lucide-react";
 import AdminStats from "../components/admin/AdminStats";
 import QualityAuditTable from "../components/admin/QualityAuditTable";
@@ -665,6 +666,25 @@ export default function Admin() {
             <div className="text-xs text-gray-400 mt-1">⭐ Média geral</div>
           </div>
         </div>
+
+        {/* ── QUALITY MONITOR ──────────────────────────────────────────────── */}
+        <Link
+          to="/admin/quality-monitor"
+          className="block p-5 rounded-2xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileSearch className="w-6 h-6 text-red-400" />
+              <div>
+                <p className="font-bold text-white group-hover:text-red-300 transition-colors">Quality Monitor</p>
+                <p className="text-xs text-gray-400 mt-0.5">Filtro de qualidade entre a IA e o público — metodologia v1.1</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-red-400 text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+              Acessar <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </Link>
 
         {/* ── FERRAMENTAS ──────────────────────────────────────────────────── */}
 
