@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS promise_evaluations_history (
+DROP TABLE IF EXISTS promise_evaluations_history;
+
+CREATE TABLE promise_evaluations_history (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   promise_id uuid NOT NULL REFERENCES promises(id) ON DELETE CASCADE,
   politician_id uuid,
@@ -15,6 +17,6 @@ CREATE TABLE IF NOT EXISTS promise_evaluations_history (
   cron_execution_id text
 );
 
-CREATE INDEX IF NOT EXISTS idx_eval_history_promise_id ON promise_evaluations_history(promise_id);
-CREATE INDEX IF NOT EXISTS idx_eval_history_politician_id ON promise_evaluations_history(politician_id);
-CREATE INDEX IF NOT EXISTS idx_eval_history_evaluated_at ON promise_evaluations_history(evaluated_at DESC);
+CREATE INDEX idx_eval_history_promise_id ON promise_evaluations_history(promise_id);
+CREATE INDEX idx_eval_history_politician_id ON promise_evaluations_history(politician_id);
+CREATE INDEX idx_eval_history_evaluated_at ON promise_evaluations_history(evaluated_at DESC);

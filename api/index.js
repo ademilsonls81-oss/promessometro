@@ -2459,76 +2459,74 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
     if (path === '/api/admin/cron-logs' && method === 'GET') {
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        const { data: logs } = await dbAdmin()
+          .from('cron_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
 
-      const { data: logs } = await dbAdmin()
-        .from('cron_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
+        const { count: restantes } = await dbAdmin()
+          .from('promises')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['pendente', 'nao_iniciada', 'nao_classificada']);
 
-      const { count: restantes } = await dbAdmin()
-        .from('promises')
-        .select('id', { count: 'exact', head: true })
-        .in('status', ['pendente', 'nao_iniciada', 'nao_classificada']);
+        const hoje = new Date().toISOString().split('T')[0];
+        const doisMinAtras = new Date(Date.now() - 120000).toISOString();
 
-      const hoje = new Date().toISOString().split('T')[0];
-      const doisMinAtras = new Date(Date.now() - 120000).toISOString();
+        let processadasHoje = 0, hojeEval = [], cronAtivo = 0;
+        try {
+          const r1 = await dbAdmin().from('promise_evaluations_history').select('id', { count: 'exact', head: true }).gte('evaluated_at', hoje);
+          processadasHoje = r1.count || 0;
+          const r2 = await dbAdmin().from('promise_evaluations_history').select('status_resultado').gte('evaluated_at', hoje);
+          hojeEval = r2.data || [];
+          const r3 = await dbAdmin().from('promise_evaluations_history').select('id', { count: 'exact', head: true }).gte('evaluated_at', doisMinAtras);
+          cronAtivo = r3.count || 0;
+        } catch {}
 
-      const { count: processadasHoje } = await dbAdmin()
-        .from('promise_evaluations_history')
-        .select('id', { count: 'exact', head: true })
-        .gte('evaluated_at', hoje);
+        const totalProcHoje = hojeEval.length;
+        const totalFailHoje = hojeEval.filter(e => e.status_resultado === 'erro').length;
+        const taxaSucesso = totalProcHoje > 0 ? Math.round(((totalProcHoje - totalFailHoje) / totalProcHoje) * 100) : 0;
 
-      const { data: hojeEval } = await dbAdmin()
-        .from('promise_evaluations_history')
-        .select('status_resultado')
-        .gte('evaluated_at', hoje);
-
-      const totalProcHoje = (hojeEval || []).length;
-      const totalFailHoje = (hojeEval || []).filter(e => e.status_resultado === 'erro').length;
-      const taxaSucesso = totalProcHoje > 0
-        ? Math.round(((totalProcHoje - totalFailHoje) / totalProcHoje) * 100) : 0;
-
-      const { count: cronAtivo } = await dbAdmin()
-        .from('promise_evaluations_history')
-        .select('id', { count: 'exact', head: true })
-        .gte('evaluated_at', doisMinAtras);
-
-      return res.json({ logs, metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso, cron_ativo: (cronAtivo || 0) > 0 } });
+        return res.json({ logs: logs || [], metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso, cron_ativo: cronAtivo > 0 } });
+      } catch (e) {
+        return res.json({ logs: [], metrics: { restantes: 0, processadas_hoje: 0, taxa_sucesso: 0, cron_ativo: false }, error: e.message });
+      }
     }
 
     if (path === '/api/admin/evaluations-history' && method === 'GET') {
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+      try {
+        const { politician_id, promise_id, limit } = req.query;
+        let query = dbAdmin().from('promise_evaluations_history').select('*');
 
-      const { politician_id, promise_id, limit } = req.query;
-      let query = dbAdmin().from('promise_evaluations_history').select('*');
+        if (promise_id) query = query.eq('promise_id', promise_id);
+        if (politician_id) query = query.eq('politician_id', politician_id);
+        query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 50);
 
-      if (promise_id) query = query.eq('promise_id', promise_id);
-      if (politician_id) query = query.eq('politician_id', politician_id);
-      query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 50);
+        const { data: history } = await query;
 
-      const { data: history } = await query;
+        const enriched = await enrichHistoryWithPromises(dbAdmin, history || []);
 
-      const enriched = await enrichHistoryWithPromises(dbAdmin, history || []);
+        const doisMinAtras = new Date(Date.now() - 120000).toISOString();
+        let cron_ativo = false;
+        try {
+          const r = await dbAdmin().from('promise_evaluations_history').select('id', { count: 'exact', head: true }).gte('evaluated_at', doisMinAtras);
+          cron_ativo = (r.count || 0) > 0;
+        } catch {}
 
-      const doisMinAtras = new Date(Date.now() - 120000).toISOString();
-      const { count: cronAtivoCount } = await dbAdmin()
-        .from('promise_evaluations_history')
-        .select('id', { count: 'exact', head: true })
-        .gte('evaluated_at', doisMinAtras);
-      const cron_ativo = (cronAtivoCount || 0) > 0;
+        let pols = [];
+        try {
+          const { data: politicians } = await dbAdmin().from('promises').select('politician_id, politician_name').not('politician_id', 'is', null);
+          pols = [...new Map((politicians || []).map(p => [p.politician_id, p.politician_name])).entries()]
+            .map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+        } catch {}
 
-      const { data: politicians } = await dbAdmin()
-        .from('promises')
-        .select('politician_id, politician_name')
-        .not('politician_id', 'is', null);
-
-      const pols = [...new Map((politicians || []).map(p => [p.politician_id, p.politician_name])).entries()]
-        .map(([id, name]) => ({ id, name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      return res.json({ history: enriched, cron_ativo, politicians: pols });
+        return res.json({ history: enriched, cron_ativo, politicians: pols });
+      } catch (e) {
+        return res.json({ history: [], cron_ativo: false, politicians: [], error: e.message });
+      }
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
