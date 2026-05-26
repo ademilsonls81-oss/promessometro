@@ -25,10 +25,12 @@ export default async function handler(req, res) {
   if (!remaining || remaining === 0)
     return res.json({ processed: 0, failed: 0, remaining: 0, hasMore: false });
 
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { data: promises } = await db()
     .from('promises')
     .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
     .in('status', PENDENTE_STATUSES)
+    .or(`last_verified_at.is.null,last_verified_at.lt.${oneHourAgo}`)
     .order('last_verified_at', { ascending: true, nullsFirst: true })
     .limit(BATCH);
 
