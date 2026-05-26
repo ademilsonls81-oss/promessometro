@@ -63,7 +63,7 @@ function db() {
 }
 
 function dbAdmin() {
-  return createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 }
 
 async function enrichHistoryWithPromises(client, history) {
@@ -2460,11 +2460,11 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
       try {
-        const { data: logs } = await dbAdmin()
-          .from('cron_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(20);
+        let logs = [];
+        try {
+          const r = await dbAdmin().from('cron_logs').select('*').order('created_at', { ascending: false }).limit(20);
+          logs = r.data || [];
+        } catch {}
 
         const { count: restantes } = await dbAdmin()
           .from('promises')
@@ -2488,7 +2488,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         const totalFailHoje = hojeEval.filter(e => e.status_resultado === 'erro').length;
         const taxaSucesso = totalProcHoje > 0 ? Math.round(((totalProcHoje - totalFailHoje) / totalProcHoje) * 100) : 0;
 
-        return res.json({ logs: logs || [], metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso, cron_ativo: cronAtivo > 0 } });
+        return res.json({ logs, metrics: { restantes: restantes || 0, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso, cron_ativo: cronAtivo > 0 } });
       } catch (e) {
         return res.json({ logs: [], metrics: { restantes: 0, processadas_hoje: 0, taxa_sucesso: 0, cron_ativo: false }, error: e.message });
       }

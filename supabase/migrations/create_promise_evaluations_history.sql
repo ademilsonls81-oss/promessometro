@@ -20,3 +20,15 @@ CREATE TABLE promise_evaluations_history (
 CREATE INDEX idx_eval_history_promise_id ON promise_evaluations_history(promise_id);
 CREATE INDEX idx_eval_history_politician_id ON promise_evaluations_history(politician_id);
 CREATE INDEX idx_eval_history_evaluated_at ON promise_evaluations_history(evaluated_at DESC);
+
+-- cron_logs (sumário de execuções, opcional — se não existir, endpoint retorna vazio)
+CREATE TABLE IF NOT EXISTS cron_logs (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  processed int DEFAULT 0,
+  failed int DEFAULT 0,
+  remaining int DEFAULT 0,
+  duration_ms int DEFAULT 0,
+  cron_execution_id text,
+  promises_data jsonb DEFAULT '[]'::jsonb
+);

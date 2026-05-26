@@ -10,7 +10,6 @@ export default defineConfig(({mode}) => {
     define: {
       'process.env': {},
       'process': JSON.stringify({ env: {} }),
-      'import.meta.env': JSON.stringify({}),
     },
     resolve: {
       alias: {
