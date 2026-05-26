@@ -90,6 +90,12 @@ export default function Admin() {
   const [toolResults, setToolResults] = useState<Record<string, any>>({});
   const [processingPol, setProcessingPol] = useState<string | null>(null);
   const [processingAll, setProcessingAll] = useState(false);
+  const [cronLogs, setCronLogs] = useState<any[]>([]);
+  const [cronMetrics, setCronMetrics] = useState<any>(null);
+  const [evalHistory, setEvalHistory] = useState<any[]>([]);
+  const [evalPoliticians, setEvalPoliticians] = useState<any[]>([]);
+  const [evalFilterPol, setEvalFilterPol] = useState<string>("");
+  const [evalFilterPromise, setEvalFilterPromise] = useState<string>("");
 
   // Search politician for tools
   const [searchPol, setSearchPol] = useState("");
@@ -147,6 +153,41 @@ export default function Admin() {
     } catch (e: any) { setErro(e.message); }
     setCarregando(false);
   }
+
+  async function fetchCronLogs() {
+    try {
+      const res = await authFetch("/api/admin/cron-logs");
+      if (!res) return;
+      const json = await res.json();
+      setCronLogs(json.logs || []);
+      setCronMetrics(json.metrics || null);
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!autenticado) return;
+    fetchCronLogs();
+    const id = setInterval(fetchCronLogs, 30000);
+    return () => clearInterval(id);
+  }, [autenticado]);
+
+  async function fetchEvalHistory() {
+    try {
+      const params = new URLSearchParams();
+      if (evalFilterPol) params.set('politician_id', evalFilterPol);
+      if (evalFilterPromise) params.set('promise_id', evalFilterPromise);
+      const res = await authFetch(`/api/admin/evaluations-history?${params.toString()}`);
+      if (!res) return;
+      const json = await res.json();
+      setEvalHistory(json.history || []);
+      if (json.politicians) setEvalPoliticians(json.politicians);
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!autenticado) return;
+    fetchEvalHistory();
+  }, [autenticado]);
 
   async function loginGithub(code: string) {
     setCarregando(true); setErro("");
@@ -394,36 +435,40 @@ export default function Admin() {
   }
 
   async function processAllPendentes() {
-    const totalPendentes = Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0);
-    if (totalPendentes === 0) return;
-    if (!confirm(`Processar TODAS as ${totalPendentes} promessas pendentes?\n\nVou chamar a IA 1 promessa por vez em loop automático (~3s cada). Mantenha a página aberta.`)) return;
+    const pols = Object.entries(politicianStats)
+      .filter(([, v]: any) => (v.stats?.pending || 0) > 0)
+      .sort(([, a]: any, [, b]: any) => (b.stats?.pending || 0) - (a.stats?.pending || 0))
+      .map(([nome]) => politicians.find(p => p.name === nome))
+      .filter(Boolean) as Politician[];
+
+    const total = pols.reduce((a, p) => a + (politicianStats[p.name]?.stats?.pending || 0), 0);
+    if (total === 0 || pols.length === 0) return;
+    if (!confirm(`Processar TODAS as ${total} pendentes?\n\nChama o endpoint de cada político (3 por vez) a cada 30s. ~${Math.ceil(pols.length * 30 / 60)}min para passar por todos.`)) return;
 
     setProcessingAll(true); setErro("");
-    let done = 0, fail = 0, retryDelay = 2000;
+    let done = 0, fail = 0;
 
-    while (true) {
+    for (const pol of pols) {
+      const pend = politicianStats[pol.name]?.stats?.pending || 0;
+      if (pend === 0) continue;
+
       try {
-        const res = await authFetch("/api/admin/process-one-pending", { method: "POST" });
-        if (!res) { fail++; await new Promise(r => setTimeout(r, retryDelay)); retryDelay = Math.min(retryDelay * 2, 16000); continue; }
-        if (!res.ok && res.status === 429) { await new Promise(r => setTimeout(r, retryDelay)); retryDelay = Math.min(retryDelay * 2, 16000); continue; }
-        retryDelay = 2000;
-        const json = await res.json();
-        if (json.remaining === 0 && json.evaluated === 0) {
-          setToolResults(r => ({ ...r, process_all: { ok: done, fail, remaining: 0, message: `Concluído! ${done} processadas, ${fail} falhas` } }));
-          break;
-        }
-        done += json.evaluated || 0;
-        fail += json.failed || 0;
-        setToolResults(r => ({ ...r, process_all: { ...json, ok: done, fail, remaining: json.remaining } }));
-      } catch (e: any) {
-        fail++;
-        setErro(e.message);
-        await new Promise(r => setTimeout(r, retryDelay));
-        retryDelay = Math.min(retryDelay * 2, 16000);
-      }
-      await new Promise(r => setTimeout(r, 1500));
+        const res = await authFetch(`/api/politician/${pol.slug}/evaluate-pending`, { method: "POST" });
+        if (res) {
+          const json = await res.json();
+          done += json.evaluated || 0;
+          fail += json.failed || 0;
+          setToolResults(r => ({
+            ...r,
+            process_all: { ok: done, fail, remaining: Math.max(0, total - done - fail), atual: pol.name, message: json.message }
+          }));
+        } else { fail++; }
+      } catch (e: any) { fail++; setErro(e.message); }
+
+      await new Promise(r => setTimeout(r, 30000));
     }
 
+    setToolResults(r => ({ ...r, process_all: { ok: done, fail, remaining: 0, message: `Concluído! ${done} processadas, ${fail} falhas` } }));
     setTimeout(fetchAll, 3000);
     setProcessingAll(false);
   }
@@ -913,10 +958,12 @@ export default function Admin() {
             const pct = total > 0 ? Math.round(((v.ok + v.fail) / total) * 100) : 0;
             return (
               <div key={k} className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <div className="flex items-center justify-between text-xs text-yellow-300 mb-1.5">
-                  <span className="truncate mr-2">{v.message || `${v.ok} processadas`}</span>
-                  {v.remaining !== undefined && v.remaining > 0 && <span className="shrink-0 text-yellow-400 font-medium">{v.remaining} restantes</span>}
+                <div className="flex items-center justify-between text-xs text-yellow-300 mb-1">
+                  {v.atual && <span className="text-white/60">{v.atual}</span>}
+                  {v.remaining !== undefined && v.remaining > 0 && <span className="shrink-0 text-yellow-400 font-medium">{v.ok}/{v.ok+v.fail+v.remaining}</span>}
+                  {v.remaining === 0 && <span className="shrink-0 text-green-400 font-medium">{v.ok} concluídas</span>}
                 </div>
+                <div className="text-xs text-yellow-300/80 truncate mb-1.5">{v.message || ''}</div>
                 {v.remaining !== undefined && v.remaining > 0 && (
                   <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-yellow-400 to-green-400 transition-all duration-500" style={{ width: pct + '%' }} />
@@ -926,6 +973,82 @@ export default function Admin() {
             );
           })}
         </div>
+
+        {/* ── Monitor de Cron ──────────────────────────────────────── */}
+        <Section title="🤖 Monitor de Cron" icon={Activity} defaultOpen={true}>
+          {cronMetrics && (
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              <div className="p-3 bg-black/20 rounded-xl border border-white/5 text-center">
+                <div className="text-2xl font-bold text-white">{cronMetrics.restantes ?? '-'}</div>
+                <div className="text-xs text-gray-500 mt-1">Restantes</div>
+              </div>
+              <div className="p-3 bg-black/20 rounded-xl border border-white/5 text-center">
+                <div className="text-2xl font-bold text-green-400">{cronMetrics.processadas_hoje ?? 0}</div>
+                <div className="text-xs text-gray-500 mt-1">Processadas hoje</div>
+              </div>
+              <div className="p-3 bg-black/20 rounded-xl border border-white/5 text-center">
+                <div className="text-2xl font-bold text-cyan-400">{cronMetrics.taxa_sucesso ?? 0}%</div>
+                <div className="text-xs text-gray-500 mt-1">Sucesso</div>
+              </div>
+              <div className="p-3 bg-black/20 rounded-xl border border-white/5 text-center">
+                <div className="text-2xl font-bold text-yellow-400">{cronMetrics.restantes > 0 ? Math.ceil(cronMetrics.restantes / 120) + 'h' : '-'}</div>
+                <div className="text-xs text-gray-500 mt-1">Estimate</div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            {cronLogs.length === 0 && <div className="text-center py-6 text-gray-500 text-sm">Aguardando primeira execução do cron...</div>}
+            {cronLogs.map((log) => (
+              <div key={log.id} className="p-3 bg-black/20 border border-white/5 rounded-xl">
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                  <span>{new Date(log.created_at).toLocaleString('pt-BR')}</span>
+                  <span>{log.duration_ms}ms</span>
+                </div>
+                <div className="flex gap-3 text-xs text-gray-400 mb-2">
+                  <span className="text-green-400">+{log.processed}</span>
+                  {log.failed > 0 && <span className="text-red-400">-{log.failed}</span>}
+                  <span className="text-yellow-400">{log.remaining} restantes</span>
+                </div>
+                {(log.promises_data || []).map((p: any, i: number) => (
+                  <div key={i} className="p-2 bg-white/5 rounded-lg mb-1.5 last:mb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-white truncate">{p.title}</div>
+                        <div className="text-xs text-gray-500">{p.politician}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
+                            p.result_status === 'cumprida' ? 'bg-green-500/20 text-green-400' :
+                            p.result_status === 'parcial' ? 'bg-yellow-500/20 text-yellow-400' :
+                            p.result_status === 'quebrada' ? 'bg-red-500/20 text-red-400' :
+                            p.result_status === 'erro' ? 'bg-red-500/20 text-red-400' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>{p.result_status || 'pendente'}</span>
+                          {p.score != null && <span className="text-xs text-gray-500">{p.score} pts</span>}
+                          <span className="text-xs text-gray-600">{p.tempo_ms}ms</span>
+                          {p.fallback && <span className="text-xs text-orange-400">fallback</span>}
+                        </div>
+                        {p.justification && (
+                          <div className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.justification}</div>
+                        )}
+                        {p.fontes?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {p.fontes.map((f: any, fi: number) => (
+                              <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-block px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-400 hover:bg-blue-500/20 truncate max-w-[200px]">
+                                {f.fonte || f.url}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </Section>
 
         <QualityAuditTable
           dados={dados}
@@ -958,6 +1081,96 @@ export default function Admin() {
           onRecalculateScores={(pol) => recalculateScores(politicians.find(p => p.id === pol.id)!)}
           onLoadPromisesCi={(pol) => loadPromisesCi(politicians.find(p => p.id === pol.id)!)}
         />
+
+        {/* ── ARQUIVO ──────────────────────────────────────────────── */}
+        <Section title="📜 Arquivo — Avaliações Permanentes" icon={BookOpen} defaultOpen={true}>
+          <div className="space-y-4">
+            <div className="flex gap-3 flex-wrap">
+              <select onChange={e => { setEvalFilterPol(e.target.value); setTimeout(fetchEvalHistory, 100) }}
+                className="px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-neon-cyan/50">
+                <option value="">Todos os políticos</option>
+                {evalPoliticians.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <input value={evalFilterPromise} onChange={e => setEvalFilterPromise(e.target.value)}
+                placeholder="ID da promessa"
+                className="w-32 px-3 py-2 bg-black/30 border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-neon-cyan/50" />
+              <button onClick={fetchEvalHistory}
+                className="flex items-center gap-2 px-3 py-2 bg-neon-cyan/10 border border-neon-cyan/30 rounded-xl text-neon-cyan text-sm hover:bg-neon-cyan/20 transition-colors">
+                <RefreshCw className="w-3.5 h-3.5" /> Buscar
+              </button>
+            </div>
+
+            <div className="text-xs text-gray-500">
+              {evalHistory.length} registro{(evalHistory.length !== 1 ? 's' : '')} — histórico permanente (INSERT only, nunca deletado)
+            </div>
+
+            <div className="space-y-2 max-h-[800px] overflow-y-auto">
+              {evalHistory.length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">Nenhuma avaliação encontrada. Execute o cron para gerar o histórico.</div>
+              )}
+              {evalHistory.map((e: any) => (
+                <div key={e.id} className="p-4 bg-black/20 border border-white/5 rounded-xl">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-white truncate">{e.promises?.promise_title || `Promessa #${e.promise_id}`}</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
+                          e.status_resultado === 'cumprida' ? 'bg-green-500/20 text-green-400' :
+                          e.status_resultado === 'parcial' ? 'bg-yellow-500/20 text-yellow-400' :
+                          e.status_resultado === 'quebrada' ? 'bg-red-500/20 text-red-400' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>{e.status_resultado}</span>
+                        {e.fulfillment_score != null && <span className="text-xs text-gray-500">{e.fulfillment_score} pts</span>}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {e.promises?.politician_name || `Político #${e.politician_id}`} · {new Date(e.evaluated_at).toLocaleString('pt-BR')} · {e.modelo_ia} · {e.duracao_ms}ms
+                        {e.fallback && <span className="ml-2 text-orange-400">[fallback]</span>}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-gray-600 font-mono">#{e.cron_execution_id?.substring(0, 20) || '-'}</span>
+                  </div>
+
+                  {e.justificativa_ia && (
+                    <div className="mt-2 p-2 bg-white/5 rounded-lg">
+                      <div className="text-xs text-gray-400 font-medium mb-1">Justificativa</div>
+                      <div className="text-xs text-gray-300 whitespace-pre-wrap line-clamp-3">{e.justificativa_ia}</div>
+                    </div>
+                  )}
+
+                  {(e.o_que_foi_feito || e.o_que_falta) && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {e.o_que_foi_feito && (
+                        <div className="p-2 bg-green-500/5 border border-green-500/10 rounded-lg">
+                          <div className="text-xs text-green-400 font-medium mb-0.5">✅ O que foi feito</div>
+                          <div className="text-xs text-gray-400 line-clamp-2">{e.o_que_foi_feito}</div>
+                        </div>
+                      )}
+                      {e.o_que_falta && (
+                        <div className="p-2 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
+                          <div className="text-xs text-yellow-400 font-medium mb-0.5">⏳ O que falta</div>
+                          <div className="text-xs text-gray-400 line-clamp-2">{e.o_que_falta}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {e.fontes?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(typeof e.fontes === 'string' ? JSON.parse(e.fontes) : e.fontes).map((f: any, fi: number) => (
+                        <a key={fi} href={f.url || f} target="_blank" rel="noopener noreferrer"
+                          className="inline-block px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-400 hover:bg-blue-500/20 truncate max-w-[220px]">
+                          {typeof f === 'string' ? f : (f.fonte || f.url)}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
       </main>
     </div>
   );

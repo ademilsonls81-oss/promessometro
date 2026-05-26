@@ -2329,16 +2329,19 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
         ]);
 
-        const { error: upErr } = await dbAdmin().from('promises').update({
+        // Se caiu em fallback por 429, marca esta promessa como processada (sem update) para nao travar o loop
+        const isRateLimited = result.evaluated_with_fallback && (result.fulfillment_score === 20 || result.status === promise.status);
+
+        const updateFields = {
           status: result.status,
           fulfillment_score: result.fulfillment_score,
           ai_evaluation: result.justification,
           evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
           complexity_score: result.complexity,
           impact_score: result.impact,
-          evaluated_with_fallback: result.evaluated_with_fallback ?? false,
           last_verified_at: new Date().toISOString()
-        }).eq('id', promise.id);
+        };
+        const { error: upErr } = await dbAdmin().from('promises').update(updateFields).eq('id', promise.id);
 
         if (!upErr) {
           try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
@@ -2379,10 +2382,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           });
         }
       } catch (e) {
-        return res.json({
-          status: 'ok', evaluated: 0, failed: 1, remaining: totalRestantes,
-          message: `Erro: ${e.message}`
-        });
+        return res.json({ status: 'ok', evaluated: 0, failed: 1, remaining: totalRestantes, message: `Erro: ${e.message}` });
       }
     }
 
@@ -2390,12 +2390,21 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       const admin = requireAdmin(req);
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
 
+      const { data: fallbackEvals } = await dbAdmin()
+        .from('promise_explanations')
+        .select('promise_id')
+        .in('criterio_aplicado', ['admin_one_pending_fallback'])
+        .order('gerado_em', { ascending: false });
+
+      const fallbackIds = [...new Set((fallbackEvals || []).map(e => e.promise_id))];
+      if (fallbackIds.length === 0) {
+        return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa em fallback' });
+      }
+
       const { data: promises } = await dbAdmin()
         .from('promises')
         .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
-        .eq('evaluated_with_fallback', true)
-        .order('last_verified_at', { ascending: true, nullsFirst: true })
-        .limit(20);
+        .in('id', fallbackIds.slice(0, 20));
 
       if (!promises || promises.length === 0) {
         return res.json({ status: 'ok', evaluated: 0, message: 'Nenhuma promessa em fallback' });
@@ -2413,7 +2422,6 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             ai_evaluation: result.justification,
             evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
             complexity_score: result.complexity, impact_score: result.impact,
-            evaluated_with_fallback: result.evaluated_with_fallback ?? false,
             last_verified_at: new Date().toISOString()
           }).eq('id', promise.id);
           if (!upErr) {
@@ -2437,6 +2445,68 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         await new Promise(r => setTimeout(r, 300));
       }
       return res.json({ status: 'ok', evaluated, failed, message: `${evaluated} reprocessadas, ${failed} falhas` });
+    }
+
+    if (path === '/api/admin/cron-logs' && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const { data: logs } = await dbAdmin()
+        .from('cron_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const { count: restantes } = await dbAdmin()
+        .from('promises')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['pendente', 'nao_iniciada', 'nao_classificada']);
+
+      const hoje = new Date().toISOString().split('T')[0];
+      const { count: processadasHoje } = await dbAdmin()
+        .from('cron_logs')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', hoje);
+
+      const { data: hojeLogs } = await dbAdmin()
+        .from('cron_logs')
+        .select('processed, failed')
+        .gte('created_at', hoje);
+
+      const totalProcHoje = (hojeLogs || []).reduce((a, l) => a + (l.processed || 0), 0);
+      const totalFailHoje = (hojeLogs || []).reduce((a, l) => a + (l.failed || 0), 0);
+      const taxaSucesso = totalProcHoje + totalFailHoje > 0
+        ? Math.round((totalProcHoje / (totalProcHoje + totalFailHoje)) * 100) : 0;
+
+      return res.json({ logs, metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso } });
+    }
+
+    if (path === '/api/admin/evaluations-history' && method === 'GET') {
+      const admin = requireAdmin(req);
+      if (!admin) return res.status(401).json({ error: 'Não autorizado' });
+
+      const { politician_id, promise_id, limit } = req.query;
+      let query = dbAdmin().from('promise_evaluations_history').select(`
+        *,
+        promises!inner(promise_title, politician_name, politician_id)
+      `);
+
+      if (promise_id) query = query.eq('promise_id', parseInt(promise_id));
+      if (politician_id) query = query.eq('politician_id', parseInt(politician_id));
+      query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 100);
+
+      const { data } = await query;
+
+      const { data: politicians } = await dbAdmin()
+        .from('promises')
+        .select('politician_id, politician_name')
+        .not('politician_id', 'is', null);
+
+      const pols = [...new Map((politicians || []).map(p => [p.politician_id, p.politician_name])).entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      return res.json({ history: data || [], politicians: pols });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
