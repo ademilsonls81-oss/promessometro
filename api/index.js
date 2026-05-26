@@ -63,7 +63,16 @@ function db() {
 }
 
 function dbAdmin() {
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_ANON_KEY);
+  return createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function enrichHistoryWithPromises(client, history) {
+  if (!history || history.length === 0) return [];
+  const ids = [...new Set(history.map(h => h.promise_id).filter(Boolean))];
+  if (ids.length === 0) return history.map(h => ({ ...h, promises: {} }));
+  const { data: promises } = await client.from('promises').select('id, promise_title, politician_name, politician_id').in('id', ids);
+  const map = Object.fromEntries((promises || []).map(p => [p.id, { promise_title: p.promise_title, politician_name: p.politician_name, politician_id: p.politician_id }]));
+  return history.map(h => ({ ...h, promises: map[h.promise_id] || {} }));
 }
 
 function toSlug(name) {
@@ -2463,22 +2472,29 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         .in('status', ['pendente', 'nao_iniciada', 'nao_classificada']);
 
       const hoje = new Date().toISOString().split('T')[0];
+      const doisMinAtras = new Date(Date.now() - 120000).toISOString();
+
       const { count: processadasHoje } = await dbAdmin()
-        .from('cron_logs')
+        .from('promise_evaluations_history')
         .select('id', { count: 'exact', head: true })
-        .gte('created_at', hoje);
+        .gte('evaluated_at', hoje);
 
-      const { data: hojeLogs } = await dbAdmin()
-        .from('cron_logs')
-        .select('processed, failed')
-        .gte('created_at', hoje);
+      const { data: hojeEval } = await dbAdmin()
+        .from('promise_evaluations_history')
+        .select('status_resultado')
+        .gte('evaluated_at', hoje);
 
-      const totalProcHoje = (hojeLogs || []).reduce((a, l) => a + (l.processed || 0), 0);
-      const totalFailHoje = (hojeLogs || []).reduce((a, l) => a + (l.failed || 0), 0);
-      const taxaSucesso = totalProcHoje + totalFailHoje > 0
-        ? Math.round((totalProcHoje / (totalProcHoje + totalFailHoje)) * 100) : 0;
+      const totalProcHoje = (hojeEval || []).length;
+      const totalFailHoje = (hojeEval || []).filter(e => e.status_resultado === 'erro').length;
+      const taxaSucesso = totalProcHoje > 0
+        ? Math.round(((totalProcHoje - totalFailHoje) / totalProcHoje) * 100) : 0;
 
-      return res.json({ logs, metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso } });
+      const { count: cronAtivo } = await dbAdmin()
+        .from('promise_evaluations_history')
+        .select('id', { count: 'exact', head: true })
+        .gte('evaluated_at', doisMinAtras);
+
+      return res.json({ logs, metrics: { restantes, processadas_hoje: totalProcHoje, taxa_sucesso: taxaSucesso, cron_ativo: (cronAtivo || 0) > 0 } });
     }
 
     if (path === '/api/admin/evaluations-history' && method === 'GET') {
@@ -2486,16 +2502,22 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       if (!admin) return res.status(401).json({ error: 'Não autorizado' });
 
       const { politician_id, promise_id, limit } = req.query;
-      let query = dbAdmin().from('promise_evaluations_history').select(`
-        *,
-        promises!inner(promise_title, politician_name, politician_id)
-      `);
+      let query = dbAdmin().from('promise_evaluations_history').select('*');
 
       if (promise_id) query = query.eq('promise_id', parseInt(promise_id));
       if (politician_id) query = query.eq('politician_id', parseInt(politician_id));
-      query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 100);
+      query = query.order('evaluated_at', { ascending: false }).limit(parseInt(limit) || 50);
 
-      const { data } = await query;
+      const { data: history } = await query;
+
+      const enriched = await enrichHistoryWithPromises(dbAdmin, history || []);
+
+      const doisMinAtras = new Date(Date.now() - 120000).toISOString();
+      const { count: cronAtivoCount } = await dbAdmin()
+        .from('promise_evaluations_history')
+        .select('id', { count: 'exact', head: true })
+        .gte('evaluated_at', doisMinAtras);
+      const cron_ativo = (cronAtivoCount || 0) > 0;
 
       const { data: politicians } = await dbAdmin()
         .from('promises')
@@ -2506,7 +2528,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         .map(([id, name]) => ({ id, name }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      return res.json({ history: data || [], politicians: pols });
+      return res.json({ history: enriched, cron_ativo, politicians: pols });
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });

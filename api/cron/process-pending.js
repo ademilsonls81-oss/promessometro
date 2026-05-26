@@ -68,7 +68,8 @@ export default async function handler(req, res) {
           fallback: result.evaluated_with_fallback || false,
           cron_execution_id: cronExecutionId
         };
-        try { await db().from('promise_evaluations_history').insert(entry); } catch {}
+        const { error: histErr } = await db().from('promise_evaluations_history').insert(entry);
+        if (histErr) console.error('[cron] Erro ao inserir promise_evaluations_history:', histErr.message);
         promisesData.push({
           id: promise.id,
           politician: promise.politician_name,

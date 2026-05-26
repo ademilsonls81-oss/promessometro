@@ -203,10 +203,7 @@ export default function Admin() {
       setEvalHistory(history);
       if (json.politicians) setEvalPoliticians(json.politicians);
 
-      if (history.length > 0) {
-        const lastAt = new Date(history[0].evaluated_at).getTime();
-        setCronActive(Date.now() - lastAt < 120000);
-      }
+      setCronActive(cronAtivo);
     } catch {}
   }
 
