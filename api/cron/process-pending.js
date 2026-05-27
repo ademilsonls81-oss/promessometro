@@ -36,6 +36,7 @@ export default async function handler(req, res) {
     .limit(BATCH);
 
   let processed = 0, failed = 0;
+  const errors = [];
   const budgetStart = Date.now();
   const polIds = new Set();
   const promisesData = [];
@@ -85,7 +86,8 @@ export default async function handler(req, res) {
       }).eq('id', promise.id);
 
       if (upErr) {
-        console.error(`[cron] Update falhou para "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${upErr.message}`);
+        console.error('FALHA:', promise.id, upErr.message, upErr.stack);
+        errors.push({ id: promise.id, message: `Update: ${upErr.message}` });
         failed++;
         continue;
       }
@@ -146,8 +148,8 @@ export default async function handler(req, res) {
         fallback: result.evaluated_with_fallback || false
       });
     } catch (promiseErr) {
-      console.error(`[cron] FALHA GERAL em "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${promiseErr.message}`);
-      if (promiseErr.stack) console.error(`[cron] Stack:\n${promiseErr.stack.split('\n').slice(0,8).join('\n')}`);
+      console.error('FALHA:', promise.id, promiseErr.message, promiseErr.stack);
+      errors.push({ id: promise.id, message: promiseErr.message });
       promisesData.push({
         id: promise.id,
         politician: promise.politician_name,
@@ -184,5 +186,5 @@ export default async function handler(req, res) {
     console.error('[cron] Erro ao salvar log:', e.message);
   }
 
-  res.json({ processed, failed, remaining: remainingAfter, hasMore: remainingAfter > 0 });
+  res.json({ processed, failed, remaining: remainingAfter, hasMore: remainingAfter > 0, errors });
 }
