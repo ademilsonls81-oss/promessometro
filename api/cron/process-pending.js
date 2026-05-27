@@ -56,52 +56,94 @@ export default async function handler(req, res) {
         throw raceErr;
       }
       const pTime = Date.now() - pStart;
+
+      // Skip promise if AI evaluation fell back (no model succeeded) — leave for next run
+      if (result.evaluated_with_fallback) {
+        console.warn(`[cron] IA indisponivel para "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}) — pulando para proxima execucao`);
+        promisesData.push({
+          id: promise.id,
+          politician: promise.politician_name,
+          title: promise.promise_title || '',
+          result_status: 'skipped',
+          score: null,
+          justification: 'IA indisponivel (todos os modelos falharam)',
+          fontes: [], o_que_foi_feito: '', o_que_falta: '',
+          tempo_ms: pTime, fallback: true
+        });
+        // Don't increment processed or failed — leave the promise for next cron run
+        continue;
+      }
+
+      // Update columns that exist on the promises table
       const { error: upErr } = await db().from('promises').update({
         status: result.status, fulfillment_score: result.fulfillment_score,
         ai_evaluation: result.justification,
         evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
         complexity_score: result.complexity, impact_score: result.impact,
-        o_que_foi_feito: (result.o_que_foi_feito || '').substring(0, 2000),
-        o_que_falta: (result.o_que_falta || '').substring(0, 2000),
-        needs_human_review: result.evaluated_with_fallback || false,
         last_verified_at: new Date().toISOString()
       }).eq('id', promise.id);
-      if (!upErr) {
-        processed++;
-        if (promise.politician_id) polIds.add(promise.politician_id);
-        const entry = {
-          promise_id: promise.id,
-          politician_id: promise.politician_id,
-          status_resultado: result.status,
-          fulfillment_score: result.fulfillment_score,
-          justificativa_ia: result.justification || '',
-          fontes: (result.evidences || []).filter(e => e.url && e.url !== '#').map(e => ({ url: e.url, fonte: e.fonte })),
-          o_que_foi_feito: result.o_que_foi_feito || '',
-          o_que_falta: result.o_que_falta || '',
-          modelo_ia: result.modelo_ia || 'unknown',
-          duracao_ms: pTime,
-          fallback: result.evaluated_with_fallback || false,
-          cron_execution_id: cronExecutionId
-        };
-        const { error: histErr } = await db().from('promise_evaluations_history').insert(entry);
-        if (histErr) console.error('[cron] Erro ao inserir promise_evaluations_history:', histErr.message);
-        promisesData.push({
-          id: promise.id,
-          politician: promise.politician_name,
-          title: promise.promise_title || '',
-          result_status: result.status,
-          score: result.fulfillment_score,
-          justification: (result.justification || '').substring(0, 2000),
-          fontes: entry.fontes,
-          o_que_foi_feito: (result.o_que_foi_feito || '').substring(0, 500),
-          o_que_falta: (result.o_que_falta || '').substring(0, 500),
-          tempo_ms: pTime,
-          fallback: result.evaluated_with_fallback || false
-        });
-      } else {
+
+      if (upErr) {
         console.error(`[cron] Update falhou para "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${upErr.message}`);
         failed++;
+        continue;
       }
+
+      processed++;
+      if (promise.politician_id) polIds.add(promise.politician_id);
+
+      // Insert history entry (promise_evaluations_history)
+      const entry = {
+        promise_id: promise.id,
+        politician_id: promise.politician_id,
+        status_resultado: result.status,
+        fulfillment_score: result.fulfillment_score,
+        justificativa_ia: result.justification || '',
+        fontes: (result.evidences || []).filter(e => e.url && e.url !== '#').map(e => ({ url: e.url, fonte: e.fonte })),
+        o_que_foi_feito: result.o_que_foi_feito || '',
+        o_que_falta: result.o_que_falta || '',
+        modelo_ia: result.modelo_ia || 'unknown',
+        duracao_ms: pTime,
+        fallback: result.evaluated_with_fallback || false,
+        cron_execution_id: cronExecutionId
+      };
+      const { error: histErr } = await db().from('promise_evaluations_history').insert(entry);
+      if (histErr) console.error('[cron] Erro ao inserir promise_evaluations_history:', histErr.message);
+
+      // Upsert current explanation in promise_explanations
+      try {
+        await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
+        await db().from('promise_explanations').insert({
+          promise_id: promise.id,
+          status: result.status,
+          fulfillment_score: result.fulfillment_score,
+          criterio_aplicado: 'process-pending-cron',
+          justificativa: result.justification || '',
+          evidencias_usadas: (result.evidences || []).slice(0, 5),
+          o_que_foi_feito: (result.o_que_foi_feito || '').substring(0, 2000),
+          o_que_falta: (result.o_que_falta || '').substring(0, 2000),
+          confianca: (result.evidences || []).filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
+          modelo_ia: result.modelo_ia || 'unknown',
+          is_latest: true,
+          gerado_em: new Date().toISOString()
+        });
+      } catch (peErr) {
+        console.error('[cron] Erro ao inserir promise_explanations:', peErr.message);
+      }
+
+      promisesData.push({
+        id: promise.id,
+        politician: promise.politician_name,
+        title: promise.promise_title || '',
+        result_status: result.status,
+        score: result.fulfillment_score,
+        justification: (result.justification || '').substring(0, 2000),
+        fontes: entry.fontes,
+        o_que_foi_feito: (result.o_que_foi_feito || '').substring(0, 500),
+        o_que_falta: (result.o_que_falta || '').substring(0, 500),
+        tempo_ms: pTime,
+        fallback: result.evaluated_with_fallback || false
+      });
     } catch (promiseErr) {
       console.error(`[cron] FALHA GERAL em "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${promiseErr.message}`);
       if (promiseErr.stack) console.error(`[cron] Stack:\n${promiseErr.stack.split('\n').slice(0,8).join('\n')}`);

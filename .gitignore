@@ -24,3 +24,4 @@ scripts/
 opencode-tmp/
 
 .vercel
+db_out.json
