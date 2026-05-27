@@ -3,11 +3,12 @@ export function normStatus(s) {
   return m[s] || 'pendente';
 }
 
-export function expectedStatusForScore(score) {
+export function expectedStatusForScore(score, currentStatus) {
   if (score == null) return null;
-  if (score <= 30) return 'quebrada';
-  if (score <= 60) return 'parcial';
-  return 'cumprida';
+  if (score >= 80) return 'cumprida';
+  if (score >= 40) return 'parcial';
+  if (score === 0 && currentStatus === 'quebrada') return 'quebrada';
+  return 'pendente';
 }
 
 export function getRealFontes(fontes) {
@@ -82,11 +83,12 @@ export async function qualityScan(dbClient) {
     }
 
     if (score != null && status) {
-      const expected = expectedStatusForScore(score);
+      const expected = expectedStatusForScore(score, status);
       if (expected && status !== expected) {
-        if (status === 'pendente' && score > 0) {
-          issues.push(`BUG: status=pendente com score=${score} (UPDATE não rodou no promises)`);
-          if (category === 'valid') category = 'warning';
+        if (status === 'pendente' && score <= 39) {
+          // Pendente e score <= 39 está correto
+        } else if (status === 'quebrada' && score === 0) {
+          // Quebrada e score 0 também é correto
         } else {
           issues.push(`Score ${score} incompatível com status "${status}" (esperado "${expected}")`);
           if (category === 'valid') category = 'warning';
@@ -98,14 +100,18 @@ export async function qualityScan(dbClient) {
     const fontesReais = getRealFontes(fontes);
 
     if (fontesReais.length === 0) {
-      if (fontes.length > 0) {
-        issues.push('INVÁLIDA: "Ausência de Evidências" como única fonte');
+      if (status === 'pendente' && score <= 25) {
+        // Valid scenario with the new JS logic: no evidence -> status pendente + score <= 25
       } else {
-        issues.push('INVÁLIDA: nenhuma evidência registrada');
+        if (fontes.length > 0) {
+          issues.push('INVÁLIDA: "Ausência de Evidências" como única fonte mas o score/status estão altos');
+        } else {
+          issues.push('INVÁLIDA: nenhuma evidência registrada e não foi limitado o score/status');
+        }
+        category = 'invalid';
       }
-      category = 'invalid';
     } else if (fontesReais.length < 2) {
-      issues.push(`Apenas ${fontesReais.length} fonte independente — mínimo 2`);
+      issues.push(`Apenas ${fontesReais.length} fonte independente — o ideal são 2+`);
       if (category === 'valid') category = 'warning';
     }
 

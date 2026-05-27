@@ -2591,6 +2591,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         if (!promiseId) return res.status(400).json({ error: 'promiseId obrigatório' });
         const { error: upErr } = await dbAdmin().from('promises').update({ status: 'pendente', fulfillment_score: 20, last_verified_at: null }).eq('id', promiseId);
         if (upErr) return res.status(500).json({ error: upErr.message });
+        await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promiseId);
         const { logCorrection } = await import('./lib/qualityMonitor.js');
         await logCorrection(dbAdmin(), {
           evaluationId: promiseId, promiseId,
@@ -2615,6 +2616,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         for (const item of invalidItems) {
           const { error } = await dbAdmin().from('promises').update({ status: 'pendente', fulfillment_score: 20, last_verified_at: null }).eq('id', item.promiseId);
           if (!error) {
+            await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', item.promiseId);
             queued++;
             await logCorrection(dbAdmin(), {
               evaluationId: item.id, promiseId: item.promiseId,

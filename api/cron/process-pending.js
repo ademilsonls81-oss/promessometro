@@ -7,8 +7,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
 const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
-const BATCH = 10;
-const TIME_BUDGET_MS = 7000;
+const BATCH = 5;
+const TIME_BUDGET_MS = 15000;
 
 export default async function handler(req, res) {
   const start = Date.now();
@@ -43,10 +43,18 @@ export default async function handler(req, res) {
   for (const promise of promises || []) {
     const pStart = Date.now();
     try {
-      const result = await Promise.race([
-        evaluateWithAI(promise),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
-      ]);
+      let result;
+      try {
+        result = await Promise.race([
+          evaluateWithAI(promise),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 12000))
+        ]);
+      } catch (raceErr) {
+        const elapsed = Date.now() - pStart;
+        console.error(`[cron] Promise.race falhou para "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}) em ${elapsed}ms: ${raceErr.message}`);
+        console.error(`[cron] Stack:`, raceErr.stack);
+        throw raceErr;
+      }
       const pTime = Date.now() - pStart;
       const { error: upErr } = await db().from('promises').update({
         status: result.status, fulfillment_score: result.fulfillment_score,
@@ -90,15 +98,20 @@ export default async function handler(req, res) {
           tempo_ms: pTime,
           fallback: result.evaluated_with_fallback || false
         });
-      } else failed++;
-    } catch {
+      } else {
+        console.error(`[cron] Update falhou para "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${upErr.message}`);
+        failed++;
+      }
+    } catch (promiseErr) {
+      console.error(`[cron] FALHA GERAL em "${(promise.promise_title||'').substring(0,40)}" (id=${promise.id}): ${promiseErr.message}`);
+      if (promiseErr.stack) console.error(`[cron] Stack:\n${promiseErr.stack.split('\n').slice(0,8).join('\n')}`);
       promisesData.push({
         id: promise.id,
         politician: promise.politician_name,
         title: promise.promise_title || '',
         result_status: 'erro',
         score: null,
-        justification: '',
+        justification: promiseErr.message || '',
         fontes: [],
         o_que_foi_feito: '',
         o_que_falta: '',

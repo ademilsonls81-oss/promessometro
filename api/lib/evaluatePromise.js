@@ -330,10 +330,16 @@ async function callAIWithCascade(prompt) {
       lastStatus = groqRes.status;
 
       if (groqRes.status === 429) {
-        // Rate limited on this model — wait then retry; if last attempt, fall to next model
+        const retryAfter = groqRes.headers.get('retry-after');
+        const retrySecs = retryAfter ? parseInt(retryAfter) : 0;
+        // If retry-after > 30s, skip this model immediately — not worth waiting
+        if (retrySecs > 30) {
+          console.warn(`[cascade] ${model} rate-limited (429, retry-after=${retrySecs}s > 30s) — skipping to next model`);
+          break;
+        }
+        // Short retry: wait bounded by retryDelays
         if (attempt < retryDelays.length) {
-          const retryAfter = groqRes.headers.get('retry-after');
-          const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : retryDelays[attempt];
+          const waitMs = Math.min(retryAfter ? parseInt(retryAfter) * 1000 : retryDelays[attempt], 3000);
           console.warn(`[cascade] ${model} rate-limited (429), attempt ${attempt + 1}/${retryDelays.length} — waiting ${waitMs}ms`);
           await new Promise(r => setTimeout(r, waitMs));
           continue;
