@@ -165,7 +165,13 @@ export default function QualityMonitor() {
 
   const filteredItems = activeTab === 'all' ? items : items.filter(i => i.category === activeTab);
 
-  if (loading && !adminToken) return null;
+  if (loading && !adminToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">

@@ -70,7 +70,7 @@ export default async function handler(req, res) {
           fontes: (result.evidences || []).filter(e => e.url && e.url !== '#').map(e => ({ url: e.url, fonte: e.fonte })),
           o_que_foi_feito: result.o_que_foi_feito || '',
           o_que_falta: result.o_que_falta || '',
-          modelo_ia: result.evaluated_with_fallback ? 'fallback' : 'llama-3.1-8b-instant',
+          modelo_ia: result.modelo_ia || 'unknown',
           duracao_ms: pTime,
           fallback: result.evaluated_with_fallback || false,
           cron_execution_id: cronExecutionId

@@ -210,7 +210,7 @@ function AppRoutes() {
       <Route path="/mapa" element={<ErrorBoundary context="Mapa"><Mapa /></ErrorBoundary>} />
       <Route path="/transparencia" element={<ErrorBoundary context="Transparencia"><Transparencia /></ErrorBoundary>} />
       <Route path="/auditoria" element={<ErrorBoundary context="Auditoria"><Auditoria /></ErrorBoundary>} />
-      <Route path="/admin/quality-monitor" element={<QualityMonitor />} />
+      <Route path="/admin/quality-monitor" element={<ErrorBoundary context="QualityMonitor"><QualityMonitor /></ErrorBoundary>} />
       <Route path="/admin/politico/:slug" element={<AdminDetailPage />} />
       <Route path="/admin" element={<AdminPage />} />
       

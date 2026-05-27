@@ -2233,7 +2233,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
       const { data: promises } = await dbAdmin()
         .from('promises')
-        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, role, state, city, cidade, created_at')
         .in('status', PENDENTE_STATUSES)
         .order('last_verified_at', { ascending: true, nullsFirst: true })
         .limit(MAX_BATCH);
@@ -2258,6 +2258,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
             complexity_score: result.complexity,
             impact_score: result.impact,
+            needs_human_review: result.evaluated_with_fallback || false,
             last_verified_at: new Date().toISOString()
           }).eq('id', promise.id);
 
@@ -2265,21 +2266,24 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             evaluated++;
             try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
             try {
+              const realEvsBulk = filterSocialMedia(result.evidences).slice(0, 5);
               await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
               await dbAdmin().from('promise_explanations').insert({
                 promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
-                criterio_aplicado: 'admin_bulk_reavaliation',
+                criterio_aplicado: result.evaluated_with_fallback ? 'admin_bulk_reavaliation_fallback' : 'admin_bulk_reavaliation_v2',
                 justificativa: result.justification,
-                evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+                evidencias_usadas: realEvsBulk.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data || null })),
                 o_que_falta: result.o_que_falta || 'Monitoramento continuo',
                 o_que_foi_feito: result.o_que_foi_feito || result.justification,
-                confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
-                modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+                confianca: result.confianca ?? (realEvsBulk.length >= 2 ? 0.80 : 0.60),
+                motivo_confianca: result.motivo_confianca || null,
+                modelo_ia: result.modelo_ia || 'unknown',
+                is_latest: true, gerado_em: new Date().toISOString()
               });
             } catch {}
             try { await dbAdmin().from('audit_logs').insert({
               action: 'admin_bulk_reavaliation', entity_type: 'promises', entity_id: promise.id,
-              details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
+              details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score, modelo_ia: result.modelo_ia })
             }); } catch {}
             results.push({ id: promise.id, old_status: promise.status, new_status: result.status, score: result.fulfillment_score });
           } else { failed++; }
@@ -2322,7 +2326,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
       const { data: promises } = await dbAdmin()
         .from('promises')
-        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link')
+        .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, role, state, city, cidade, created_at')
         .in('status', PENDENTE_STATUSES)
         .order('last_verified_at', { ascending: true, nullsFirst: true })
         .limit(1);
@@ -2338,9 +2342,6 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
         ]);
 
-        // Se caiu em fallback por 429, marca esta promessa como processada (sem update) para nao travar o loop
-        const isRateLimited = result.evaluated_with_fallback && (result.fulfillment_score === 20 || result.status === promise.status);
-
         const updateFields = {
           status: result.status,
           fulfillment_score: result.fulfillment_score,
@@ -2348,6 +2349,7 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
           complexity_score: result.complexity,
           impact_score: result.impact,
+          needs_human_review: result.evaluated_with_fallback || false,
           last_verified_at: new Date().toISOString()
         };
         const { error: upErr } = await dbAdmin().from('promises').update(updateFields).eq('id', promise.id);
@@ -2355,21 +2357,24 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         if (!upErr) {
           try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
           try {
+            const realEvsOne = filterSocialMedia(result.evidences).slice(0, 5);
             await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
             await dbAdmin().from('promise_explanations').insert({
               promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
-              criterio_aplicado: result.evaluated_with_fallback ? 'admin_one_pending_fallback' : 'admin_one_pending',
+              criterio_aplicado: result.evaluated_with_fallback ? 'admin_one_pending_fallback' : 'admin_one_pending_v2',
               justificativa: result.justification,
-              evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+              evidencias_usadas: realEvsOne.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data || null })),
               o_que_falta: result.o_que_falta || 'Monitoramento continuo',
               o_que_foi_feito: result.o_que_foi_feito || result.justification,
-              confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
-              modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+              confianca: result.confianca ?? (realEvsOne.length >= 2 ? 0.80 : 0.60),
+              motivo_confianca: result.motivo_confianca || null,
+              modelo_ia: result.modelo_ia || 'unknown',
+              is_latest: true, gerado_em: new Date().toISOString()
             });
           } catch {}
           try { await dbAdmin().from('audit_logs').insert({
             action: 'admin_one_pending', entity_type: 'promises', entity_id: promise.id,
-            details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score, fallback: result.evaluated_with_fallback })
+            details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score, modelo_ia: result.modelo_ia, fallback: result.evaluated_with_fallback })
           }); } catch {}
 
           if (promise.politician_id) {
@@ -2431,22 +2436,26 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
             ai_evaluation: result.justification,
             evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
             complexity_score: result.complexity, impact_score: result.impact,
+            needs_human_review: result.evaluated_with_fallback || false,
             last_verified_at: new Date().toISOString()
           }).eq('id', promise.id);
           if (!upErr) {
             evaluated++;
             try { await dbAdmin().from('status_history').insert({ promise_id: promise.id, old_status: promise.status, new_status: result.status }); } catch {}
             try {
+              const realEvsRep = filterSocialMedia(result.evidences).slice(0, 5);
               await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
               await dbAdmin().from('promise_explanations').insert({
                 promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
-                criterio_aplicado: result.evaluated_with_fallback ? 'reprocess_fallback' : 'reprocess_fallback_ok',
+                criterio_aplicado: result.evaluated_with_fallback ? 'reprocess_fallback' : 'reprocess_fallback_v2',
                 justificativa: result.justification,
-                evidencias_usadas: result.evidences.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+                evidencias_usadas: realEvsRep.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data || null })),
                 o_que_falta: result.o_que_falta || 'Monitoramento continuo',
                 o_que_foi_feito: result.o_que_foi_feito || result.justification,
-                confianca: result.evidences.filter(e => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
-                modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+                confianca: result.confianca ?? (realEvsRep.length >= 2 ? 0.80 : 0.60),
+                motivo_confianca: result.motivo_confianca || null,
+                modelo_ia: result.modelo_ia || 'unknown',
+                is_latest: true, gerado_em: new Date().toISOString()
               });
             } catch {}
           } else { failed++; }

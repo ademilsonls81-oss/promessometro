@@ -196,6 +196,7 @@ export default async function handler(req, res) {
           evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
           complexity_score: result.complexity,
           impact_score: result.impact,
+          needs_human_review: result.evaluated_with_fallback || false,
           last_verified_at: new Date().toISOString()
         }).eq('id', promise.id);
 
@@ -212,24 +213,24 @@ export default async function handler(req, res) {
             });
           } catch (shErr) { console.error(`[Cron] status_history:`, shErr.message); }
 
-          // promise_explanations — FIX B5/B6/B11/B13
+          // promise_explanations
           try {
+            const realEvs = filterSocialMedia(result.evidences).slice(0, 5);
             await db().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id);
             await db().from('promise_explanations').insert({
               promise_id: promise.id,
               status: result.status,
               fulfillment_score: result.fulfillment_score,
-              criterio_aplicado: 'ai_reavaliation_v2',   // FIX B13: não usa herança
-              justificativa: result.justification,         // FIX B5: campo real
-              evidencias_usadas: prioritizeSources(        // FIX B11: já filtrado
-                filterSocialMedia(result.evidences).map(e => ({
-                  descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data
-                }))
+              criterio_aplicado: result.evaluated_with_fallback ? 'ai_reavaliation_fallback' : 'ai_reavaliation_v3',
+              justificativa: result.justification,
+              evidencias_usadas: prioritizeSources(
+                realEvs.map(e => ({ descricao: e.descricao, fonte: e.fonte, url: e.url, data: e.data }))
               ),
-              o_que_falta: result.o_que_falta || 'Monitoramento contínuo',  // FIX B6
-              o_que_foi_feito: result.o_que_foi_feito || result.justification, // FIX B6
-              confianca: result.evidences.length >= 2 ? 0.80 : 0.60,
-              modelo_ia: 'llama-3.1-8b-instant',
+              o_que_falta: result.o_que_falta || 'Monitoramento contínuo',
+              o_que_foi_feito: result.o_que_foi_feito || result.justification,
+              confianca: result.confianca ?? (realEvs.length >= 2 ? 0.80 : 0.60),
+              motivo_confianca: result.motivo_confianca || null,
+              modelo_ia: result.modelo_ia || 'unknown',
               is_latest: true,
               gerado_em: new Date().toISOString()
             });
