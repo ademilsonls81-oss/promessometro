@@ -7,8 +7,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
 const PENDENTE_STATUSES = ['pendente', 'nao_iniciada', 'nao_classificada'];
-const BATCH = 10;
-const TIME_BUDGET_MS = 15000;
+const BATCH = 2;
+const TIME_BUDGET_MS = 55000;
 
 export default async function handler(req, res) {
   const start = Date.now();
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       try {
         result = await Promise.race([
           evaluateWithAI(promise),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 12000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 30000))
         ]);
       } catch (raceErr) {
         const elapsed = Date.now() - pStart;
