@@ -2644,6 +2644,37 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       }
     }
 
+    if (path === '/api/admin/test-evaluate' && method === 'GET') {
+      const secret = req.query?.secret || req.headers['x-cron-secret'];
+      if (secret !== process.env.ADMIN_SECRET_KEY && secret !== process.env.CRON_SECRET)
+        return res.status(401).json({ error: 'Unauthorized' });
+      try {
+        const id = req.query?.id;
+        if (!id) return res.status(400).json({ error: 'Missing ?id= parameter' });
+        const { data: promise } = await dbAdmin().from('promises').select('*').eq('id', id).maybeSingle();
+        if (!promise) return res.status(404).json({ error: 'Promise not found' });
+        const { evaluateWithAI } = await import('./lib/evaluatePromise.js');
+        const result = await evaluateWithAI(promise);
+        return res.json({
+          id: promise.id,
+          title: promise.promise_title,
+          politician: promise.politician_name,
+          score: result.fulfillment_score,
+          status: result.status,
+          motivo_score: (result.justification || '').substring(0, 3000),
+          o_que_foi_concluido: (result.o_que_foi_feito || '').split('\n').filter(Boolean),
+          o_que_falta: (result.o_que_falta || '').split('\n').filter(Boolean),
+          evidencias: (result.evidences || []).filter(e => e.url && e.url !== '#'),
+          confianca: result.confianca ?? null,
+          motivo_confianca: result.motivo_confianca ?? '',
+          modelo_ia: result.modelo_ia || 'gemini-2.5-flash',
+          fallback: result.evaluated_with_fallback || false,
+        });
+      } catch (e) {
+        return res.status(500).json({ error: e.message, detail: e.stack });
+      }
+    }
+
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });
