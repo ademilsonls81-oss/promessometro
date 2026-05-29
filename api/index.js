@@ -2724,9 +2724,6 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
       }
     }
 
-    return res.status(404).json({ error: 'Endpoint nao encontrado', path });
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // PROMESSASYNC - Sincronizar avaliação manual
     // ═══════════════════════════════════════════════════════════════════════
