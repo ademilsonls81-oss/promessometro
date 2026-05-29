@@ -314,7 +314,7 @@ export default async function handler(req, res) {
       const id = path.replace('/api/evaluate/', '');
       if (!id) return res.status(400).json({ error: 'promiseId obrigatorio' });
       const { data: ev, error } = await db().from('promise_explanations').select('*').eq('promise_id', id).eq('is_latest', true).maybeSingle();
-      if (ev) return res.json({ promise_id: id, status: normStatus(ev.status), score: ev.fulfillment_score, confidence: Math.round((ev.confianca || 0) * 100), justification: ev.justificativa || '', sources: ev.evidencias_usadas || [], evaluated_at: ev.gerado_em, has_evaluation: true });
+      if (ev) return res.json({ promise_id: id, status: normStatus(ev.status), score: ev.fulfillment_score, confidence: Math.round((ev.confianca || 0) * 100), justification: ev.justificativa || '', sources: ev.evidencias_usadas || [], evaluated_at: ev.gerado_em, has_evaluation: true, criteria: ev.criterio_aplicado || '', what_is_missing: ev.o_que_falta || '', what_was_done: ev.o_que_foi_feito || '', model: ev.modelo_ia || '' });
       const { data: p } = await db().from('promises').select('id, status, fulfillment_score, ai_evaluation, evidences_used').eq('id', id).single();
       if (!p) return res.status(404).json({ error: 'Promessa nao encontrada' });
       return res.json({ promise_id: id, status: normStatus(p.status), score: p.fulfillment_score || 50, confidence: 0, justification: p.ai_evaluation || 'Aguardando avaliacao', sources: p.evidences_used || [], evaluated_at: null, has_evaluation: false });
