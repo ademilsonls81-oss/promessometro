@@ -2738,88 +2738,117 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
 
         const supabase = dbAdmin();
 
-        // Parser do painel
-        function parseStatus(raw) {
-          const lower = raw.toLowerCase();
-          if (lower.includes("concluíd") && !lower.includes("parcial")) return "cumprida";
-          if (lower.includes("parcial")) return "parcialmente_cumprida";
-          if (lower.includes("andamento")) return "em_andamento";
-          if (lower.includes("descumpr") || lower.includes("quebrad")) return "descumprida";
-          if (lower.includes("não inici") || lower.includes("pendente")) return "nao_iniciada";
-          return "nao_classificada";
-        }
-        function parseScore(raw) {
-          const match = raw.match(/(\d+)\s*\/\s*100/i);
-          return match ? parseInt(match[1], 10) : 50;
-        }
-        function parseConfianca(raw) {
-          const match = raw.match(/(\d+(?:\.\d+)?)\s*%/);
-          return match ? parseFloat(match[1]) / 100 : 0.95;
-        }
-        function parseGestor(raw) {
-          const match = raw.match(/^(.+?)\s*(?:\(([^)]+)\))?$/);
-          return match ? { nome: match[1].trim(), cargo: match[2]?.trim() } : { nome: raw.trim() };
-        }
-        function parseBulletList(text) {
-          return text.split(/\n|•|•\s+/).map(s => s.trim()).filter(s => s.length > 0);
+        // Parser para texto contínuo (uma única linha sem quebras)
+        function parsePainelSingleLine(text) {
+          // Normalizar: remover quebras de linha e espaços múltiplos
+          const clean = text.replace(/\n|\r|\t/g, ' ').replace(/\s+/g, ' ').trim();
+
+          // 1. Título - "Painel de Acompanhamento: X" até encontrar próximo campo
+          let titulo = '';
+          const tituloMatch = clean.match(/Painel de Acompanhamento:\s*(.+?)(?=Campo|Gestor|Partido|Status|Score|Ações|O que|Fontes|Grau)/i);
+          if (tituloMatch) titulo = tituloMatch[1].trim();
+
+          // 2. Gestor - "Gestor ResponsávelNome (Cargo)" ou "Gestor ResponsávelNomeCargo"
+          let gestor = '', cargo = '';
+          const gestorMatch = clean.match(/Gestor[^\w]*Respons[áa]vel[^\w]*([^(]+?)(?:\(([^)]+)\))?/i);
+          if (gestorMatch) {
+            gestor = (gestorMatch[1] || '').trim();
+            cargo = (gestorMatch[2] || '').trim();
+          }
+          if (!gestor) {
+            // Fallback: tentar pegar nome entre "Gestor Responsável" e "Partido"
+            const fallback = clean.match(/Gestor[^\w]*Respons[áa]vel[^\w]*(.+?)\s*Partido/i);
+            if (fallback) gestor = fallback[1].trim();
+          }
+
+          // 3. Partido - após "Partido" até encontrar "Status"
+          let partido = '';
+          const partidoMatch = clean.match(/Partido\s*(\w+)/i);
+          if (partidoMatch) partido = partidoMatch[1].trim();
+
+          // 4. Status da Meta - entre "Status da Meta" e "Score"
+          let statusRaw = '';
+          const statusMatch = clean.match(/Status da Meta\s*[:\-]?\s*(.+?)(?=Score|Última|Ações)/i);
+          if (statusMatch) statusRaw = statusMatch[1].trim();
+
+          // 5. Score - número antes de "/100"
+          let score = 50;
+          const scoreMatch = clean.match(/(\d+)\s*\/\s*100/);
+          if (scoreMatch) score = parseInt(scoreMatch[1], 10);
+
+          // 6. Ações Concluídas - entre "Ações Concluídas" e "O que ainda falta" ou "O que falta"
+          let acoesRaw = '';
+          const acoesMatch = clean.match(/Ações?\s*Conclu[ií]das?\s*[:\-]?\s*(.+?)(?=O que ainda falta|O que falta|Fontes|Grau)/is);
+          if (acoesMatch) acoesRaw = acoesMatch[1].trim();
+
+          // 7. O que ainda falta - entre "O que ainda falta" e "Fontes" ou "Grau"
+          let faltaRaw = '';
+          const faltaMatch = clean.match(/O que ainda falta\s*[:\-]?\s*(.+?)(?=Fontes|Grau)/is);
+          if (faltaMatch) faltaRaw = faltaMatch[1].trim();
+
+          // 8. Fontes & Evidências - entre "Fontes" e "Grau"
+          let fontesRaw = '';
+          const fontesMatch = clean.match(/(?:Fontes?\s*&\s*Evidências?|Fontes)\s*[:\-]?\s*(.+?)(?=Grau|Confiança)/is);
+          if (fontesMatch) fontesRaw = fontesMatch[1].trim();
+
+          // 9. Confiança - número seguido de %
+          let confianca = 0.95;
+          const confiancaMatch = clean.match(/Grau de Confiança[^\d]*(\d+(?:[.,]\d+)?)\s*%/);
+          if (confiancaMatch) confianca = parseFloat(confiancaMatch[1].replace(',', '.')) / 100;
+
+          // Parsear listas de bullets
+          function parseBullets(text) {
+            if (!text) return [];
+            // Separar por • ou - ou números com ponto no início
+            return text.split(/[•\-\–·]\s*/).map(s => s.trim()).filter(s => s.length > 3);
+          }
+
+          // Mapear status
+          function parseStatus(raw) {
+            const lower = (raw || '').toLowerCase();
+            if (lower.includes('concluíd') && !lower.includes('parcial')) return 'cumprida';
+            if (lower.includes('parcial')) return 'parcialmente_cumprida';
+            if (lower.includes('andamento')) return 'em_andamento';
+            if (lower.includes('descumpr') || lower.includes('quebrad')) return 'descumprida';
+            if (lower.includes('não inici') || lower.includes('pendente')) return 'nao_iniciada';
+            return 'nao_classificada';
+          }
+
+          return {
+            titulo: titulo || 'Sem título',
+            gestor: gestor || 'Desconhecido',
+            cargo: cargo,
+            partido: partido || 'N/A',
+            status: parseStatus(statusRaw),
+            score: score,
+            acoesConcluidas: parseBullets(acoesRaw),
+            oQueFalta: parseBullets(faltaRaw),
+            fontes: parseBullets(fontesRaw),
+            confianca: confianca
+          };
         }
 
-        const lines = painel.split("\n").map(l => l.trim()).filter(Boolean);
-        let titulo = "", gestorRaw = "", partido = "", statusRaw = "", scoreRaw = "", acoesRaw = "", faltaRaw = "", fontesRaw = "";
-        let inAcoes = false, inFalta = false, inFontes = false;
-
-        for (const line of lines) {
-          if (line.startsWith("Painel de Acompanhamento:")) { titulo = line.replace("Painel de Acompanhamento:", "").trim(); continue; }
-          if (line.startsWith("Campo")) continue;
-          if (line.startsWith("Gestor")) { gestorRaw = line.replace(/^Gestor[^\n]*:/i, "").trim(); continue; }
-          if (line.startsWith("Partido")) { partido = line.replace(/^Partido[^\n]*:/i, "").trim(); continue; }
-          if (line.startsWith("Status da Meta")) { statusRaw = line.replace(/^Status da Meta[^\n]*:/i, "").trim(); continue; }
-          if (line.startsWith("Score")) { scoreRaw = line.replace(/^Score[^\n]*\d*\s*/i, "").trim(); continue; }
-          if (line.startsWith("Ações Concluídas")) { inAcoes = true; inFalta = false; inFontes = false; continue; }
-          if (line.startsWith("O que ainda falta") || line.startsWith("O que falta")) { inFalta = true; inAcoes = false; inFontes = false; continue; }
-          if (line.startsWith("Fontes")) { inFontes = true; inAcoes = false; inFalta = false; continue; }
-          if (line.startsWith("•") || line.startsWith("-")) {
-            const clean = line.replace(/^[•\-]\s+/, "").trim();
-            if (inAcoes && clean) acoesRaw += "\n" + clean;
-            else if (inFalta && clean) faltaRaw += "\n" + clean;
-            else if (inFontes && clean) fontesRaw += "\n" + clean;
-          } else if (inAcoes) acoesRaw += " " + line;
-          else if (inFalta) faltaRaw += "\n" + line;
-          else if (inFontes) fontesRaw += " " + line;
-        }
-
-        const { nome: gestor, cargo } = parseGestor(gestorRaw);
-        const parsed = {
-          titulo: titulo || "Sem título",
-          gestor, cargo,
-          partido: partido || "N/A",
-          status: parseStatus(statusRaw),
-          score: parseScore(scoreRaw),
-          acoesConcluidas: parseBulletList(acoesRaw),
-          oQueFalta: parseBulletList(faltaRaw),
-          fontes: parseBulletList(fontesRaw),
-          confianca: parseConfianca("95%")
-        };
+        const parsed = parsePainelSingleLine(painel);
 
         // Buscar/criar político
-        const { data: existingPol } = await supabase.from("politicians").select("id").ilike("nome", gestor).limit(1).single();
+        const { data: existingPol } = await supabase.from("politicians").select("id").ilike("nome", parsed.gestor).limit(1).single();
         let politicianId = existingPol?.id;
         if (!politicianId) {
-          const estadoPadrao = cargo?.toLowerCase().includes("governador") ? "SE" : undefined;
-          const { data: newPol } = await supabase.from("politicians").insert({ nome: gestor, partido: partido, cargo: cargo || "N/A", estado: estadoPadrao }).select("id").single();
+          const estadoPadrao = parsed.cargo?.toLowerCase().includes("governador") ? "SE" : undefined;
+          const { data: newPol } = await supabase.from("politicians").insert({ nome: parsed.gestor, partido: parsed.partido, cargo: parsed.cargo || "N/A", estado: estadoPadrao }).select("id").single();
           politicianId = newPol?.id;
         }
         if (!politicianId) return res.status(404).json({ error: "Não foi possível criar/buscar político" });
 
         // Upsert promise
-        const { data: existingPromise } = await supabase.from("promises").select("id").ilike("titulo", parsed.titulo).ilike("nome_politico", gestor).limit(1).single();
+        const { data: existingPromise } = await supabase.from("promises").select("id").ilike("titulo", parsed.titulo).ilike("nome_politico", parsed.gestor).limit(1).single();
         let promiseId = existingPromise?.id;
         const promiseData = {
           politician_id: politicianId,
-          nome_politico: gestor,
-          cargo: cargo || "N/A",
+          nome_politico: parsed.gestor,
+          cargo: parsed.cargo || "N/A",
           partido: parsed.partido,
-          estado: cargo?.toLowerCase().includes("governador") ? "SE" : undefined,
+          estado: parsed.cargo?.toLowerCase().includes("governador") ? "SE" : undefined,
           titulo: parsed.titulo,
           status: parsed.status,
           fulfillment_score: parsed.score,
@@ -2883,7 +2912,10 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
           parsed_data: {
             titulo: parsed.titulo,
             status: parsed.status,
-            score: parsed.score
+            score: parsed.score,
+            gestor: parsed.gestor,
+            acoes_count: parsed.acoesConcluidas.length,
+            o_que_falta_count: parsed.oQueFalta.length
           },
           message: "Avaliação registrada com sucesso"
         });
