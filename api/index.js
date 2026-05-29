@@ -2725,6 +2725,174 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
     }
 
     return res.status(404).json({ error: 'Endpoint nao encontrado', path });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROMESSASYNC - Sincronizar avaliação manual
+    // ═══════════════════════════════════════════════════════════════════════
+    if (path === '/api/promessasync' && method === 'POST') {
+      try {
+        let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
+        const { painel } = JSON.parse(body || '{}');
+        if (!painel) return res.status(400).json({ error: "Missing 'painel' field" });
+
+        const supabase = dbAdmin();
+
+        // Parser do painel
+        function parseStatus(raw) {
+          const lower = raw.toLowerCase();
+          if (lower.includes("concluíd") && !lower.includes("parcial")) return "cumprida";
+          if (lower.includes("parcial")) return "parcialmente_cumprida";
+          if (lower.includes("andamento")) return "em_andamento";
+          if (lower.includes("descumpr") || lower.includes("quebrad")) return "descumprida";
+          if (lower.includes("não inici") || lower.includes("pendente")) return "nao_iniciada";
+          return "nao_classificada";
+        }
+        function parseScore(raw) {
+          const match = raw.match(/(\d+)\s*\/\s*100/i);
+          return match ? parseInt(match[1], 10) : 50;
+        }
+        function parseConfianca(raw) {
+          const match = raw.match(/(\d+(?:\.\d+)?)\s*%/);
+          return match ? parseFloat(match[1]) / 100 : 0.95;
+        }
+        function parseGestor(raw) {
+          const match = raw.match(/^(.+?)\s*(?:\(([^)]+)\))?$/);
+          return match ? { nome: match[1].trim(), cargo: match[2]?.trim() } : { nome: raw.trim() };
+        }
+        function parseBulletList(text) {
+          return text.split(/\n|•|•\s+/).map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        const lines = painel.split("\n").map(l => l.trim()).filter(Boolean);
+        let titulo = "", gestorRaw = "", partido = "", statusRaw = "", scoreRaw = "", acoesRaw = "", faltaRaw = "", fontesRaw = "";
+        let inAcoes = false, inFalta = false, inFontes = false;
+
+        for (const line of lines) {
+          if (line.startsWith("Painel de Acompanhamento:")) { titulo = line.replace("Painel de Acompanhamento:", "").trim(); continue; }
+          if (line.startsWith("Campo")) continue;
+          if (line.startsWith("Gestor")) { gestorRaw = line.replace(/^Gestor[^\n]*:/i, "").trim(); continue; }
+          if (line.startsWith("Partido")) { partido = line.replace(/^Partido[^\n]*:/i, "").trim(); continue; }
+          if (line.startsWith("Status da Meta")) { statusRaw = line.replace(/^Status da Meta[^\n]*:/i, "").trim(); continue; }
+          if (line.startsWith("Score")) { scoreRaw = line.replace(/^Score[^\n]*\d*\s*/i, "").trim(); continue; }
+          if (line.startsWith("Ações Concluídas")) { inAcoes = true; inFalta = false; inFontes = false; continue; }
+          if (line.startsWith("O que ainda falta") || line.startsWith("O que falta")) { inFalta = true; inAcoes = false; inFontes = false; continue; }
+          if (line.startsWith("Fontes")) { inFontes = true; inAcoes = false; inFalta = false; continue; }
+          if (line.startsWith("•") || line.startsWith("-")) {
+            const clean = line.replace(/^[•\-]\s+/, "").trim();
+            if (inAcoes && clean) acoesRaw += "\n" + clean;
+            else if (inFalta && clean) faltaRaw += "\n" + clean;
+            else if (inFontes && clean) fontesRaw += "\n" + clean;
+          } else if (inAcoes) acoesRaw += " " + line;
+          else if (inFalta) faltaRaw += "\n" + line;
+          else if (inFontes) fontesRaw += " " + line;
+        }
+
+        const { nome: gestor, cargo } = parseGestor(gestorRaw);
+        const parsed = {
+          titulo: titulo || "Sem título",
+          gestor, cargo,
+          partido: partido || "N/A",
+          status: parseStatus(statusRaw),
+          score: parseScore(scoreRaw),
+          acoesConcluidas: parseBulletList(acoesRaw),
+          oQueFalta: parseBulletList(faltaRaw),
+          fontes: parseBulletList(fontesRaw),
+          confianca: parseConfianca("95%")
+        };
+
+        // Buscar/criar político
+        const { data: existingPol } = await supabase.from("politicians").select("id").ilike("nome", gestor).limit(1).single();
+        let politicianId = existingPol?.id;
+        if (!politicianId) {
+          const estadoPadrao = cargo?.toLowerCase().includes("governador") ? "SE" : undefined;
+          const { data: newPol } = await supabase.from("politicians").insert({ nome: gestor, partido: partido, cargo: cargo || "N/A", estado: estadoPadrao }).select("id").single();
+          politicianId = newPol?.id;
+        }
+        if (!politicianId) return res.status(404).json({ error: "Não foi possível criar/buscar político" });
+
+        // Upsert promise
+        const { data: existingPromise } = await supabase.from("promises").select("id").ilike("titulo", parsed.titulo).ilike("nome_politico", gestor).limit(1).single();
+        let promiseId = existingPromise?.id;
+        const promiseData = {
+          politician_id: politicianId,
+          nome_politico: gestor,
+          cargo: cargo || "N/A",
+          partido: parsed.partido,
+          estado: cargo?.toLowerCase().includes("governador") ? "SE" : undefined,
+          titulo: parsed.titulo,
+          status: parsed.status,
+          fulfillment_score: parsed.score,
+          is_automated: false,
+          updated_at: new Date().toISOString()
+        };
+
+        if (promiseId) {
+          await supabase.from("promises").update(promiseData).eq("id", promiseId);
+        } else {
+          const { data: newPromise } = await supabase.from("promises").insert(promiseData).select("id").single();
+          promiseId = newPromise?.id;
+        }
+        if (!promiseId) return res.status(500).json({ error: "Falha ao criar/atualizar promessa" });
+
+        // Update explanations
+        await supabase.from("promise_explanations").update({ is_latest: false }).eq("promise_id", promiseId).eq("is_latest", true);
+        await supabase.from("promise_explanations").insert({
+          promise_id: promiseId,
+          status: parsed.status,
+          fulfillment_score: parsed.score,
+          criterio_aplicado: "promessasync_agent",
+          justificativa: `Avaliação manual via PromessaSync`,
+          o_que_foi_feito: parsed.acoesConcluidas.join("\n"),
+          o_que_falta: parsed.oQueFalta.join("\n"),
+          evidencias_usadas: parsed.fontes,
+          confianca: parsed.confianca,
+          motivo_confianca: "Avaliação manual",
+          modelo_ia: "manual",
+          is_latest: true,
+          gerado_em: new Date().toISOString()
+        });
+
+        // Update evidences
+        await supabase.from("promise_evidences").delete().eq("promise_id", promiseId);
+        if (parsed.fontes.length > 0) {
+          const evidences = parsed.fontes.map(f => ({
+            promise_id: promiseId,
+            tipo: "news",
+            descricao: f,
+            fonte: f,
+            link: f.startsWith("http") ? f : null,
+            data_evidencia: new Date().toISOString().split("T")[0]
+          }));
+          await supabase.from("promise_evidences").insert(evidences);
+        }
+
+        // Log
+        await supabase.from("promise_audit_log").insert({
+          promise_id: promiseId,
+          campo_alterado: "PROMESSASYNC_SYNC",
+          valor_novo: JSON.stringify({ titulo: parsed.titulo, status: parsed.status, score: parsed.score }),
+          alterado_por: "promessasync_agent"
+        });
+
+        return res.json({
+          success: true,
+          promise_id: promiseId,
+          politician_id: politicianId,
+          evidences_created: parsed.fontes.length,
+          parsed_data: {
+            titulo: parsed.titulo,
+            status: parsed.status,
+            score: parsed.score
+          },
+          message: "Avaliação registrada com sucesso"
+        });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    return res.status(404).json({ error: 'Endpoint nao encontrado', path });
   } catch (err) {
     return res.status(500).json({ error: err.message, detail: err.stack });
   }

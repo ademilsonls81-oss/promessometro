@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
-import { supabase } from "../../lib/supabaseClient";
 
 interface SyncResult {
   success: boolean;
@@ -77,24 +76,23 @@ export default function PromessaSync() {
     setResult(null);
 
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke(
-        "promessasync",
-        {
-          body: { painel }
-        }
-      );
+      const response = await fetch('/api/promessasync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ painel })
+      });
 
-      if (fetchError) {
-        throw new Error(fetchError.message || "Erro na requisição");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro na sincronização');
       }
 
-      const response = typeof data === "string" ? JSON.parse(data) : data;
-
-      if (!response.success) {
-        throw new Error(response.error || "Falha na sincronização");
+      if (!data.success) {
+        throw new Error(data.error || 'Falha na sincronização');
       }
 
-      setResult(response);
+      setResult(data);
     } catch (err: any) {
       setError(err.message || "Erro desconhecido");
     } finally {
