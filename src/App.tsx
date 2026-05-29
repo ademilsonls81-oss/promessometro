@@ -27,6 +27,7 @@ const PoliticianProfile = lazy(() => import("./pages/PoliticianProfile"));
 const AdminPage = lazy(() => import("./pages/Admin"));
 const AdminDetailPage = lazy(() => import("./pages/AdminDetail"));
 const QualityMonitor = lazy(() => import("./pages/admin/QualityMonitor"));
+const PromessaSync = lazy(() => import("./pages/admin/PromessaSync"));
 
 import SEO from "./components/SEO";
 
@@ -211,6 +212,7 @@ function AppRoutes() {
       <Route path="/transparencia" element={<ErrorBoundary context="Transparencia"><Transparencia /></ErrorBoundary>} />
       <Route path="/auditoria" element={<ErrorBoundary context="Auditoria"><Auditoria /></ErrorBoundary>} />
       <Route path="/admin/quality-monitor" element={<ErrorBoundary context="QualityMonitor"><QualityMonitor /></ErrorBoundary>} />
+      <Route path="/admin/promessa-sync" element={<ErrorBoundary context="PromessaSync"><PromessaSync /></ErrorBoundary>} />
       <Route path="/admin/politico/:slug" element={<AdminDetailPage />} />
       <Route path="/admin" element={<AdminPage />} />
       
