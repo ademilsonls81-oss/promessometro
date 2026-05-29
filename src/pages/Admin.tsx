@@ -686,6 +686,25 @@ export default function Admin() {
           </div>
         </Link>
 
+        {/* ── PROMESSASYNC ─────────────────────────────────────────────────── */}
+        <Link
+          to="/admin/promessa-sync"
+          className="block p-5 rounded-2xl border border-neon-purple/30 bg-neon-purple/5 hover:bg-neon-purple/10 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-6 h-6 text-neon-purple" />
+              <div>
+                <p className="font-bold text-white group-hover:text-neon-purple transition-colors">PromessaSync</p>
+                <p className="text-xs text-gray-400 mt-0.5">Sincronizar avaliações manuais no banco de dados</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-neon-purple text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+              Acessar <ArrowRight className="w-4 h-4" />
+            </div>
+          </div>
+        </Link>
+
         {/* ── FERRAMENTAS ──────────────────────────────────────────────────── */}
 
         {/* Pipeline & Reavaliação */}
