@@ -414,24 +414,6 @@ serve(async (req) => {
     politician_id: politicianId
   });
 
-  const verifyQuery = `
-    SELECT
-      p.id,
-      p.status,
-      p.fulfillment_score,
-      pe.is_latest,
-      pe.confianca,
-      (SELECT COUNT(*) FROM promise_evidences WHERE promise_id = p.id) as evidence_count
-    FROM promises p
-    LEFT JOIN promise_explanations pe ON p.id = pe.promise_id AND pe.is_latest = true
-    WHERE p.id = $1
-  `;
-
-  const { data: verified } = await supabase.rpc("exec", {
-    query: verifyQuery,
-    params: [promiseId]
-  }).select("*").single();
-
   return new Response(
     JSON.stringify({
       success: true,
