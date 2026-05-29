@@ -1,8 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@1";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("[PromessaSync] Missing environment variables");
+}
 
 interface ParsedPanel {
   titulo: string;
@@ -334,6 +338,14 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: "Use POST method" }),
       { status: 405, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error("[PromessaSync] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    return new Response(
+      JSON.stringify({ error: "Server configuration error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 
