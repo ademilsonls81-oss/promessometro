@@ -2589,17 +2589,66 @@ Responda JSON. Se não houver fatos concretos, retorne array vazio:
         let body = ''; req.on('data', c => body += c); await new Promise(r => req.on('end', r));
         const { promiseId } = JSON.parse(body || '{}');
         if (!promiseId) return res.status(400).json({ error: 'promiseId obrigatório' });
-        const { error: upErr } = await dbAdmin().from('promises').update({ status: 'pendente', fulfillment_score: 20, last_verified_at: null }).eq('id', promiseId);
-        if (upErr) return res.status(500).json({ error: upErr.message });
-        await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promiseId);
+
+        const { data: promiseData } = await dbAdmin().from('promises').select('*').eq('id', promiseId).single();
+        if (!promiseData) return res.status(404).json({ error: 'Promessa não encontrada' });
+
+        const { data: explanationData } = await dbAdmin().from('promise_explanations')
+          .select('*').eq('promise_id', promiseId).eq('is_latest', true).single();
+
+        const { data: evidencesData } = await dbAdmin().from('promise_evidences')
+          .select('*').eq('promise_id', promiseId).limit(20);
+
+        const { groqReevaluate } = await import('./lib/groqEvaluate.js');
+        const result = await groqReevaluate(promiseData, explanationData, evidencesData);
+
+        if (result.error) {
+          return res.status(500).json({ error: result.error });
+        }
+
+        await dbAdmin().from('promises').update({
+          status: result.status,
+          fulfillment_score: result.score,
+          updated_at: new Date().toISOString()
+        }).eq('id', promiseId);
+
+        if (explanationData) {
+          await dbAdmin().from('promise_explanations').update({ is_latest: false }).eq('promise_id', promiseId);
+        }
+
+        await dbAdmin().from('promise_explanations').insert({
+          promise_id: promiseId,
+          status: result.status,
+          fulfillment_score: result.score,
+          criterio_aplicado: 'quality_monitor_reavaliation',
+          justificativa: result.justificativa,
+          o_que_foi_feito: result.o_que_foi_feito,
+          o_que_falta: result.o_que_falta,
+          confianca: result.confianca,
+          modelo_ia: result.modelo,
+          is_latest: true,
+          gerado_em: new Date().toISOString()
+        });
+
         const { logCorrection } = await import('./lib/qualityMonitor.js');
         await logCorrection(dbAdmin(), {
-          evaluationId: promiseId, promiseId,
-          problem: 'Reavaliação enfileirada',
-          action: 'reprocess', details: `Reprocessado por ${admin.email}`,
+          evaluationId: explanationData?.id || null, promiseId,
+          problem: `Reavaliada via Groq - campos corrigidos: ${result.campos_corrigidos?.join(', ') || 'nenhum'}`,
+          action: 'reprocess', details: `Score: ${result.score} | Status: ${result.status} | Confiança: ${(result.confianca * 100).toFixed(0)}% | Por: ${admin.email}`,
           correctedBy: admin.email
         });
-        return res.json({ status: 'ok', message: 'Promessa enfileirada para reavaliação' });
+
+        return res.json({
+          status: 'ok',
+          message: 'Promessa reavaliada com sucesso',
+          result: {
+            status: result.status,
+            score: result.score,
+            confianca: result.confianca,
+            campos_corrigidos: result.campos_corrigidos,
+            observacao: result.observacao
+          }
+        });
       } catch (e) {
         return res.status(500).json({ error: e.message });
       }
