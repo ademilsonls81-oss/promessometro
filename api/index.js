@@ -297,10 +297,12 @@ export default async function handler(req, res) {
         statusCounts[s] = (statusCounts[s] || 0) + 1;
         return {
           ...p,
+          promise_title: p.titulo || p.promise_title || '',
+          politician_name: p.nome_politico || p.politician_name || '',
           status: s,
           fulfillment_score: ev ? ev.score : (p.fulfillment_score || 0),
-          politician_photo_url: polPhotoMap[p.politician_name] || null,
-          slug: toSlug(p.politician_name)
+          politician_photo_url: polPhotoMap[p.nome_politico || p.politician_name] || null,
+          slug: toSlug(p.nome_politico || p.politician_name)
         };
       });
       return res.json({
