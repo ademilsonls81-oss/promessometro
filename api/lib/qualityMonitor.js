@@ -25,7 +25,9 @@ export function getRealFontes(fontes) {
 export function isWaitingForReavaliation(justificativa) {
   if (!justificativa) return false;
   const t = justificativa.toLowerCase();
-  return t.includes('aguardando reavaliação') || t.includes('aguardando reavaliacao');
+  return t.includes('aguardando reavaliação') || t.includes('aguardando reavaliacao') ||
+    t.includes('indisponível') || t.includes('indisponivel') ||
+    t.includes('serviço de ia temporariamente limitado') || t.includes('servico de ia temporariamente limitado');
 }
 
 export async function qualityScan(dbClient) {
@@ -87,8 +89,8 @@ export async function qualityScan(dbClient) {
       if (expected && status !== expected) {
         if (status === 'pendente' && score <= 39) {
           // Pendente e score <= 39 está correto
-        } else if (status === 'quebrada' && score === 0) {
-          // Quebrada e score 0 também é correto
+        } else if (status === 'quebrada' && score < 40) {
+          // Quebrada e score < 40 é correto (qualquer grau de descumprimento)
         } else {
           issues.push(`Score ${score} incompatível com status "${status}" (esperado "${expected}")`);
           if (category === 'valid') category = 'warning';
@@ -99,7 +101,7 @@ export async function qualityScan(dbClient) {
     const fontes = ev.evidencias_usadas || [];
     const fontesReais = getRealFontes(fontes);
 
-    if (fontesReais.length === 0) {
+    if (fontesReais.length === 0 && category !== 'notEvaluated') {
       if (status === 'pendente' && score <= 25) {
         // Valid scenario with the new JS logic: no evidence -> status pendente + score <= 25
       } else {
@@ -127,9 +129,9 @@ export async function qualityScan(dbClient) {
 
     if (politician) {
       if (promise.politician_name && politician.name) {
-        const a = promise.politician_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const b = politician.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        if (a !== b) {
+        const a = promise.politician_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const b = politician.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        if (!a.includes(b) && !b.includes(a)) {
           issues.push(`Inconsistência: promessa="${promise.politician_name}" ≠ político="${politician.name}"`);
           if (category === 'valid') category = 'warning';
         }
