@@ -54,23 +54,20 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
 
   const searchQuery = `${politician} ${titulo}`.replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
   let evidenciasWeb = [];
-  try {
-    evidenciasWeb = await searchDDG(searchQuery);
-  } catch (e) {
-    console.error('[groqReevaluate] searchDDG error:', searchQuery.substring(0, 60), e.message);
-  }
-  if (!evidenciasWeb.length) {
-    const shortQuery = (politician + ' ' + titulo.split(' ').slice(0, 6).join(' ')).replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
-    try { evidenciasWeb = await searchDDG(shortQuery); } catch {}
-  }
+  try { evidenciasWeb = await searchDDG(searchQuery); } catch {}
+
   const fontesWeb = evidenciasWeb.filter(e => e.nivel <= 3);
-  const fontesWebText = fontesWeb.length > 0
+  const temFontesWeb = fontesWeb.length > 0;
+  const fontesWebText = temFontesWeb
     ? fontesWeb.map(e => `- [Nível ${e.nivel}] ${e.title} (${e.url}) - ${e.snippet || ''}`).join('\n')
     : 'Nenhuma evidência web encontrada.';
 
+  const fontePrincipal = temFontesWeb ? fontesWebText : fontesText;
+  const temEvidencia = temFontesWeb || fontes.length > 0;
+
   const prompt = `Você é um avaliador independente e rigoroso de promessas políticas brasileiras.
 
-Você deve REAVALIAR esta promessa com base ESTRITAMENTE nas evidências web encontradas abaixo.
+Reavalie esta promessa com base NAS EVIDÊNCIAS disponíveis abaixo.
 
 ## Dados Atuais:
 **Político:** ${politician}
@@ -88,19 +85,15 @@ ${oQueFalta || 'Não informado'}
 **Justificativa atual:**
 ${justificativa || 'Sem justificativa'}
 
-## Evidências web encontradas na busca ativa:
-${fontesWebText}
-
-## Fontes cadastradas no banco:
-${fontesText}
+## Evidências disponíveis:
+${fontePrincipal}
 
 ## Regras:
-1. Use APENAS as evidências web para reavaliar — o que foi feito, o que falta, score e status
+1. Use as evidências acima para reavaliar — o que foi feito, o que falta, score e status
 2. Se status/score estiverem inconsistentes com as evidências, CORRIJA
-3. Descreva em o_que_foi_feito as ações concretas CITANDO as evidências encontradas
+3. Descreva em o_que_foi_feito as ações concretas CITANDO as fontes
 4. Descreva em o_que_falta o que ainda precisa ser feito
-5. CITEE a URL das evidências na justificativa
-6. Se não houver evidências web, mantenha os dados existentes e marque confiança baixa
+5. Se não houver evidência alguma, mantenha dados existentes com confiança baixa
 
 ## Classificação:
 - cumprida (80-100): evidências claras de conclusão total
@@ -114,7 +107,7 @@ Responda APENAS JSON válido (sem markdown):
   "score": 0-100,
   "o_que_foi_feito": "descrição do que foi realizado baseada nas evidências",
   "o_que_falta": "descrição do que ainda falta",
-  "justificativa": "explicação CITANDO as URL das evidências usadas",
+  "justificativa": "explicação CITANDO as evidências usadas",
   "confianca": 0.0-1.0,
   "campos_corrigidos": ["lista de campos que foram corrigidos"],
   "observacao": "nota sobre a avaliação"
@@ -130,11 +123,9 @@ Responda APENAS JSON válido (sem markdown):
     return { error: 'Resposta inválida da IA' };
   }
 
-  const evidenciasUsadas = fontesWeb.map(e => ({
-    titulo: e.title,
-    url: e.url,
-    resumo: e.snippet || ''
-  }));
+  const evidenciasUsadas = temFontesWeb
+    ? fontesWeb.map(e => ({ titulo: e.title, url: e.url, resumo: e.snippet || '' }))
+    : fontes.slice(0, 8).map(e => ({ titulo: e.descricao || e.titulo || '', url: e.link || e.url || '', resumo: e.descricao || '' }));
 
   return {
     status: parsed.status || statusAtual,
