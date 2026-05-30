@@ -53,7 +53,16 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
     : 'Nenhuma fonte disponível';
 
   const searchQuery = `${politician} ${titulo}`.replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
-  const evidenciasWeb = await searchDDG(searchQuery);
+  let evidenciasWeb = [];
+  try {
+    evidenciasWeb = await searchDDG(searchQuery);
+  } catch (e) {
+    console.error('[groqReevaluate] searchDDG error:', searchQuery.substring(0, 60), e.message);
+  }
+  if (!evidenciasWeb.length) {
+    const shortQuery = (politician + ' ' + titulo.split(' ').slice(0, 6).join(' ')).replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
+    try { evidenciasWeb = await searchDDG(shortQuery); } catch {}
+  }
   const fontesWeb = evidenciasWeb.filter(e => e.nivel <= 3);
   const fontesWebText = fontesWeb.length > 0
     ? fontesWeb.map(e => `- [Nível ${e.nivel}] ${e.title} (${e.url}) - ${e.snippet || ''}`).join('\n')
@@ -157,25 +166,49 @@ function nivelFonte(url) {
 }
 
 async function searchDDG(query) {
+  const q = query.substring(0, 200);
+  const out = [];
+
   try {
-    const params = new URLSearchParams({ q: query.substring(0, 200) });
+    const params = new URLSearchParams({ q, kp: '-2' });
     const r = await fetch('https://html.duckduckgo.com/html/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
       body: params.toString(),
-      signal: AbortSignal.timeout(2500)
+      signal: AbortSignal.timeout(5000)
     });
-    if (!r.ok) return [];
-    const html = await r.text();
-    const out = [];
-    const re = /<a rel="nofollow" class="result__a" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-    let m;
-    while ((m = re.exec(html)) !== null) {
-      const url = m[1], title = m[2].replace(/<[^>]+>/g, '').trim();
-      if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,200), nivel: nivelFonte(url) });
+    if (r.ok) {
+      const html = await r.text();
+      const re = /<a rel="nofollow" class="result__a" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        const url = m[1], title = m[2].replace(/<[^>]+>/g, '').trim();
+        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,200), nivel: nivelFonte(url) });
+      }
     }
-    return out.slice(0, 8);
-  } catch { return []; }
+  } catch {}
+
+  if (out.length > 0) return out.slice(0, 8);
+
+  try {
+    const r = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const results = d.Results || [];
+      const related = d.RelatedTopics || [];
+      for (const item of [...results, ...related.filter(x => x.Text || x.FirstURL)]) {
+        const url = item.FirstURL || '';
+        const title = item.Text || item.Text || '';
+        const snippet = item.Text || '';
+        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: snippet.substring(0, 200), nivel: nivelFonte(url) });
+      }
+    }
+  } catch {}
+
+  return out.slice(0, 8);
 }
 
 export async function groqEvaluate(promise) {
