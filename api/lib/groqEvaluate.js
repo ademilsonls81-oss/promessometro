@@ -170,43 +170,32 @@ async function searchDDG(query) {
   const out = [];
 
   try {
-    const params = new URLSearchParams({ q, kp: '-2' });
+    const params = new URLSearchParams({ q });
     const r = await fetch('https://html.duckduckgo.com/html/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
       body: params.toString(),
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(8000)
     });
-    if (r.ok) {
+    if (!r.ok) {
+      console.error('[searchDDG] HTTP', r.status, 'para', q.substring(0, 50));
+    } else {
       const html = await r.text();
+      if (html.length < 200) {
+        console.error('[searchDDG] resposta curta:', html.substring(0, 100));
+      }
       const re = /<a rel="nofollow" class="result__a" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
       let m;
       while ((m = re.exec(html)) !== null) {
-        const url = m[1], title = m[2].replace(/<[^>]+>/g, '').trim();
-        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,200), nivel: nivelFonte(url) });
+        const url = m[1].replace(/&amp;/g, '&').replace(/&#x27;/g, "'");
+        const title = m[2].replace(/<[^>]+>/g, '').trim();
+        const snippet = m[3].replace(/<[^>]+>/g, '').trim().substring(0, 200);
+        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet, nivel: nivelFonte(url) });
       }
     }
-  } catch {}
-
-  if (out.length > 0) return out.slice(0, 8);
-
-  try {
-    const r = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(4000)
-    });
-    if (r.ok) {
-      const d = await r.json();
-      const results = d.Results || [];
-      const related = d.RelatedTopics || [];
-      for (const item of [...results, ...related.filter(x => x.Text || x.FirstURL)]) {
-        const url = item.FirstURL || '';
-        const title = item.Text || item.Text || '';
-        const snippet = item.Text || '';
-        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: snippet.substring(0, 200), nivel: nivelFonte(url) });
-      }
-    }
-  } catch {}
+  } catch (e) {
+    console.error('[searchDDG] erro:', e.message?.substring(0, 80), 'para', q.substring(0, 50));
+  }
 
   return out.slice(0, 8);
 }
