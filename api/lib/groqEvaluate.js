@@ -52,18 +52,7 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
     ? fontes.map(f => `- ${f.title || f.description || 'Sem descrição'} (${f.source_name || f.url || 'Sem fonte'})`).join('\n')
     : 'Nenhuma fonte disponível';
 
-  const searchQuery = `${politician} ${titulo}`.replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
-  let evidenciasWeb = [];
-  try { evidenciasWeb = await searchDDG(searchQuery); } catch {}
-
-  const fontesWeb = evidenciasWeb.filter(e => e.nivel <= 3);
-  const temFontesWeb = fontesWeb.length > 0;
-  const fontesWebText = temFontesWeb
-    ? fontesWeb.map(e => `- [Nível ${e.nivel}] ${e.title} (${e.url}) - ${e.snippet || ''}`).join('\n')
-    : 'Nenhuma evidência web encontrada.';
-
-  const fontePrincipal = temFontesWeb ? fontesWebText : fontesText;
-  const temEvidencia = temFontesWeb || fontes.length > 0;
+  const temEvidencia = fontes.length > 0;
 
   const prompt = `Você é um avaliador independente e rigoroso de promessas políticas brasileiras.
 
@@ -85,14 +74,16 @@ ${oQueFalta || 'Não informado'}
 **Justificativa atual:**
 ${justificativa || 'Sem justificativa'}
 
-## Evidências disponíveis:
-${fontePrincipal}
+## Evidências:
+${fontesText}
+
+Formate o_que_foi_feito e o_que_falta como uma lista de itens, cada item começando com "- ".
 
 ## Regras:
 1. Use as evidências acima para reavaliar — o que foi feito, o que falta, score e status
 2. Se status/score estiverem inconsistentes com as evidências, CORRIJA
-3. Descreva em o_que_foi_feito as ações concretas CITANDO as fontes
-4. Descreva em o_que_falta o que ainda precisa ser feito
+3. Descreva em o_que_foi_feito as ações concretas como UMA LISTA (cada item começando com "- ")
+4. Descreva em o_que_falta os itens pendentes como UMA LISTA (cada item começando com "- ")
 5. Se não houver evidência alguma, mantenha dados existentes com confiança baixa
 
 ## Classificação:
@@ -105,8 +96,8 @@ Responda APENAS JSON válido (sem markdown):
 {
   "status": "cumprida|parcial|pendente|quebrada",
   "score": 0-100,
-  "o_que_foi_feito": "descrição do que foi realizado baseada nas evidências",
-  "o_que_falta": "descrição do que ainda falta",
+  "o_que_foi_feito": "- item 1\n- item 2\n- item 3",
+  "o_que_falta": "- item 1\n- item 2",
   "justificativa": "explicação CITANDO as evidências usadas",
   "confianca": 0.0-1.0,
   "campos_corrigidos": ["lista de campos que foram corrigidos"],
@@ -123,9 +114,7 @@ Responda APENAS JSON válido (sem markdown):
     return { error: 'Resposta inválida da IA' };
   }
 
-  const evidenciasUsadas = temFontesWeb
-    ? fontesWeb.map(e => ({ titulo: e.title, url: e.url, resumo: e.snippet || '' }))
-    : fontes.slice(0, 8).map(e => ({ titulo: e.title || e.description || '', url: e.url || '', resumo: e.description || '' }));
+  const evidenciasUsadas = fontes.slice(0, 8).map(e => ({ titulo: e.title || e.description || '', url: e.url || '', resumo: e.description || '' }));
 
   return {
     status: parsed.status || statusAtual,
