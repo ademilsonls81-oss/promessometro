@@ -246,9 +246,19 @@ export default function PromiseEvaluation({ evaluation, loading, onRefresh, expa
           <TrendingUp className="w-4 h-4 text-green-400" />
           O que foi concluído
         </h4>
-        <p className="text-gray-200 leading-relaxed">
-          {evaluation.o_que_foi_feito || "Aguardando dados..."}
-        </p>
+        <div className="text-gray-200 leading-relaxed">
+          {evaluation.o_que_foi_feito ? (
+            evaluation.o_que_foi_feito.includes('\n- ') || evaluation.o_que_foi_feito.startsWith('- ') ? (
+              <ul className="list-disc list-inside space-y-1">
+                {evaluation.o_que_foi_feito.split('\n').filter(Boolean).map((item, i) => (
+                  <li key={i}>{item.replace(/^[-•]\s*/, '')}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{evaluation.o_que_foi_feito}</p>
+            )
+          ) : <p className="text-gray-500">Aguardando dados...</p>}
+        </div>
       </div>
 
       {/* Seção: O que ainda falta */}
@@ -257,9 +267,19 @@ export default function PromiseEvaluation({ evaluation, loading, onRefresh, expa
           <Clock className="w-4 h-4 text-orange-400" />
           O que ainda falta
         </h4>
-        <p className="text-gray-200 leading-relaxed">
-          {evaluation.o_que_falta || "Aguardando dados..."}
-        </p>
+        <div className="text-gray-200 leading-relaxed">
+          {evaluation.o_que_falta ? (
+            evaluation.o_que_falta.includes('\n- ') || evaluation.o_que_falta.startsWith('- ') ? (
+              <ul className="list-disc list-inside space-y-1">
+                {evaluation.o_que_falta.split('\n').filter(Boolean).map((item, i) => (
+                  <li key={i}>{item.replace(/^[-•]\s*/, '')}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{evaluation.o_que_falta}</p>
+            )
+          ) : <p className="text-gray-500">Aguardando dados...</p>}
+        </div>
       </div>
 
       {/* Seção: Evidências utilizadas */}
