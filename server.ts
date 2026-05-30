@@ -351,6 +351,18 @@ async function initHeavyServices() {
   }
 }
 
+interface EvaluateResult {
+  status: string;
+  fulfillment_score: number;
+  justification: string;
+  evidences: Array<{ descricao: string; fonte: string; url: string }>;
+  complexity: number;
+  impact: number;
+  o_que_falta?: string;
+  o_que_foi_feito?: string;
+  confianca?: number;
+}
+
 let pendingRunning = false;
 
 async function processPendingPromises() {
@@ -381,7 +393,7 @@ async function processPendingPromises() {
         const result = await Promise.race([
           evaluateWithAI(promise),
           new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
-        ]);
+        ]) as EvaluateResult;
 
         await supabase.from('promises').update({
           status: result.status,
