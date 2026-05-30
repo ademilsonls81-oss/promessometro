@@ -52,8 +52,6 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
     ? fontes.map(f => `- ${f.title || f.description || 'Sem descrição'} (${f.source_name || f.url || 'Sem fonte'})`).join('\n')
     : 'Nenhuma fonte disponível';
 
-  const temEvidencia = fontes.length > 0;
-
   const prompt = `Você é um avaliador independente e rigoroso de promessas políticas brasileiras.
 
 Reavalie esta promessa com base NAS EVIDÊNCIAS disponíveis abaixo.
@@ -77,14 +75,11 @@ ${justificativa || 'Sem justificativa'}
 ## Evidências:
 ${fontesText}
 
-Formate o_que_foi_feito e o_que_falta como uma lista de itens, cada item começando com "- ".
-
 ## Regras:
-1. Use as evidências acima para reavaliar — o que foi feito, o que falta, score e status
-2. Se status/score estiverem inconsistentes com as evidências, CORRIJA
-3. Descreva em o_que_foi_feito as ações concretas como UMA LISTA (cada item começando com "- ")
-4. Descreva em o_que_falta os itens pendentes como UMA LISTA (cada item começando com "- ")
-5. Se não houver evidência alguma, mantenha dados existentes com confiança baixa
+1. Use as evidências para reavaliar — o que foi feito, o que falta, score e status
+2. Descreva o_que_foi_feito COMO LISTA de itens (cada item na mesma string separado por nova linha e começando com "- ")
+3. Descreva o_que_falta COMO LISTA de itens (cada item na mesma string separado por nova linha e começando com "- ")
+4. Se não houver evidência alguma, mantenha dados existentes com confiança baixa
 
 ## Classificação:
 - cumprida (80-100): evidências claras de conclusão total
@@ -92,16 +87,16 @@ Formate o_que_foi_feito e o_que_falta como uma lista de itens, cada item começa
 - pendente (0-39): pouco ou nenhum progresso
 - quebrada (0): ação contrária ou promessa abandonada
 
-Responda APENAS JSON válido (sem markdown):
+Responda APENAS JSON válido (sem markdown). Exemplo do formato esperado para o_que_foi_feito: "- Ação concreta 1 executada\n- Ação concreta 2 executada".
 {
   "status": "cumprida|parcial|pendente|quebrada",
   "score": 0-100,
-  "o_que_foi_feito": "- item 1\n- item 2\n- item 3",
-  "o_que_falta": "- item 1\n- item 2",
-  "justificativa": "explicação CITANDO as evidências usadas",
+  "o_que_foi_feito": "- descricao item 1\n- descricao item 2",
+  "o_que_falta": "- pendencia 1\n- pendencia 2",
+  "justificativa": "explicação citando as evidencias usadas",
   "confianca": 0.0-1.0,
-  "campos_corrigidos": ["lista de campos que foram corrigidos"],
-  "observacao": "nota sobre a avaliação"
+  "campos_corrigidos": ["lista de campos corrigidos"],
+  "observacao": "nota sobre a avaliacao"
 }`;
 
   const { error, text } = await groqCall(prompt, key);
