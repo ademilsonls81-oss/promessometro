@@ -72,11 +72,13 @@ export default async function handler(req, res) {
 
         const score = result.score ?? 50;
         const status = clampStatus(score);
-        const evidenciaJson = (evidences || []).slice(0, 8).map(e => ({
-          titulo: e.descricao || e.titulo || '',
-          url: e.link || '',
-          resumo: e.descricao || ''
-        }));
+        const evidenciaJson = result.evidencias_usadas && result.evidencias_usadas.length > 0
+          ? result.evidencias_usadas.slice(0, 8)
+          : (evidences || []).slice(0, 8).map(e => ({
+              titulo: e.descricao || e.titulo || '',
+              url: e.link || '',
+              resumo: e.descricao || ''
+            }));
 
         await client.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).eq('is_latest', true);
         await client.from('promise_explanations').insert({

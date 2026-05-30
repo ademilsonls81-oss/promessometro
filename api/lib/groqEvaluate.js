@@ -52,9 +52,16 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
     ? fontes.map(f => `- ${f.descricao || f.fonte || f.link || 'Sem descrição'} (${f.fonte || 'Sem fonte'})`).join('\n')
     : 'Nenhuma fonte disponível';
 
+  const searchQuery = `${politician} ${titulo}`.replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
+  const evidenciasWeb = await searchDDG(searchQuery);
+  const fontesWeb = evidenciasWeb.filter(e => e.nivel <= 3);
+  const fontesWebText = fontesWeb.length > 0
+    ? fontesWeb.map(e => `- [Nível ${e.nivel}] ${e.title} (${e.url}) - ${e.snippet || ''}`).join('\n')
+    : 'Nenhuma evidência web encontrada.';
+
   const prompt = `Você é um avaliador independente e rigoroso de promessas políticas brasileiras.
 
-Você deve REAVALIAR uma promessa que já tem dados existentes, COMPLETANDO o que está faltando ou corrigindo inconsistências.
+Você deve REAVALIAR esta promessa com base ESTRITAMENTE nas evidências web encontradas abaixo.
 
 ## Dados Atuais:
 **Político:** ${politician}
@@ -72,15 +79,19 @@ ${oQueFalta || 'Não informado'}
 **Justificativa atual:**
 ${justificativa || 'Sem justificativa'}
 
-**Fontes cadastradas:**
+## Evidências web encontradas na busca ativa:
+${fontesWebText}
+
+## Fontes cadastradas no banco:
 ${fontesText}
 
 ## Regras:
-1. Analise os dados existentes e identifique INCONSISTÊNCIAS ou CAMPOS FALTANDO
-2. Se status/score estiverem inconsistentes, CORRIJA
-3. Se o_que_falta ou o_que_foi_feito estiverem vagos, COMPLETE com base nas fontes
-4. Se faltam evidências, INDIQUE o que está faltando
-5. Mantenha dados consistentes entre si
+1. Use APENAS as evidências web para reavaliar — o que foi feito, o que falta, score e status
+2. Se status/score estiverem inconsistentes com as evidências, CORRIJA
+3. Descreva em o_que_foi_feito as ações concretas CITANDO as evidências encontradas
+4. Descreva em o_que_falta o que ainda precisa ser feito
+5. CITEE a URL das evidências na justificativa
+6. Se não houver evidências web, mantenha os dados existentes e marque confiança baixa
 
 ## Classificação:
 - cumprida (80-100): evidências claras de conclusão total
@@ -92,9 +103,9 @@ Responda APENAS JSON válido (sem markdown):
 {
   "status": "cumprida|parcial|pendente|quebrada",
   "score": 0-100,
-  "o_que_foi_feito": "descrição do que foi realizado",
+  "o_que_foi_feito": "descrição do que foi realizado baseada nas evidências",
   "o_que_falta": "descrição do que ainda falta",
-  "justificativa": "explicação baseada nas fontes",
+  "justificativa": "explicação CITANDO as URL das evidências usadas",
   "confianca": 0.0-1.0,
   "campos_corrigidos": ["lista de campos que foram corrigidos"],
   "observacao": "nota sobre a avaliação"
@@ -110,6 +121,12 @@ Responda APENAS JSON válido (sem markdown):
     return { error: 'Resposta inválida da IA' };
   }
 
+  const evidenciasUsadas = fontesWeb.map(e => ({
+    titulo: e.title,
+    url: e.url,
+    resumo: e.snippet || ''
+  }));
+
   return {
     status: parsed.status || statusAtual,
     score: Math.max(0, Math.min(100, Math.round(parsed.score ?? scoreAtual))),
@@ -119,8 +136,46 @@ Responda APENAS JSON válido (sem markdown):
     confianca: Math.max(0, Math.min(1, parsed.confianca ?? confiancaAtual)),
     campos_corrigidos: parsed.campos_corrigidos || [],
     observacao: parsed.observacao || '',
-    modelo: `groq-${MODEL}`
+    modelo: `groq-${MODEL}`,
+    evidencias_usadas: evidenciasUsadas
   };
+}
+
+function nivelFonte(url) {
+  if (!url) return 5;
+  const u = url.toLowerCase();
+  if (u.includes('dou.gov') || u.includes('diariooficial') || u.includes('tse.jus') ||
+    u.includes('tce.') || u.includes('tcu') || u.includes('planalto') || u.includes('senado') ||
+    u.includes('camara') || u.includes('decreto') || u.includes('portaria')) return 1;
+  if (u.includes('ibge') || u.includes('ipea') || u.includes('gov.br') || u.includes('dados.gov') ||
+    u.includes('transparencia')) return 2;
+  if (u.includes('g1.globo') || u.includes('folha') || u.includes('estadao') || u.includes('uol') ||
+    u.includes('oglobo') || u.includes('cnn') || u.includes('bbc') || u.includes('poder360') ||
+    u.includes('metropoles') || u.includes('r7') || u.includes('ebc')) return 3;
+  if (u.includes('youtube') || u.includes('instagram') || u.includes('twitter') || u.includes('x.com')) return 4;
+  return 5;
+}
+
+async function searchDDG(query) {
+  try {
+    const params = new URLSearchParams({ q: query.substring(0, 200) });
+    const r = await fetch('https://html.duckduckgo.com/html/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+      body: params.toString(),
+      signal: AbortSignal.timeout(2500)
+    });
+    if (!r.ok) return [];
+    const html = await r.text();
+    const out = [];
+    const re = /<a rel="nofollow" class="result__a" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = m[1], title = m[2].replace(/<[^>]+>/g, '').trim();
+      if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,200), nivel: nivelFonte(url) });
+    }
+    return out.slice(0, 8);
+  } catch { return []; }
 }
 
 export async function groqEvaluate(promise) {
@@ -130,43 +185,6 @@ export async function groqEvaluate(promise) {
   }
 
   const q = `${promise.politician_name || ''} ${(promise.promise_title || '').replace(/[,.:;!?()]/g, ' ')}`.replace(/\s+/g, ' ').trim().substring(0, 150);
-
-  function nivelFonte(url) {
-    if (!url) return 5;
-    const u = url.toLowerCase();
-    if (u.includes('dou.gov') || u.includes('diariooficial') || u.includes('tse.jus') ||
-      u.includes('tce.') || u.includes('tcu') || u.includes('planalto') || u.includes('senado') ||
-      u.includes('camara') || u.includes('decreto') || u.includes('portaria')) return 1;
-    if (u.includes('ibge') || u.includes('ipea') || u.includes('gov.br') || u.includes('dados.gov') ||
-      u.includes('transparencia')) return 2;
-    if (u.includes('g1.globo') || u.includes('folha') || u.includes('estadao') || u.includes('uol') ||
-      u.includes('oglobo') || u.includes('cnn') || u.includes('bbc') || u.includes('poder360') ||
-      u.includes('metropoles') || u.includes('r7') || u.includes('ebc')) return 3;
-    if (u.includes('youtube') || u.includes('instagram') || u.includes('twitter') || u.includes('x.com')) return 4;
-    return 5;
-  }
-
-  async function searchDDG(query) {
-    try {
-      const params = new URLSearchParams({ q: query.substring(0, 200) });
-      const r = await fetch('https://html.duckduckgo.com/html/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
-        body: params.toString(),
-        signal: AbortSignal.timeout(2500)
-      });
-      if (!r.ok) return [];
-      const html = await r.text();
-      const out = [];
-      const re = /<a rel="nofollow" class="result__a" href="([^"]+)">([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-      let m;
-      while ((m = re.exec(html)) !== null) {
-        const url = m[1], title = m[2].replace(/<[^>]+>/g, '').trim();
-        if (title && url && !url.includes('duckduckgo')) out.push({ title, url, snippet: m[3].replace(/<[^>]+>/g,'').trim().substring(0,200), nivel: nivelFonte(url) });
-      }
-      return out.slice(0, 8);
-    } catch { return []; }
-  }
 
   const evidencias = await searchDDG(q);
   const temFontes = evidencias.filter(e => e.nivel <= 3).length > 0;
