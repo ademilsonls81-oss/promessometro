@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   try {
     const { data: promises } = await client
       .from('promises')
-      .select('id, titulo, promise_title, politician_name, nome_politico, category, politician_id, status, fulfillment_score')
+      .select('id, promise_title, politician_name, category, politician_id, status, fulfillment_score')
       .eq('status', 'pendente')
       .or('classificacao_ia.is.null,classificacao_ia->>modelo.not.ilike.%groq%')
       .limit(BATCH_SIZE);
@@ -58,8 +58,8 @@ export default async function handler(req, res) {
           .limit(20);
 
         const promiseData = {
-          titulo: promise.titulo || promise.promise_title || '?',
-          politician_name: promise.nome_politico || promise.politician_name || '?'
+          promise_title: promise.promise_title || '?',
+          politician_name: promise.politician_name || '?'
         };
 
         const result = await groqReevaluate(promiseData, explanation, evidences);
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
           o_que_falta: result.o_que_falta || '',
           evidencias_usadas: evidenciaJson,
           confianca: result.confianca ?? 0.5,
-          modelo_ia: result.modelo || 'groq-llama-3.3-70b-versatile',
+          modelo_ia: result.modelo || 'groq-llama-3.1-8b-instant',
           is_latest: true,
           gerado_em: new Date().toISOString()
         });
