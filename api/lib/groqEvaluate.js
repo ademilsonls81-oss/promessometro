@@ -49,7 +49,7 @@ export async function groqReevaluate(promiseData, explanationData, evidencesData
   const confiancaAtual = explanationData?.confianca || 0.5;
 
   const fontesText = fontes.length > 0
-    ? fontes.map(f => `- ${f.descricao || f.fonte || f.link || 'Sem descrição'} (${f.fonte || 'Sem fonte'})`).join('\n')
+    ? fontes.map(f => `- ${f.title || f.description || 'Sem descrição'} (${f.source_name || f.url || 'Sem fonte'})`).join('\n')
     : 'Nenhuma fonte disponível';
 
   const searchQuery = `${politician} ${titulo}`.replace(/[,.:;!?()]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 150);
@@ -125,7 +125,7 @@ Responda APENAS JSON válido (sem markdown):
 
   const evidenciasUsadas = temFontesWeb
     ? fontesWeb.map(e => ({ titulo: e.title, url: e.url, resumo: e.snippet || '' }))
-    : fontes.slice(0, 8).map(e => ({ titulo: e.descricao || e.titulo || '', url: e.link || e.url || '', resumo: e.descricao || '' }));
+    : fontes.slice(0, 8).map(e => ({ titulo: e.title || e.description || '', url: e.url || '', resumo: e.description || '' }));
 
   return {
     status: parsed.status || statusAtual,
