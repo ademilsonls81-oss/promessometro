@@ -3,8 +3,9 @@ import { groqReevaluate } from '../lib/groqEvaluate.js';
 
 const SUPABASE_URL = process.env.VITE_S_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const BATCH_SIZE = 5;
-const BUDGET_MS = 28000;
+const BATCH_SIZE = 1;
+const DELAY_BETWEEN_MS = 0;
+const BUDGET_MS = 25000;
 
 function db() { return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY); }
 
@@ -65,13 +66,14 @@ export default async function handler(req, res) {
         const result = await groqReevaluate(promiseData, explanation, evidences);
 
         if (result.error) {
+          console.error('[Cron] Erro IA p/ promessa', promise.id, ':', result.error);
           results.failed++;
           results.errors.push({ id: promise.id, error: result.error });
           continue;
         }
 
         const score = result.score ?? 50;
-        const status = clampStatus(score);
+        const status = result.status || clampStatus(score);
         const evidenciaJson = result.evidencias_usadas && result.evidencias_usadas.length > 0
           ? result.evidencias_usadas.slice(0, 8)
           : (evidences || []).slice(0, 8).map(e => ({
@@ -80,43 +82,63 @@ export default async function handler(req, res) {
               resumo: e.description || ''
             }));
 
-        await client.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).eq('is_latest', true);
-        await client.from('promise_explanations').insert({
-          promise_id: promise.id,
-          status,
-          fulfillment_score: score,
-          criterio_aplicado: 'cron_process_pending',
-          justificativa: result.justificativa || '',
-          o_que_foi_feito: result.o_que_foi_feito || '',
-          o_que_falta: result.o_que_falta || '',
-          evidencias_usadas: evidenciaJson,
-          confianca: result.confianca ?? 0.5,
-          modelo_ia: result.modelo || 'groq-llama-3.1-8b-instant',
-          is_latest: true,
-          gerado_em: new Date().toISOString()
-        });
+        try {
+          await client.from('promise_explanations').update({ is_latest: false }).eq('promise_id', promise.id).eq('is_latest', true);
+        } catch (dbErr) {
+          console.error('[Cron] DB: update promise_explanations', promise.id, dbErr.message);
+        }
 
-        await client.from('promises').update({
-          status,
-          fulfillment_score: score,
-          needs_human_review: true,
-          is_automated: true,
-          classificacao_ia: { score, status, modelo: result.modelo || 'unknown', classified_at: new Date().toISOString() },
-          updated_at: new Date().toISOString()
-        }).eq('id', promise.id);
+        try {
+          await client.from('promise_explanations').insert({
+            promise_id: promise.id,
+            status,
+            fulfillment_score: score,
+            criterio_aplicado: 'cron_process_pending',
+            justificativa: result.justificativa || '',
+            o_que_foi_feito: result.o_que_foi_feito || '',
+            o_que_falta: result.o_que_falta || '',
+            evidencias_usadas: evidenciaJson,
+            confianca: result.confianca ?? 0.5,
+            modelo_ia: result.modelo || 'groq-llama-3.1-8b-instant',
+            is_latest: true,
+            gerado_em: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error('[Cron] DB: insert promise_explanations', promise.id, dbErr.message);
+        }
 
-        await client.from('promise_audit_log').insert({
-          promise_id: promise.id,
-          campo_alterado: 'cron_process_pending',
-          valor_novo: JSON.stringify({ status, score, confianca: result.confianca, campos_corrigidos: result.campos_corrigidos }),
-          alterado_por: 'cron_process_pending'
-        });
+        try {
+          await client.from('promises').update({
+            status,
+            fulfillment_score: score,
+            needs_human_review: true,
+            is_automated: true,
+            classificacao_ia: { score, status, modelo: result.modelo || 'unknown', classified_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+          }).eq('id', promise.id);
+        } catch (dbErr) {
+          console.error('[Cron] DB: update promises', promise.id, dbErr.message);
+        }
+
+        try {
+          await client.from('promise_audit_log').insert({
+            promise_id: promise.id,
+            campo_alterado: 'cron_process_pending',
+            valor_novo: JSON.stringify({ status, score, confianca: result.confianca, campos_corrigidos: result.campos_corrigidos }),
+            alterado_por: 'cron_process_pending'
+          });
+        } catch (dbErr) {
+          console.error('[Cron] DB: insert audit_log', promise.id, dbErr.message);
+        }
 
         results.processed++;
       } catch (err) {
+        console.error('[Cron] Falha ao processar promessa', promise.id, ':', err.message);
         results.failed++;
         results.errors.push({ id: promise.id, error: err.message });
       }
+
+      await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_MS));
     }
 
     const { count: remaining } = await client
