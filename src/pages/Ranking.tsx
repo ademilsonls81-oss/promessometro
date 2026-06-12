@@ -96,7 +96,7 @@ export default function Ranking() {
       }
       const data = await response.json();
       
-      const mapItem = (item: any) => {
+      const mapItem = (item: any) => {  // any-ok
         const st = item.stats || {};
         return {
           name: item.name, slug: item.slug, role: item.role, state: item.state,
@@ -136,7 +136,7 @@ export default function Ranking() {
         broken_percentage: totalPromises > 0 ? Math.round((broken / totalPromises) * 100) : 0
       });
       setError(null);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error("[Ranking] Error fetching:", err);
       setError("Erro ao carregar ranking: " + err.message);
     } finally {

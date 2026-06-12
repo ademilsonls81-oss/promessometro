@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { runPromiseScraper } from "../services/promiseScraper.js";
-import { processNewsQueue } from "../services/promiseAiService.js";
+import { processNewsQueue } from "../services/promiseAiService.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -15,7 +16,7 @@ router.post("/scrape", asyncHandler(async (req: Request, res: Response) => {
       message: "Scraping completed",
       ...result
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("Scrape error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -30,7 +31,7 @@ router.post("/analyze", asyncHandler(async (req: Request, res: Response) => {
       success: true,
       message: "Analysis completed"
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("Analyze error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -40,7 +41,7 @@ router.get("/sources", asyncHandler(async (req: Request, res: Response) => {
   try {
     const { SCRAPER_SOURCES } = await import("../services/promiseScraper.js");
     return res.json({ sources: SCRAPER_SOURCES });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));

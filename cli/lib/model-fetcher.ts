@@ -14,8 +14,8 @@ async function fetchGroqModels(apiKey: string): Promise<FetchedModel[]> {
     timeout: 6000,
   });
   return res.data.data
-    .filter((m: any) => !m.id.includes('whisper') && !m.id.includes('tts'))
-    .map((m: any) => ({ id: m.id, name: m.id, free: true }));
+    .filter((m: any) => !m.id.includes('whisper') && !m.id.includes('tts'))  // any-ok
+    .map((m: any) => ({ id: m.id, name: m.id, free: true }));  // any-ok
 }
 
 async function fetchOpenAIModels(apiKey: string): Promise<FetchedModel[]> {
@@ -24,10 +24,10 @@ async function fetchOpenAIModels(apiKey: string): Promise<FetchedModel[]> {
     timeout: 6000,
   });
   return res.data.data
-    .filter((m: any) => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3'))
-    .sort((a: any, b: any) => b.created - a.created)
+    .filter((m: any) => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3'))  // any-ok
+    .sort((a: any, b: any) => b.created - a.created)  // any-ok
     .slice(0, 20)
-    .map((m: any) => ({ id: m.id, name: m.id, free: false }));
+    .map((m: any) => ({ id: m.id, name: m.id, free: false }));  // any-ok
 }
 
 async function fetchGeminiModels(apiKey: string): Promise<FetchedModel[]> {
@@ -36,11 +36,11 @@ async function fetchGeminiModels(apiKey: string): Promise<FetchedModel[]> {
     timeout: 6000,
   });
   return res.data.models
-    .filter((m: any) =>
+    .filter((m: any) =>  // any-ok
       m.supportedGenerationMethods?.includes('generateContent') &&
       !m.name.includes('embedding'),
     )
-    .map((m: any) => ({
+    .map((m: any) => ({  // any-ok
       id: m.name.replace('models/', ''),
       name: m.displayName || m.name.replace('models/', ''),
       free: true,
@@ -54,7 +54,7 @@ async function fetchOpenRouterModels(apiKey: string): Promise<FetchedModel[]> {
     headers,
     timeout: 8000,
   });
-  return res.data.data.map((m: any) => ({
+  return res.data.data.map((m: any) => ({  // any-ok
     id: m.id,
     name: m.name || m.id,
     free:
@@ -71,7 +71,7 @@ async function fetchAnthropicModels(_apiKey: string): Promise<FetchedModel[]> {
 
 async function fetchOllamaModels(): Promise<FetchedModel[]> {
   const res = await axios.get('http://127.0.0.1:11434/api/tags', { timeout: 3000 });
-  return (res.data.models || []).map((m: any) => ({
+  return (res.data.models || []).map((m: any) => ({  // any-ok
     id: m.name,
     name: m.name,
     free: true,

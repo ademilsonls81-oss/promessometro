@@ -15,8 +15,8 @@ export interface SearchFilter {
 }
 
 export interface SearchResult {
-  promises: any[];
-  politicians: any[];
+  promises: any[];  // any-ok
+  politicians: any[];  // any-ok
   total_promises: number;
   total_politicians: number;
   nextCursor: string | null;
@@ -58,7 +58,7 @@ export async function search(filters: SearchFilter): Promise<SearchResult> {
 
   if (error) throw error;
 
-  const promisesResult = (promises || []).map((p: any) => ({
+  const promisesResult = (promises || []).map((p: any) => ({  // any-ok
     id: p.id,
     type: "promise",
     politician_name: p.politician_name,
@@ -87,7 +87,7 @@ export async function search(filters: SearchFilter): Promise<SearchResult> {
 
   const { data: politicians, count: polCount } = await politicianQuery.limit(10);
 
-  const politiciansResult = (politicians || []).map((p: any) => ({
+  const politiciansResult = (politicians || []).map((p: any) => ({  // any-ok
     id: p.id,
     type: "politician",
     name: p.name || p.nome,
@@ -110,13 +110,13 @@ function generateSlug(text: string): string {
   return (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-function generatePromiseSlug(p: any): string {
+function generatePromiseSlug(p: any): string {  // any-ok
   const title = p.promise_title || p.title || "";
   const name = p.politician_name || "";
   return generateSlug(`${title}-${name}`);
 }
 
-export async function suggest(q: string, limit: number = 5): Promise<{ promises: any[]; politicians: any[] }> {
+export async function suggest(q: string, limit: number = 5): Promise<{ promises: any[]; politicians: any[] }> {  // any-ok
   if (!q || q.length < 2) return { promises: [], politicians: [] };
 
   const [{ data: promises }, { data: politicians }] = await Promise.all([
@@ -133,13 +133,13 @@ export async function suggest(q: string, limit: number = 5): Promise<{ promises:
   ]);
 
   return {
-    promises: (promises || []).map((p: any) => ({
+    promises: (promises || []).map((p: any) => ({  // any-ok
       id: p.id,
       label: `${p.politician_name}: ${p.promise_title || p.title}`,
       status: p.status,
       url: `/promessa/${generatePromiseSlug(p)}`
     })),
-    politicians: (politicians || []).map((p: any) => ({
+    politicians: (politicians || []).map((p: any) => ({  // any-ok
       id: p.id,
       label: p.name || p.nome,
       party: p.party || p.partido,

@@ -67,7 +67,7 @@ export default function WelcomeModal({ onComplete, existingApiKey }: WelcomeModa
         if (res.data.api_key) {
           setApiKey(res.data.api_key);
         }
-      } catch (err: any) {
+      } catch (err) {  // any-ok
         alert("Failed to generate API key: " + (err.response?.data?.error || err.message));
         return;
       } finally {

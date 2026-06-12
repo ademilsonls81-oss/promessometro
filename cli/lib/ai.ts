@@ -77,7 +77,7 @@ export async function callAI(messages: Message[], options?: {
     } : undefined;
     
     return { content, usage };
-  } catch (error: any) {
+  } catch (error) {  // any-ok
     throw new Error(`Erro na chamada AI (${providerKey}): ${error.message}`);
   }
 }

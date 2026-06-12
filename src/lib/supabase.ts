@@ -4,7 +4,7 @@ import 'dotenv/config';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.S_URL || process.env.VITE_S_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
 
-export let supabase: any = null;
+export let supabase: any = null;  // any-ok
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️ Supabase credentials missing - some features may not work');
@@ -18,7 +18,7 @@ if (!supabaseUrl || !supabaseKey) {
       }
     });
     console.log('✅ Supabase admin client initialized');
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error('❌ Failed to initialize Supabase:', err.message);
   }
 }

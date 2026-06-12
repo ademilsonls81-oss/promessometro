@@ -80,7 +80,7 @@ export async function discoverRepos(): Promise<RawSkillRepo[]> {
       // Respeitar rate limit do GitHub
       await new Promise(r => setTimeout(r, 1000));
 
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error(`[Discovery] Error searching "${term}": ${err.message}`);
     }
   }
@@ -110,13 +110,13 @@ export async function extractSkillFiles(repo: RawSkillRepo): Promise<string[]> {
     const data = await res.json() as any;
 
     return (data.tree || [])
-      .filter((f: any) =>
+      .filter((f: any) =>  // any-ok
         f.type === "blob" &&
         (f.path.endsWith(".md") ||
           f.path.endsWith(".json") ||
           f.path.endsWith(".yaml"))
       )
-      .map((f: any) => f.path)
+      .map((f: any) => f.path)  // any-ok
       .slice(0, 10);
   } catch {
     return [];

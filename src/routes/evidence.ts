@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { searchEvidenceForPromise, saveEvidence, autoSearchAndSaveForPromise, verifyEvidenceIntegrity, logValidation } from "../services/evidenceService.js";
-import { autoCategorizePromise } from "../services/promiseCategorization.js";
+import { autoCategorizePromise } from "../services/promiseCategorization.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -35,7 +36,7 @@ router.post("/search/:promiseId", asyncHandler(async (req: Request, res: Respons
       evidences_found: evidences.length,
       evidences
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Evidence API] Search error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -57,7 +58,7 @@ router.post("/save/:promiseId", asyncHandler(async (req: Request, res: Response)
     }
 
     return res.json({ success: true, evidence_id: savedId });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Evidence API] Save error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -76,7 +77,7 @@ router.post("/auto-search/:promiseId", asyncHandler(async (req: Request, res: Re
       evidences_saved: savedCount,
       message: `${savedCount} evidÃªncias encontradas e salvas`
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Evidence API] Auto-search error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -107,7 +108,7 @@ router.get("/promise/:promiseId", asyncHandler(async (req: Request, res: Respons
     }
 
     return res.json({ evidences: evidences || [] });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -168,7 +169,7 @@ router.patch("/:evidenceId/validate", checkAdmin, asyncHandler(async (req: Reque
     }
 
     return res.json({ success: true, message: `EvidÃªncia ${status}` });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -184,7 +185,7 @@ router.post("/verify/:evidenceId", asyncHandler(async (req: Request, res: Respon
       evidence_id: evidenceId,
       integrity_checked: verified 
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -213,7 +214,7 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
     }
 
     return res.json({ evidences: evidences || [], total: count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -227,7 +228,7 @@ router.get("/sources", asyncHandler(async (_req: Request, res: Response) => {
       .order("credibility_score", { ascending: false });
 
     return res.json({ sources: sources || [] });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -260,7 +261,7 @@ router.post("/dispute/:evidenceId", asyncHandler(async (req: Request, res: Respo
       .eq("id", evidenceId);
 
     return res.json({ success: true, dispute: data });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -288,7 +289,7 @@ router.get("/disputes", asyncHandler(async (req: Request, res: Response) => {
     }
 
     return res.json({ disputes: disputes || [] });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));

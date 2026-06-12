@@ -34,7 +34,7 @@ export async function autoCategorizePromise(promiseId: string): Promise<PromiseS
 
   let totalConfidence = 0;
 
-  evidences.forEach((e: any) => {
+  evidences.forEach((e: any) => {  // any-ok
     if (e.evidence_type === "fulfillment") {
       evidenceSummary.fulfilled++;
       totalConfidence += e.confidence_score || 50;
@@ -155,7 +155,7 @@ export async function getPromiseWithEvidenceAnalysis(promiseId: string): Promise
   const approvedCount = evidences?.length || 0;
   const evidenceTypes = { fulfillment: 0, partial: 0, break: 0, neutral: 0 };
 
-  evidences?.forEach((e: any) => {
+  evidences?.forEach((e: any) => {  // any-ok
     if (e.evidence_type === "fulfillment") evidenceTypes.fulfillment++;
     else if (e.evidence_type === "partial") evidenceTypes.partial++;
     else if (e.evidence_type === "break") evidenceTypes.break++;

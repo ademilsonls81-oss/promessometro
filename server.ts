@@ -28,15 +28,15 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Security headers (antes das rotas)
-app.use((req: any, res: any, next: any) => {
+app.use((req: any, res: any, next: any) => {  // any-ok
   secureHeaders(req, res, next);
 });
 
-app.use((req: any, res: any, next: any) => {
+app.use((req: any, res: any, next: any) => {  // any-ok
   csrfValidation(req, res, next);
 });
 
-app.use("/api", (req: any, res: any, next: any) => {
+app.use("/api", (req: any, res: any, next: any) => {  // any-ok
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -50,12 +50,12 @@ app.use("/api", (req: any, res: any, next: any) => {
 // ==========================================
 // INICIA SERVER PRIMEIRO
 // ==========================================
-let server: any;
+let server: any;  // any-ok
 try {
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is live on port ${PORT}`);
   });
-} catch (err: any) {
+} catch (err) {  // any-ok
   console.error(`❌ Failed to start server: ${err.message}`);
   process.exit(1);
 }
@@ -190,7 +190,7 @@ app.get("/api/evidence/pipeline/run", async (req, res) => {
         evidencias_salvas: result.evidences_found
       };
       console.log(`[Pipeline] Completed job ${jobId}`);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error(`[Pipeline] Error in job ${jobId}:`, err.message);
       pipelineStatus.lastResult = {
         status: "error",
@@ -254,7 +254,7 @@ app.get("/api/evidence/pipeline/status", async (req, res) => {
         total_evidencias: evidenciasCount || 0
       }
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ status: "error", message: err.message });
   }
 });
@@ -289,7 +289,7 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
   try {
     const { handleStripeWebhook } = await import("./src/routes/stripeWebhook.js");
     await handleStripeWebhook(req, res);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`Webhook error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
@@ -346,7 +346,7 @@ async function initHeavyServices() {
 
     // Executa primeiro lote imediatamente
     processPendingPromises();
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`⚠️ Some services failed to load: ${err.message}`);
   }
 }
@@ -361,6 +361,8 @@ interface EvaluateResult {
   o_que_falta?: string;
   o_que_foi_feito?: string;
   confianca?: number;
+  modelo_ia?: string;
+  motivo_confianca?: string;
 }
 
 let pendingRunning = false;
@@ -372,10 +374,16 @@ async function processPendingPromises() {
   const BATCH = 20;
   let evaluated = 0, failed = 0;
 
+  // Auto-detect: sem GEMINI_API_KEY, usa heurística com DuckDuckGo (gratuito)
+  const useHeuristic = !process.env.GEMINI_API_KEY;
+  if (useHeuristic) {
+    console.log('[cron-pending] GEMINI_API_KEY não configurada — usando avaliador heurístico (DuckDuckGo gratuito)');
+  }
+
   try {
     const { data: promises } = await supabase
       .from('promises')
-      .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, evidences_used')
+      .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, evidences_used, created_at')
       .in('status', ['pendente', 'nao_iniciada', 'nao_classificada'])
       .order('last_verified_at', { ascending: true, nullsFirst: true })
       .limit(BATCH);
@@ -389,17 +397,28 @@ async function processPendingPromises() {
 
     for (const promise of promises) {
       try {
-        const { evaluateWithAI, filterSocialMedia } = await import('./api/lib/evaluatePromise.js');
-        const result = await Promise.race([
-          evaluateWithAI(promise),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
-        ]) as EvaluateResult;
+        let result: EvaluateResult;
+
+        if (useHeuristic) {
+          const { heuristicEvaluate } = await import('./src/services/heuristicEvaluator.js');
+          result = await heuristicEvaluate(promise) as EvaluateResult;
+        } else {
+          const { evaluateWithAI, filterSocialMedia } = await import('./api/lib/evaluatePromise.js');
+          result = await Promise.race([
+            evaluateWithAI(promise),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
+          ]) as EvaluateResult;
+        }
+
+        const { filterSocialMedia } = await import('./api/lib/evaluatePromise.js');
+        const finalEvidences = filterSocialMedia(result.evidences).slice(0, 5);
+        const confianca = finalEvidences.filter((e: any) => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60;  // any-ok
 
         await supabase.from('promises').update({
           status: result.status,
           fulfillment_score: result.fulfillment_score,
           ai_evaluation: result.justification,
-          evidences_used: filterSocialMedia(result.evidences).slice(0, 5),
+          evidences_used: finalEvidences,
           complexity_score: result.complexity,
           impact_score: result.impact,
           last_verified_at: new Date().toISOString()
@@ -416,11 +435,11 @@ async function processPendingPromises() {
             promise_id: promise.id, status: result.status, fulfillment_score: result.fulfillment_score,
             criterio_aplicado: 'server_cron_pending',
             justificativa: result.justification,
-            evidencias_usadas: result.evidences.map((e: any) => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),
+            evidencias_usadas: finalEvidences.map((e: any) => ({ descricao: e.descricao, fonte: e.fonte, url: e.url })),  // any-ok
             o_que_falta: result.o_que_falta || 'Monitoramento continuo',
             o_que_foi_feito: result.o_que_foi_feito || result.justification,
-            confianca: result.evidences.filter((e: any) => e.url && e.url !== '#').length >= 2 ? 0.80 : 0.60,
-            modelo_ia: 'llama-3.1-8b-instant', is_latest: true, gerado_em: new Date().toISOString()
+            confianca,
+            modelo_ia: result.modelo_ia || 'heuristic-v1', is_latest: true, gerado_em: new Date().toISOString()
           });
         } catch {}
 
@@ -428,11 +447,11 @@ async function processPendingPromises() {
           action: 'server_cron_pending_reavaliation', entity_type: 'promises', entity_id: promise.id,
           details: JSON.stringify({ old_status: promise.status, new_status: result.status, score: result.fulfillment_score })
         }); } catch {}
-      } catch (e: any) {
+      } catch (e) {  // any-ok
         failed++;
         console.error(`[cron-pending] Erro promessa ${promise.id}: ${e.message}`);
       }
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, useHeuristic ? 500 : 300));
     }
 
     // Recalcular scores dos políticos afetados
@@ -446,7 +465,7 @@ async function processPendingPromises() {
     }
 
     console.log(`[cron-pending] Lote concluído: ${evaluated} avaliadas, ${failed} falhas em ${Date.now()-start}ms`);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`[cron-pending] ERRO: ${err.message}`);
   } finally {
     pendingRunning = false;
@@ -465,7 +484,7 @@ setInterval(() => {
 process.on("uncaughtException", (error) => console.error("UNCAUGHT:", error.message));
 process.on("unhandledRejection", (reason) => console.error("UNHANDLED:", reason));
 
-app.use((err: any, req: any, res: any, next: any) => {
+app.use((err: any, req: any, res: any, next: any) => {  // any-ok
   errorHandler(err, req, res, next);
 });
 

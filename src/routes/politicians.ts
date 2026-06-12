@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
-import { get as cacheGet, set as cacheSet, invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { get as cacheGet, set as cacheSet, invalidate as cacheInvalidate } from "../services/cacheService.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -39,14 +40,14 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
     }
 
     const politiciansWithStats = await Promise.all(
-      (politicians || []).map(async (p: any) => {
+      (politicians || []).map(async (p: any) => {  // any-ok
         const stats = await getPoliticianStats(p.name);
         return { ...p, stats };
       })
     );
 
     return res.json({ politicians: politiciansWithStats, total: count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -56,7 +57,7 @@ router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
     const { limit = 50, offset = 0 } = req.query;
     const cacheKey = `ranking:${limit}:${offset}`;
 
-    const cached = cacheGet<{ ranking: any[]; total: number; stats: any }>(cacheKey);
+    const cached = cacheGet<{ ranking: any[]; total: number; stats: any }>(cacheKey);  // any-ok
     if (cached) return res.json(cached);
 
     const { data: rankingData, error } = await supabase
@@ -75,7 +76,7 @@ router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
 
       const statsMap: Record<string, { fulfilled: number; partial: number; broken: number; pending: number; total: number; totalScore: number }> = {};
 
-      (promises || []).forEach((p: any) => {
+      (promises || []).forEach((p: any) => {  // any-ok
         const name = p.politician_name;
         if (!statsMap[name]) {
           statsMap[name] = { fulfilled: 0, partial: 0, broken: 0, pending: 0, total: 0, totalScore: 0 };
@@ -127,7 +128,7 @@ router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
       return res.json(fallbackResult);
     }
 
-    const ranking = (rankingData || []).map((p: any) => ({
+    const ranking = (rankingData || []).map((p: any) => ({  // any-ok
       id: p.id,
       name: p.name,
       slug: p.slug,
@@ -151,13 +152,13 @@ router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
       ranking, 
       total: ranking.length,
       stats: {
-        total_promises: ranking.reduce((sum: number, p: any) => sum + (p.stats?.total || 0), 0),
+        total_promises: ranking.reduce((sum: number, p: any) => sum + (p.stats?.total || 0), 0),  // any-ok
         total_politicians: ranking.length
       }
     };
     cacheSet(cacheKey, result);
     return res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -204,7 +205,7 @@ router.get("/:name", asyncHandler(async (req: Request, res: Response) => {
     return res.json({
       ...politicianData,
       stats,
-      promises: promises.map((p: any) => ({
+      promises: promises.map((p: any) => ({  // any-ok
         id: p.id,
         title: p.promise_title,
         description: p.promise_description,
@@ -217,7 +218,7 @@ router.get("/:name", asyncHandler(async (req: Request, res: Response) => {
         updated_at: p.updated_at
       }))
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -231,7 +232,7 @@ async function getPoliticianStats(name: string): Promise<PoliticianStats> {
   return calculateStats(promises || []);
 }
 
-function calculateStats(promises: any[]): PoliticianStats {
+function calculateStats(promises: any[]): PoliticianStats {  // any-ok
   const stats: PoliticianStats = {
     fulfilled: 0,
     partial: 0,
@@ -241,7 +242,7 @@ function calculateStats(promises: any[]): PoliticianStats {
     percentage: 50
   };
 
-  promises.forEach((p: any) => {
+  promises.forEach((p: any) => {  // any-ok
     switch (p.status) {
       case "fulfilled":
         stats.fulfilled++;

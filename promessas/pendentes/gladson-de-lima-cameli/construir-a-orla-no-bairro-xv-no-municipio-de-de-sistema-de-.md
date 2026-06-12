@@ -1,0 +1,80 @@
+---
+titulo: "Construir a “Orla no Bairro XV”, no Município de de Sistema de Esgotamento Sanitário em CruzeiRio Branco; ro do Sul; g• "
+politico: "Gladson de Lima Cameli"
+partido: "PP"
+cargo: "governador"
+estado: "Acre"
+data_promessa: "2022-10-01"
+fonte_original: "Plano de Governo Acre 2023-2026 (PDF)"
+status: "🟡 pendente"
+categoria: "Infraestrutura"
+ultima_atualizacao: "2026-06-09"
+---
+
+
+
+# Construir a “Orla no Bairro XV”, no Município de de Sistema de Esgotamento Sanitário em CruzeiRio Branco; ro do Sul; g• 
+
+## 📌 Dados da Promessa
+
+| Campo | Valor |
+|-------|-------|
+| **Politico** | Gladson de Lima Cameli |
+| **Partido** | PP |
+| **Cargo** | governador |
+| **Estado** | Acre |
+| **Data da Promessa** | 2022-10-01 |
+| **Categoria** | Infraestrutura |
+| **Status Atual** | 🟡 pendente |
+| **Ultima Atualizacao** | 2026-06-09 |
+
+---
+
+## 📄 Descricao
+
+Construir a “Orla no Bairro XV”, no Município de de Sistema de Esgotamento Sanitário em CruzeiRio Branco; ro do Sul; g• g• Construir o Complexo Viário (viaduto) na AveniRealizar novo processo seletivo para aumentar da Ceará com a Getúlio Vargas; o efetivo de profissionais relacionados às atividag• Construir mais 19 quadras poliesportivas nos des de tratamento e distribuição de água nos 21 diversos Municípios; municípios do interior do Estado; g• g• Realizar melhorias e reestruturação do sisteOfe
+
+---
+
+## 🔗 Fonte Original
+
+- **Link:** Plano de Governo Acre 2023-2026
+- **Veiculo/Plataforma:** PDF — TSE
+- **Data de publicacao:** 2022-08-15
+
+---
+
+## ✅ Criterio de Verificacao
+
+Aguardando definicao de criterio de verificacao especifico.
+
+---
+
+## 📊 Historico de Status
+
+| Data | Status Anterior | Novo Status | Responsavel | Nota |
+|------|----------------|-------------|-------------|------|
+| 2026-06-09 | — | 🟡 pendente | sistema | Promessa extraida do PDF do plano de governo |
+
+---
+
+## 🧠 Decisoes
+
+- [2026-06-09] Promessa extraida automaticamente via analise estrutural do texto do plano de governo.
+
+---
+
+## 📎 Evidencias
+
+| Data | Tipo | Descricao | Fonte | Link |
+|------|------|-----------|-------|------|
+| — | — | Nenhuma evidencia coletada ainda | — | — |
+
+
+---
+
+## 🔗 Conexoes
+
+- [[politicos/Gladson de Lima Cameli]]
+- [[estados/Acre]]
+- [[categorias/Infraestrutura]]

@@ -1,0 +1,189 @@
+---
+nome: "Mauro Mendes"
+partido: "UNIÃO"
+cargo: "governador"
+estado: "Mato Grosso"
+total_promessas: 145
+ultima_atualizacao: "2026-06-10"
+mandato_inicio: "2023"
+mandato_fim: "2026"
+c3_score: "100"
+legado_total: "0"
+nota_final: "0"
+conceito: "—"
+---
+
+# Mauro Mendes
+
+## 📌 Dados
+
+| Campo | Valor |
+|-------|-------|
+| **Nome** | Mauro Mendes |
+| **Partido** | UNIÃO |
+| **Cargo** | governador |
+| **Estado** | [[estados/Mato Grosso]] |
+| **Total de Promessas** | 145 |
+
+---
+
+## 🧮 Metodologia (v1.1)
+
+| Campo | Valor |
+|-------|-------|
+| **C3 Score** | 100 (sem fatos jurídicos) |
+| **Legado Total** | 0 (primeiro mandato) |
+| **Nota Final** | — (aguardando verificação) |
+| **Conceito** | — |
+| **Fórmula** | (C1 × 0,40) + (C2 × 0,35) + (C3 × 0,25) |
+
+---
+
+
+## 📋 Promessas
+
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-a-cobertura-do-cadastro-ambiental-rural-em-propriedades-da-agricultura-f|Ampliar a cobertura do Cadastro Ambiental Rural em propriedades da agricultura f]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-a-oferta-de-leitos-hospitalares-publicos-no-estado-de-mato-grosso|Ampliar a oferta de leitos hospitalares públicos no estado de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-a-politica-de-gestao-compartilhada-dos-equipamentos-culturais-do-estado-|Ampliar a política de Gestão Compartilhada dos equipamentos culturais do estado ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-as-acoes-em-parceria-com-os-municipios-para-fortalecimento-da-atencao-pr|Ampliar as ações em parceria com os municípios para fortalecimento da atenção pr]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-as-oportunidades-educacionais-para-alfabetizacao-de-jovens-e-adultos-eja|Ampliar as oportunidades educacionais para alfabetização de jovens e adultos (EJ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-e-promover-adequacoes-estruturais-nos-distritos-industriais-de-mato-gros|Ampliar e promover adequações estruturais nos Distritos Industriais de Mato Gros]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-o-acesso-ao-ensino-tecnico-e-profissionalizante-com-fortalecimento-da-co|Ampliar o acesso ao ensino técnico e profissionalizante com fortalecimento da co]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-o-atendimento-aos-estudantes-da-educacao-inclusiva-em-mato-grosso|Ampliar o atendimento aos estudantes da educação inclusiva em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-o-numero-de-escolas-que-oferecem-ensino-em-tempo-integral-em-mato-grosso|Ampliar o número de escolas que oferecem ensino em tempo integral em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-o-numero-de-estudantes-atendidos-pelo-ensino-tecnico-profissionalizante-|Ampliar o número de estudantes atendidos pelo ensino técnico profissionalizante ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-o-programa-de-cirurgias-eletivas-em-mato-grosso|Ampliar o programa de cirurgias eletivas em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-os-servicos-de-assistencia-tecnica-e-extensao-rural-por-meio-de-parceria|Ampliar os serviços de assistência técnica e extensão rural por meio de parceria]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ampliar-pesquisas-para-cadeias-produtivas-da-agricultura-familiar-via-parcerias-|Ampliar pesquisas para cadeias produtivas da agricultura familiar via parcerias ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-a-implantacao-e-qualificacao-de-equipamentos-publicos-para-pratica-de-ati|Apoiar a implantação e qualificação de equipamentos públicos para prática de ati]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-a-implementacao-de-sistemas-agroflorestais-e-projetos-de-integracao-lavou|Apoiar a implementação de sistemas agroflorestais e projetos de integração lavou]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-e-fortalecer-instituicoes-filantropicas-para-execucao-de-politicas-de-ass|Apoiar e fortalecer instituições filantrópicas para execução de políticas de ass]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-iniciativas-de-uso-sustentavel-da-floresta-para-reducao-dos-indices-de-de|Apoiar iniciativas de uso sustentável da floresta para redução dos índices de de]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-investimentos-privados-para-o-turismo-com-linhas-de-credito-incentivos-fi|Apoiar investimentos privados para o turismo com linhas de crédito, incentivos f]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-municipios-na-criacao-do-servico-de-inspecao-municipal-e-registro-no-susa|Apoiar municípios na criação do Serviço de Inspeção Municipal e registro no SUSA]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-o-desenvolvimento-de-bioinsumos-em-mato-grosso|Apoiar o desenvolvimento de bioinsumos em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-o-uso-de-fontes-alternativas-e-sustentaveis-de-geracao-de-energia-em-parc|Apoiar o uso de fontes alternativas e sustentáveis de geração de energia em parc]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-os-municipios-na-melhoria-das-estruturas-e-servicos-hospitalares|Apoiar os municípios na melhoria das estruturas e serviços hospitalares]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-programas-de-acesso-a-agua-para-consumo-humano-e-producao-na-agricultura-|Apoiar programas de acesso à água para consumo humano e produção na agricultura ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/apoiar-startups-em-mato-grosso|Apoiar startups em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/aprimorar-a-capacidade-administrativa-da-secretaria-de-estado-de-educacao-de-mat|Aprimorar a capacidade administrativa da Secretaria de Estado de Educação de Mat]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/aprimorar-politicas-publicas-integradas-para-uso-racional-dos-recursos-naturais-|Aprimorar políticas públicas integradas para uso racional dos recursos naturais,]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/assegurar-o-respeito-a-revisao-geral-anual-dos-salarios-dos-servidores-publicos|Assegurar o respeito à revisão geral anual dos salários dos servidores públicos]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/atuar-em-parceria-com-os-municipios-para-reforcar-acoes-de-inclusao-das-pessoas-|Atuar em parceria com os municípios para reforçar ações de inclusão das pessoas ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/avancar-na-modernizacao-da-estrutura-fisica-e-tecnologica-dos-espacos-escolares-|Avançar na modernização da estrutura física e tecnológica dos espaços escolares ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-a-modernizacao-dos-hospitais-regionais-de-rondonopolis-sinop-caceres-so|Concluir a modernização dos Hospitais Regionais de Rondonópolis, Sinop, Cáceres,]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-a-zona-de-processamento-das-exportacoes-zpe-de-caceres-e-incentivar-imp|Concluir a Zona de Processamento das Exportações (ZPE) de Cáceres e incentivar i]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-as-obras-de-reforma-e-construcao-das-unidades-descentralizadas-cermac-m|Concluir as obras de reforma e construção das unidades descentralizadas CERMAC, ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-as-obras-do-hospital-central-de-cuiaba-e-do-novo-hospital-julio-muller|Concluir as obras do Hospital Central de Cuiabá e do novo Hospital Júlio Muller]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-as-obras-do-parque-tecnologico-em-varzea-grande|Concluir as obras do Parque Tecnológico em Várzea Grande]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-as-obras-dos-hospitais-regionais-de-juina-alta-floresta-confresa-e-tang|Concluir as obras dos hospitais regionais de Juína, Alta Floresta, Confresa e Ta]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/concluir-obras-de-infraestrutura-turistica-nas-orlas-de-santo-antonio-do-leverge|Concluir obras de infraestrutura turística nas orlas de Santo Antonio do Leverge]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/continuar-a-modernizacao-do-sistema-de-gestao-fundiaria-do-intermat|Continuar a modernização do sistema de gestão fundiária do INTERMAT]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/continuar-aprimorando-o-modelo-de-gestao-por-resultados-da-sema|Continuar aprimorando o modelo de gestão por resultados da SEMA]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/criar-centro-de-capacitacao-profissional-de-alta-performance-em-programacao-de-c|Criar centro de capacitação profissional de alta performance em programação de c]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/criar-o-observatorio-da-cultura-de-mato-grosso-para-monitoramento-e-controle-dos|Criar o Observatório da Cultura de Mato Grosso para monitoramento e controle dos]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/criar-o-programa-de-formacao-em-cultura-de-mato-grosso-com-cursos-e-apresentacoe|Criar o programa de Formação em Cultura de Mato Grosso com cursos e apresentaçõe]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/criar-politica-de-gratificacao-por-desempenho-baseada-em-indicadores-de-eficienc|Criar política de gratificação por desempenho baseada em indicadores de eficiênc]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/dar-continuidade-a-modernizacao-dos-sistemas-de-politicas-publicas-ambientais-co|Dar continuidade à modernização dos sistemas de políticas públicas ambientais co]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/dar-continuidade-a-regularizacao-ambiental-dos-imoveis-rurais-pelo-simcar-e-recu|Dar continuidade à regularização ambiental dos imóveis rurais pelo SIMCAR e recu]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/dar-continuidade-a-regularizacao-fundiaria-nas-areas-do-estado-de-mato-grosso|Dar continuidade à regularização fundiária nas áreas do estado de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/dar-continuidade-aos-programas-de-fomento-com-distribuicao-de-tratores-implement|Dar continuidade aos programas de fomento com distribuição de tratores, implemen]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/divulgar-os-destinos-turisticos-mato-grossenses|Divulgar os destinos turísticos mato-grossenses]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/entregar-1-500-km-de-asfalto-restaurado-em-todas-as-regioes-do-estado-de-mato-gr|Entregar 1.500 km de asfalto restaurado em todas as regiões do estado de Mato Gr]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/entregar-120-unidades-de-pontes-de-concreto-com-mais-de-50-metros-em-todas-as-re|Entregar 120 unidades de pontes de concreto com mais de 50 metros em todas as re]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/entregar-2-600-km-de-asfalto-novo-em-todas-as-regioes-do-estado-de-mato-grosso|Entregar 2.600 km de asfalto novo em todas as regiões do estado de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/entregar-a-sede-do-centro-logistico-de-abastecimento-e-distribuicao-clad-mt|Entregar a sede do Centro Logístico de Abastecimento e Distribuição (CLAD/MT)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/equipar-capacitar-e-estimular-as-forcas-de-seguranca-de-mato-grosso-para-combate|Equipar, capacitar e estimular as forças de segurança de Mato Grosso para combat]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/estimular-a-melhoria-da-producao-e-ampliacao-da-competitividade-da-agricultura-f|Estimular a melhoria da produção e ampliação da competitividade da agricultura f]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/expandir-o-programa-de-protecao-as-mulheres-vitimas-de-violencia-domestica-com-i|Expandir o programa de proteção às mulheres vítimas de violência doméstica com i]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-a-atracao-de-novas-tecnologias-produtivas-para-agricultura-familiar|Fomentar a atração de novas tecnologias produtivas para agricultura familiar]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-a-gestao-ambiental-municipal-com-descentralizacao-do-licenciamento-ambi|Fomentar a gestão ambiental municipal com descentralização do licenciamento ambi]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-a-industrializacao-das-materias-primas-produzidas-no-estado|Fomentar a industrialização das matérias-primas produzidas no estado]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-modelo-de-producao-de-baixas-emissoes-de-carbono-para-mato-grosso-se-to|Fomentar modelo de produção de baixas emissões de carbono para Mato Grosso se to]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-o-aumento-da-area-de-florestas-plantadas-em-mato-grosso|Fomentar o aumento da área de florestas plantadas em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fomentar-o-esporte-com-construcao-de-quadras-poliesportivas-em-parceria-com-os-m|Fomentar o esporte com construção de quadras poliesportivas em parceria com os m]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/formalizar-parcerias-com-municipios-para-investimentos-em-pavimentacao-drenagem-|Formalizar parcerias com municípios para investimentos em pavimentação, drenagem]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/formular-o-plano-de-desenvolvimento-do-estado-de-mato-grosso-mais-mt-30-anos|Formular o Plano de Desenvolvimento do Estado de Mato Grosso (Mais MT 30 anos)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-a-educacao-das-comunidades-do-campo-indigenas-e-quilombolas-em-mato-g|Fortalecer a educação das comunidades do campo, indígenas e quilombolas em Mato ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-a-gestao-ambiental-integrada-e-eficiente-em-mato-grosso|Fortalecer a Gestão Ambiental Integrada e Eficiente em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-a-politica-de-formacao-continuada-dos-profissionais-da-educacao-atrel|Fortalecer a política de formação continuada dos profissionais da educação, atre]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-a-politica-de-regularizacao-ambiental-e-fundiaria-das-unidades-de-con|Fortalecer a política de regularização ambiental e fundiária das unidades de con]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-a-regionalizacao-de-atendimento-dos-bombeiros-militares-nos-polos-do-|Fortalecer a regionalização de atendimento dos Bombeiros Militares nos polos do ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-e-priorizar-a-politica-de-policiamento-ostensivo-com-aumento-do-efeti|Fortalecer e priorizar a política de policiamento ostensivo com aumento do efeti]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-acesso-dos-agricultores-familiares-ao-fundo-de-aval-mt-garante|Fortalecer o acesso dos agricultores familiares ao Fundo de Aval MT Garante]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-financiamento-de-pesquisa-e-desenvolvimento-em-mato-grosso|Fortalecer o financiamento de pesquisa e desenvolvimento em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-gefron-para-maior-eficiencia-no-combate-aos-crimes-fronteiricos-nar|Fortalecer o GEFRON para maior eficiência no combate aos crimes fronteiriços, na]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-programa-de-patrulhamento-rural-em-mato-grosso|Fortalecer o programa de Patrulhamento Rural em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-programa-tolerancia-zero-em-mato-grosso|Fortalecer o programa Tolerância Zero em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-regime-de-colaboracao-com-os-municipios-para-melhorias-na-oferta-da|Fortalecer o regime de colaboração com os municípios para melhorias na oferta da]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-sistema-de-gestao-de-metas-e-indicadores-de-controle-de-crimes-e-vi|Fortalecer o Sistema de Gestão de Metas e Indicadores de controle de crimes e vi]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-o-sistema-estadual-de-inteligencia-com-modernizacao-tecnologica-e-aca|Fortalecer o Sistema Estadual de Inteligência com modernização tecnológica e açã]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-os-programas-sociais-de-prevencao-e-combate-ao-trafico-e-uso-de-droga|Fortalecer os Programas Sociais de Prevenção e Combate ao tráfico e uso de droga]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/fortalecer-os-sistemas-produtivos-das-cooperativas-e-associacoes-de-agricultores|Fortalecer os sistemas produtivos das cooperativas e associações de agricultores]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/garantir-o-financiamento-aos-programas-de-combate-a-violencia-contra-mulheres-em|Garantir o financiamento aos programas de combate à violência contra mulheres em]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-10-unidades-do-programa-ser-crianca-em-parceria-com-os-municipios|Implantar 10 unidades do programa Ser Criança em parceria com os municípios]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-10-vilas-do-idoso-em-parceria-com-os-municipios-de-mato-grosso|Implantar 10 vilas do idoso em parceria com os municípios de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-centro-de-diagnostico-e-tratamento-de-cancer-em-sinop-e-rondonopolis-e|Implantar Centro de Diagnóstico e Tratamento de Câncer em Sinop e Rondonópolis e]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-e-fomentar-eventos-esportivos-adaptados-a-comunidades-tradicionais-ido|Implantar e fomentar eventos esportivos adaptados a comunidades tradicionais, id]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-o-ensino-via-metaverso-e-outras-inovacoes-de-inteligencia-artificial-n|Implantar o ensino via Metaverso e outras inovações de Inteligência Artificial n]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-o-quinto-itinerario-formativo-nas-escolas-tecnicas-estaduais-para-aten|Implantar o quinto itinerário formativo nas escolas técnicas estaduais para aten]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-o-sistema-brt-em-cuiaba-e-varzea-grande|Implantar o sistema BRT em Cuiabá e Várzea Grande]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-o-sistema-integrado-de-gestao-de-obras-publicas-sinfralog|Implantar o Sistema Integrado de Gestão de Obras Públicas (SINFRALOG)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implantar-unidades-de-centro-de-convivencia-do-idoso-em-parceria-com-os-municipi|Implantar unidades de Centro de Convivência do Idoso em parceria com os municípi]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implementar-a-gestao-regional-de-ensino-para-monitoramento-e-melhoria-dos-indica|Implementar a Gestão Regional de Ensino para monitoramento e melhoria dos indica]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implementar-iniciativas-para-construcao-da-ferrovia-de-integracao-do-centro-oest|Implementar iniciativas para construção da Ferrovia de Integração do Centro-Oest]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implementar-o-projeto-aguia-de-videomonitoramento-urbano-e-rural-nas-cidades-de-|Implementar o projeto Águia de videomonitoramento urbano e rural nas cidades de ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implementar-o-sistema-estadual-integrado-da-agricultura-familiar-seiaf|Implementar o Sistema Estadual Integrado da Agricultura Familiar (SEIAF)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/implementar-programas-de-alfabetizacao-em-regime-de-colaboracao-com-os-municipio|Implementar programas de alfabetização em regime de colaboração com os município]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/impulsionar-as-parcerias-com-os-municipios-para-oferta-dos-servicos-de-protecao-|Impulsionar as parcerias com os municípios para oferta dos serviços de proteção ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/iniciar-a-construcao-do-complexo-do-rio-juruena-com-pavimentacao-de-rodovia-e-po|Iniciar a construção do Complexo do Rio Juruena com pavimentação de rodovia e po]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/iniciar-a-construcao-do-rodoanel-de-cuiaba-varzea-grande-interligando-br-163-e-b|Iniciar a construção do Rodoanel de Cuiabá-Várzea Grande interligando BR-163 e B]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/iniciar-a-duplicacao-da-mt-251-entre-cuiaba-e-chapada-dos-guimaraes|Iniciar a duplicação da MT-251 entre Cuiabá e Chapada dos Guimarães]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/iniciar-a-pavimentacao-da-rodovia-juina-colniza-mt-170-208-418|Iniciar a pavimentação da rodovia Juína-Colniza (MT-170/208/418)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/intensificar-o-programa-de-regularizacao-fundiaria-por-meio-do-intermat|Intensificar o Programa de Regularização Fundiária por meio do INTERMAT]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/investir-em-tecnologia-para-melhorar-a-prestacao-dos-servicos-de-saude-para-a-po|Investir em tecnologia para melhorar a prestação dos serviços de saúde para a po]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/levar-tecnologia-para-as-escolas-com-disponibilizacao-de-notebooks-chromebooks-k|Levar tecnologia para as escolas com disponibilização de notebooks, chromebooks,]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-politica-de-credito-para-micro-e-pequenos-empreendedores-de-mato-grosso|Manter a política de crédito para micro e pequenos empreendedores de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-politica-de-fomento-para-empreendedores-sociais-mulheres-e-jovens|Manter a política de fomento para empreendedores sociais, mulheres e jovens]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-politica-de-incentivos-para-atracao-de-investimentos-e-competitividade-|Manter a política de incentivos para atração de investimentos e competitividade ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-pontualidade-dos-pagamentos-a-servidores-e-fornecedores-do-estado|Manter a pontualidade dos pagamentos a servidores e fornecedores do Estado]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-realizacao-dos-jogos-estudantis-em-parceria-com-os-municipios|Manter a realização dos Jogos Estudantis em parceria com os municípios]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-a-sustentacao-financeira-de-longo-prazo-para-execucao-da-politica-de-inve|Manter a sustentação financeira de longo prazo para execução da política de inve]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-em-dia-os-repasses-aos-municipios-na-area-de-saude-em-mato-grosso|Manter em dia os repasses aos municípios na área de saúde em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-o-financiamento-das-politicas-de-fomento-direto-a-cultura-por-meio-de-edi|Manter o financiamento das políticas de fomento direto à cultura por meio de edi]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-o-programa-bolsa-atleta-em-mato-grosso|Manter o programa Bolsa Atleta em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-o-programa-de-seguranca-alimentar-com-entrega-de-cestas-basicas-as-pessoa|Manter o programa de segurança alimentar com entrega de cestas básicas às pessoa]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-os-programas-de-incentivo-a-cobertura-vacinal-em-mato-grosso|Manter os programas de incentivo à cobertura vacinal em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/manter-projetos-de-apoio-ao-esporte-de-impacto-social-e-financiamento-para-parti|Manter projetos de apoio ao esporte de impacto social e financiamento para parti]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/melhorar-a-mobilidade-urbana-da-regiao-metropolitana-de-cuiaba-com-novas-interve|Melhorar a mobilidade urbana da região metropolitana de Cuiabá com novas interve]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/modernizar-a-politec-com-descentralizacao-e-expansao-dos-servicos-de-medicina-le|Modernizar a Politec com descentralização e expansão dos serviços de medicina le]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/modernizar-o-mobiliario-e-equipamentos-disponibilizados-aos-orgaos-publicos-esta|Modernizar o mobiliário e equipamentos disponibilizados aos órgãos públicos esta]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/modernizar-os-produtos-e-sistemas-de-gestao-de-pessoas-desburocratizando-process|Modernizar os produtos e sistemas de gestão de pessoas desburocratizando process]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/oferecer-valorizacao-dos-profissionais-de-educacao-por-meio-de-projetos-de-capac|Oferecer valorização dos profissionais de educação por meio de projetos de capac]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ofertar-80-mil-vagas-de-qualificacao-profissional-social-em-mato-grosso|Ofertar 80 mil vagas de qualificação profissional social em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/ofertar-formacoes-para-o-desenvolvimento-profissional-continuo-dos-gestores-esco|Ofertar formações para o desenvolvimento profissional contínuo dos gestores esco]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-a-aproximacao-e-integracao-com-todos-os-organismos-e-forcas-de-seguranc|Promover a aproximação e integração com todos os organismos e forças de seguranç]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-a-transformacao-digital-dos-servicos-publicos-com-plataformas-digitais-|Promover a transformação digital dos serviços públicos com plataformas digitais ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-acoes-de-inclusao-social-e-respeito-as-diferencas-em-mato-grosso|Promover ações de inclusão social e respeito às diferenças em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-acoes-para-efetivacao-dos-direitos-das-pessoas-idosas-quanto-a-promocao|Promover ações para efetivação dos direitos das pessoas idosas quanto à promoção]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-estudos-de-caracterizacao-e-quantificacao-da-demanda-turistica-de-mato-|Promover estudos de caracterização e quantificação da demanda turística de Mato ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-parcerias-com-municipios-para-elaboracao-de-planos-diretores-de-mobilid|Promover parcerias com municípios para elaboração de Planos Diretores de Mobilid]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/promover-utilizacao-sustentavel-das-unidades-de-conservacao-com-incentivo-ao-eco|Promover utilização sustentável das Unidades de Conservação com incentivo ao eco]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/prosseguir-com-a-politica-de-entrega-de-uniformes-escolares-e-kits-de-material-e|Prosseguir com a política de entrega de uniformes escolares e kits de material e]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/prover-mais-vagas-no-sistema-prisional-e-socioeducativo-do-estado-de-mato-grosso|Prover mais vagas no sistema prisional e socioeducativo do estado de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/realizar-cursos-de-capacitacao-de-pequenos-empreendedores-em-parceria-com-os-mun|Realizar cursos de capacitação de pequenos empreendedores em parceria com os mun]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/realizar-investimentos-na-melhoria-do-complexo-turistico-de-nobres-e-bom-jardim|Realizar investimentos na melhoria do complexo turístico de Nobres e Bom Jardim]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/realizar-melhorias-na-infraestrutura-aeroportuaria-estadual-com-obras-em-15-aero|Realizar melhorias na infraestrutura aeroportuária estadual com obras em 15 aeró]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/realizar-melhorias-na-infraestrutura-turistica-do-estado-de-mato-grosso|Realizar melhorias na infraestrutura turística do estado de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/realizar-programas-de-capacitacao-permanente-de-gestores-municipais-de-cultura|Realizar programas de capacitação permanente de Gestores Municipais de Cultura]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reestruturar-unidades-do-servico-de-atendimento-movel-de-urgencia-samu-em-mato-g|Reestruturar unidades do Serviço de Atendimento Móvel de Urgência (SAMU) em Mato]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reforcar-as-acoes-de-educacao-permanente-em-saude-em-mato-grosso|Reforçar as ações de educação permanente em saúde em Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reforcar-o-projeto-carreta-laboratorio-para-cursos-tecnicos-de-enfermagem-em-tod|Reforçar o projeto carreta laboratório para cursos técnicos de enfermagem em tod]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reforcar-o-relacionamento-entre-as-unidades-de-seguranca-publica-e-os-conselhos-|Reforçar o relacionamento entre as unidades de segurança pública e os Conselhos ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reformar-e-ampliar-a-escola-de-saude-publica-de-mato-grosso|Reformar e ampliar a Escola de Saúde Pública de Mato Grosso]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/reformular-a-oferta-do-ensino-medio-com-nova-estrutura-curricular-maior-integrac|Reformular a oferta do Ensino Médio com nova estrutura curricular, maior integra]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/substituir-1-000-pontes-de-madeira-por-bueiros-metalicos-ou-aduelas-de-concreto-|Substituir 1.000 pontes de madeira por bueiros metálicos ou aduelas de concreto ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/substituir-todas-as-pontes-de-madeira-da-transpantaneira-mt-060|Substituir todas as pontes de madeira da Transpantaneira (MT-060)]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/transferir-renda-direta-ao-cidadao-em-situacao-de-vulnerabilidade-alimentar-por-|Transferir renda direta ao cidadão em situação de vulnerabilidade alimentar por ]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/valorizar-e-qualificar-os-servidores-publicos-com-programas-de-eficiencia-e-mode|Valorizar e qualificar os servidores públicos com programas de eficiência e mode]] — [[politicos/Mauro Mendes]]
+- 🟡 pendente [[promessas/pendentes/mauro-mendes/viabilizar-a-construcao-de-40-mil-casas-populares-em-mato-grosso|Viabilizar a construção de 40 mil casas populares em Mato Grosso]] — [[politicos/Mauro Mendes]]

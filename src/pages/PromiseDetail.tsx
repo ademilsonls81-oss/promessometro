@@ -51,7 +51,7 @@ interface PromiseData {
   ai_evaluation?: string;
   needs_human_review?: boolean;
   evidence_count?: number;
-  evidences_used?: any[];
+  evidences_used?: any[];  // any-ok
 }
 
 export default function PromiseDetail() {
@@ -125,7 +125,7 @@ export default function PromiseDetail() {
       } else {
         setError("Promessa não encontrada");
       }
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message || "Erro ao carregar promessa");
     } finally {
       setLoading(false);

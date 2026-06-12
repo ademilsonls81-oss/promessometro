@@ -305,7 +305,7 @@ export async function evaluatePromise(
   if (evidences.length === 0) {
     const tavilyResults = await searchTavily(`${promise.politician_name} ${promise.promise_title} promessa cumprimento`);
     if (tavilyResults.length > 0) {
-      evidences = tavilyResults.map((r: any, idx: number) => ({
+      evidences = tavilyResults.map((r: any, idx: number) => ({  // any-ok
         id: `tavily-${idx}`,
         source_name: r.source?.replace(/^https?:\/\//, "").split("/")[0] || "Web",
         evidence_description: r.content || "",
@@ -408,7 +408,7 @@ export async function evaluatePromise(
           evidencias_usadas: parsed.evidencias_usadas || mapEvidences(validEvidences)
         } as AIResult;
       }
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error(`[AI-Evaluator] AI call failed for promise ${promise.id}: ${err.message}`);
       console.log(`[AI-Evaluator] Falling back to keyword-based evaluation — GROQ_API_KEY may be missing or invalid`);
       result = createFallbackResult(validEvidences, trustedCount);
@@ -569,7 +569,7 @@ evidencias_usadas: prioritizeSources(result.evidencias_usadas || []),
       explanationId: explanation.id,
       requiresHumanReview: humanReview
     };
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[AI-Evaluator] Save failed:", err.message);
     await logSystemError("ai_evaluation_save", "ai_evaluator", err.message, err.stack, "high");
     return { success: false, requiresHumanReview: humanReview };

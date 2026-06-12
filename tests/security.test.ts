@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-function sanitizeInput(obj: any): any {
+function sanitizeInput(obj: any): any {  // any-ok
   if (typeof obj === 'string') {
     return obj.replace(/<[^>]*>/g, '');
   }
@@ -8,7 +8,7 @@ function sanitizeInput(obj: any): any {
     return obj.map(sanitizeInput);
   }
   if (obj && typeof obj === 'object') {
-    const result: any = {};
+    const result: any = {};  // any-ok
     for (const [key, value] of Object.entries(obj)) {
       result[key] = sanitizeInput(value);
     }

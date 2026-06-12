@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { getRanking, getRankingStats, comparePoliticians } from "../services/rankingService.js";
 import { getElectionData, getAvailableElectionYears, getElectionComparison, getPromiseByElection, getPoliticianHistory } from "../services/electionService.js";
-import { search, suggest } from "../services/searchService.js";
+import { search, suggest } from "../services/searchService.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -21,7 +22,7 @@ router.get("/politicians", asyncHandler(async (req: Request, res: Response) => {
       limit: limit ? Number(limit) : 20
     });
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -32,7 +33,7 @@ router.get("/politicians/compare", asyncHandler(async (req: Request, res: Respon
     if (!name1 || !name2) return res.status(400).json({ error: "name1 and name2 are required" });
     const result = await comparePoliticians(supabase, name1 as string, name2 as string);
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(404).json({ error: err.message });
   }
 }));
@@ -41,7 +42,7 @@ router.get("/politicians/history/:name", asyncHandler(async (req: Request, res: 
   try {
     const result = await getPoliticianHistory(supabase, req.params.name);
     res.json({ history: result });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -59,7 +60,7 @@ router.get("/promises", asyncHandler(async (req: Request, res: Response) => {
       limit: limit ? Number(limit) : 20
     });
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -76,7 +77,7 @@ router.get("/search", asyncHandler(async (req: Request, res: Response) => {
       limit: limit ? Number(limit) : 20
     });
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -87,7 +88,7 @@ router.get("/suggest", asyncHandler(async (req: Request, res: Response) => {
     if (!q || (q as string).length < 2) return res.json({ promises: [], politicians: [] });
     const result = await suggest(q as string, limit ? Number(limit) : 5);
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -96,7 +97,7 @@ router.get("/elections", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const years = await getAvailableElectionYears(supabase);
     res.json({ years });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -114,7 +115,7 @@ router.get("/elections/:year", asyncHandler(async (req: Request, res: Response) 
       })
     ]);
     res.json({ ...electionData, promises: promises.promises });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -125,7 +126,7 @@ router.get("/elections/compare", asyncHandler(async (req: Request, res: Response
     const yearList = years ? (years as string).split(",").map(Number) : [2022, 2024];
     const result = await getElectionComparison(supabase, yearList);
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -134,7 +135,7 @@ router.get("/stats", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const result = await getRankingStats(supabase);
     res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));

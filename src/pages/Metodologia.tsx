@@ -39,7 +39,7 @@ export default function Metodologia() {
       if (!res.ok) throw new Error('Erro ao carregar metodologia');
       const data = await res.json();
       setMethodology(data);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message);
     } finally {
       setLoading(false);

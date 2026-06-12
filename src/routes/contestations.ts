@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -53,7 +54,7 @@ router.post("/", asyncHandler(async (req: Request, res: Response) => {
       message: "ContestaÃ§Ã£o registrada com sucesso! Nossa equipe vai analisar.",
       data 
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Contestations] Error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -87,7 +88,7 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const formatted = (data || []).map((c: any) => ({
+    const formatted = (data || []).map((c: any) => ({  // any-ok
       id: c.id,
       promise_id: c.promise_id,
       promise_title: c.promises?.promise_title,
@@ -103,7 +104,7 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
     }));
 
     return res.json({ contestations: formatted, total: count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Contestations] Error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -125,7 +126,7 @@ router.get("/public/:promiseId", asyncHandler(async (req: Request, res: Response
     }
 
     return res.json({ contestations: data || [] });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -139,7 +140,7 @@ router.patch("/:id", asyncHandler(async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Status invÃ¡lido" });
     }
 
-    const updateData: any = {
+    const updateData: any = {  // any-ok
       status,
       atualizado_em: new Date().toISOString()
     };
@@ -165,7 +166,7 @@ router.patch("/:id", asyncHandler(async (req: Request, res: Response) => {
 
     console.log(`[Contestations] Updated ${id} to ${status}`);
     return res.json({ success: true, data });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -199,7 +200,7 @@ router.get("/stats", asyncHandler(async (req: Request, res: Response) => {
       aceita: accepted || 0,
       rejeitada: rejected || 0
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));

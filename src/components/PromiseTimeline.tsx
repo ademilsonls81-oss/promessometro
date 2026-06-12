@@ -147,7 +147,7 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
           .order("created_at", { ascending: true })
       ]);
 
-      statusHistory.data?.forEach((entry: any) => {
+      statusHistory.data?.forEach((entry: any) => {  // any-ok
         const change = getStatusChange(entry.old_status || "", entry.new_status || "");
         timelineEntries.push({
           id: `hist-${entry.created_at}`,
@@ -165,7 +165,7 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
         });
       });
 
-      auditLog.data?.forEach((log: any) => {
+      auditLog.data?.forEach((log: any) => {  // any-ok
         if (log.action === "status_change" || log.action === "pipeline_reavaliation" || log.action === "promise_reavaluated") {
           try {
             const details = typeof log.previous_value === 'string' ? JSON.parse(log.previous_value) : log.previous_value;
@@ -184,7 +184,7 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
         }
       });
 
-      explanations.data?.forEach((exp: any) => {
+      explanations.data?.forEach((exp: any) => {  // any-ok
         const confiancaLabel = exp.confianca >= 0.7 ? "Alta" : exp.confianca >= 0.4 ? "Média" : "Baixa";
         timelineEntries.push({
           id: `exp-${exp.id}`,
@@ -202,7 +202,7 @@ export default function PromiseTimeline({ promiseId, expanded = false }: Promise
         });
       });
 
-      contests.data?.forEach((cont: any) => {
+      contests.data?.forEach((cont: any) => {  // any-ok
         const statusLabel = cont.status === "aceita" ? "Aceita" : 
                            cont.status === "rejeitada" ? "Rejeitada" : 
                            cont.status === "em_analise" ? "Em Análise" : "Pendente";

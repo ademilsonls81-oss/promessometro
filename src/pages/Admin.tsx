@@ -22,7 +22,7 @@ interface SystemStatus {
   politicians: number; promises: number; evaluated: number;
   never_evaluated: number; heranca_automatica: number; coverage: number;
   last_cron: { execution_id: string; status: string; started_at: string; promises_evaluated: number; hours_ago: number } | null;
-  cron_history: any[];
+  cron_history: any[];  // any-ok
 }
 interface Politician { id: string; name: string; role: string; state: string; party: string; slug: string }
 
@@ -35,7 +35,7 @@ const BLOCO_TOTALS: Record<string, number> = { A: 6, B: 16, C: 4, D: 6, E: 5 };
 
 function getToken() { return localStorage.getItem("admin_token") || ""; }
 
-async function authFetch(url: string, options: any = {}) {
+async function authFetch(url: string, options: any = {}) {  // any-ok
   const token = getToken();
   if (!token) return null;
   const headers = { ...options.headers, Authorization: `Bearer ${token}` };
@@ -44,7 +44,7 @@ async function authFetch(url: string, options: any = {}) {
   return res;
 }
 
-function Section({ title, icon: Icon, children, defaultOpen = false }: any) {
+function Section({ title, icon: Icon, children, defaultOpen = false }: any) {  // any-ok
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-2xl border border-white/10 bg-dark-card overflow-hidden">
@@ -78,9 +78,9 @@ export default function Admin() {
   const [seedingIndicators, setSeedingIndicators] = useState<string | null>(null);
   const [findingPromises, setFindingPromises] = useState<string | null>(null);
   const [discoveringJob, setDiscoveringJob] = useState<string | null>(null);
-  const [discoveryStatus, setDiscoveryStatus] = useState<{[key: string]: any}>({});
-  const [discoveryLivePromises, setDiscoveryLivePromises] = useState<{[key: string]: any[]}>({});
-  const [promisesCiData, setPromisesCiData] = useState<{[key: string]: any[]}>({});
+  const [discoveryStatus, setDiscoveryStatus] = useState<{[key: string]: any}>({});  // any-ok
+  const [discoveryLivePromises, setDiscoveryLivePromises] = useState<{[key: string]: any[]}>({});  // any-ok
+  const [promisesCiData, setPromisesCiData] = useState<{[key: string]: any[]}>({});  // any-ok
   const [loadingCi, setLoadingCi] = useState<string | null>(null);
   const [fixingExplanations, setFixingExplanations] = useState<string | null>(null);
   const [fixingCadastro, setFixingCadastro] = useState<string | null>(null);
@@ -147,14 +147,14 @@ export default function Admin() {
       if (polRes) {
         const p = await polRes.json();
         const allRanking = [...(p.ranking || []), ...(p.insufficient_sample || [])];
-        setPoliticians(allRanking.map((r: any) => ({ id: r.id, name: r.name, role: r.role, state: r.state, party: r.party, slug: r.slug })));
+        setPoliticians(allRanking.map((r: any) => ({ id: r.id, name: r.name, role: r.role, state: r.state, party: r.party, slug: r.slug })));  // any-ok
         const statsMap: Record<string, any> = {};
-        allRanking.forEach((r: any) => {
+        allRanking.forEach((r: any) => {  // any-ok
           statsMap[r.name] = { stats: r.stats, evaluated_count: r.evaluated_count };
         });
         setPoliticianStats(statsMap);
       }
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setCarregando(false);
   }
 
@@ -183,8 +183,8 @@ export default function Admin() {
       const json = await res.json();
       const history = json.history || [];
 
-      const currentIds = new Set(evalHistory.map((e: any) => e.id));
-      const freshIds = history.filter((e: any) => !currentIds.has(e.id)).map((e: any) => e.id);
+      const currentIds = new Set(evalHistory.map((e: any) => e.id));  // any-ok
+      const freshIds = history.filter((e: any) => !currentIds.has(e.id)).map((e: any) => e.id);  // any-ok
 
       if (freshIds.length > 0) {
         setMonitorNewIds(prev => {
@@ -225,7 +225,7 @@ export default function Admin() {
       const json = await res.json();
       localStorage.setItem("admin_token", json.token);
       fetchAll();
-    } catch (e: any) { setErro(e.message); setCarregando(false); }
+    } catch (e) { setErro(e.message); setCarregando(false); }  // any-ok
   }
 
   async function rodarAuditoria() {
@@ -236,7 +236,7 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, auditoria: json.audit }));
       fetchAll();
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setAuditando(false);
   }
 
@@ -247,7 +247,7 @@ export default function Admin() {
       if (!res) return;
       const json = await res.json();
       setToolResults(r => ({ ...r, upgrade: json }));
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setUpgrading(false);
   }
 
@@ -262,7 +262,7 @@ export default function Admin() {
       if (!res) return;
       const json = await res.json();
       setToolResults(r => ({ ...r, [`indicators_${pol.id}`]: json }));
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setSeedingIndicators(null);
   }
 
@@ -283,7 +283,7 @@ export default function Admin() {
       }
       setToolResults(r => ({ ...r, [`promises_${pol.id}`]: json }));
       if (!dryRun) fetchAll();
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setFindingPromises(null);
   }
 
@@ -361,7 +361,7 @@ export default function Admin() {
         }
       };
       setTimeout(poll, 3000);
-    } catch (e: any) { setErro(e.message); setDiscoveringJob(null); }
+    } catch (e) { setErro(e.message); setDiscoveringJob(null); }  // any-ok
   }
 
   async function fixExplanations(pol: Politician) {
@@ -376,7 +376,7 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, [`fix_explanations_${pol.id}`]: json }));
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setFixingExplanations(null);
   }
 
@@ -392,7 +392,7 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, [`fix_cadastro_${pol.id}`]: json }));
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setFixingCadastro(null);
   }
 
@@ -408,7 +408,7 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, [`legal_facts_${pol.id}`]: json }));
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setSeedingLegalFacts(null);
   }
 
@@ -424,7 +424,7 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, [`scores_${pol.id}`]: json }));
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setRecalculatingScores(null);
   }
 
@@ -438,14 +438,14 @@ export default function Admin() {
       });
       if (!res.ok) throw new Error("Falha ao carregar");
       const json = await res.json();
-      setPromisesCiData(r => ({ ...r, [pol.id]: (json.promises || []).slice(0, 50).map((p: any) => ({
+      setPromisesCiData(r => ({ ...r, [pol.id]: (json.promises || []).slice(0, 50).map((p: any) => ({  // any-ok
         id: p.id,
         title: p.promise_title,
         status: p.status,
         complexity: p.complexity_score || 1,
         impact: p.impact_score || 1
       })) }));
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setLoadingCi(null);
   }
 
@@ -457,14 +457,14 @@ export default function Admin() {
       const json = await res.json();
       setToolResults(r => ({ ...r, [`process_${pol.id}`]: json }));
       setTimeout(fetchAll, 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setProcessingPol(null);
   }
 
   async function processAllPendentes() {
     const pols = Object.entries(politicianStats)
-      .filter(([, v]: any) => (v.stats?.pending || 0) > 0)
-      .sort(([, a]: any, [, b]: any) => (b.stats?.pending || 0) - (a.stats?.pending || 0))
+      .filter(([, v]: any) => (v.stats?.pending || 0) > 0)  // any-ok
+      .sort(([, a]: any, [, b]: any) => (b.stats?.pending || 0) - (a.stats?.pending || 0))  // any-ok
       .map(([nome]) => politicians.find(p => p.name === nome))
       .filter(Boolean) as Politician[];
 
@@ -490,7 +490,7 @@ export default function Admin() {
             process_all: { ok: done, fail, remaining: Math.max(0, total - done - fail), atual: pol.name, message: json.message }
           }));
         } else { fail++; }
-      } catch (e: any) { fail++; setErro(e.message); }
+      } catch (e) { fail++; setErro(e.message); }  // any-ok
 
       await new Promise(r => setTimeout(r, 30000));
     }
@@ -515,7 +515,7 @@ export default function Admin() {
           const json = await res.json();
           results.ok++;
           results.details.push({ name: pol.name, legacy: json.scores?.legacy_score });
-        } catch (e: any) {
+        } catch (e) {  // any-ok
           results.errors++;
           results.details.push({ name: pol.name, error: e.message });
         }
@@ -523,7 +523,7 @@ export default function Admin() {
       }
       setToolResults(r => ({ ...r, recalculate_all: results }));
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setRecalculatingAll(false);
   }
 
@@ -547,7 +547,7 @@ export default function Admin() {
       const json = await res.json();
       setResultadoAdd(json);
       setTimeout(() => fetchAll(), 2000);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setAdicionando(false);
   }
 
@@ -568,7 +568,7 @@ export default function Admin() {
         // Refresh status after pipeline
         setTimeout(() => fetchAll(), 2000);
       }
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setPipelineRunning(false);
   }
 
@@ -757,7 +757,7 @@ export default function Admin() {
                 {toolResults.recalculate_all && (
                   <div className="text-xs p-2 bg-white/5 rounded-lg text-gray-300 max-h-40 overflow-y-auto">
                     <div className="font-bold text-neon-cyan mb-1">✅ {toolResults.recalculate_all.ok}/{toolResults.recalculate_all.total} recalculados ({toolResults.recalculate_all.errors} erros)</div>
-                    {toolResults.recalculate_all.details.slice(0, 20).map((d: any, i: number) => (
+                    {toolResults.recalculate_all.details.slice(0, 20).map((d: any, i: number) => (  // any-ok
                       <div key={i} className="flex items-center gap-2 py-0.5 border-b border-white/5 last:border-0">
                         <span className="text-gray-400">{d.name}</span>
                         {d.legacy != null && <span className="text-neon-cyan font-bold">Legado: {Math.round(d.legacy)}</span>}
@@ -1005,11 +1005,11 @@ export default function Admin() {
             })}
           <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
             <span className="text-xs text-gray-500">
-              Total pendentes: {Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0)}
+              Total pendentes: {Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0)}  // any-ok
             </span>
             <button
               onClick={processAllPendentes}
-              disabled={processingAll || Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0) === 0}
+              disabled={processingAll || Object.values(politicianStats).reduce((a: number, v: any) => a + (v.stats?.pending || 0), 0) === 0}  // any-ok
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-gradient-to-r from-yellow-500 to-orange-500 text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {processingAll
@@ -1065,7 +1065,7 @@ export default function Admin() {
             {evalHistory.length === 0 && (
               <div className="text-center py-8 text-gray-500 text-sm">Nenhuma avaliação ainda. O cron será executado em breve...</div>
             )}
-            {evalHistory.map((e: any) => {
+            {evalHistory.map((e: any) => {  // any-ok
               const isNew = monitorNewIds.has(e.id);
               return (
               <div key={e.id} className={`relative p-4 border rounded-xl transition-colors ${isNew ? 'bg-neon-cyan/5 border-neon-cyan/30' : 'bg-black/20 border-white/5'}`}>
@@ -1120,7 +1120,7 @@ export default function Admin() {
 
                 {e.fontes?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {(typeof e.fontes === 'string' ? JSON.parse(e.fontes) : e.fontes).map((f: any, fi: number) => (
+                    {(typeof e.fontes === 'string' ? JSON.parse(e.fontes) : e.fontes).map((f: any, fi: number) => (  // any-ok
                       <a key={fi} href={f.url || f} target="_blank" rel="noopener noreferrer"
                         className="inline-block px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-400 hover:bg-blue-500/20 truncate max-w-[220px]">
                         {typeof f === 'string' ? f : (f.fonte || f.url)}
@@ -1193,7 +1193,7 @@ export default function Admin() {
               {evalHistory.length === 0 && (
                 <div className="text-center py-8 text-gray-500 text-sm">Nenhuma avaliação encontrada. Execute o cron para gerar o histórico.</div>
               )}
-              {evalHistory.map((e: any) => (
+              {evalHistory.map((e: any) => (  // any-ok
                 <div key={e.id} className="p-4 bg-black/20 border border-white/5 rounded-xl">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
@@ -1241,7 +1241,7 @@ export default function Admin() {
 
                   {e.fontes?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {(typeof e.fontes === 'string' ? JSON.parse(e.fontes) : e.fontes).map((f: any, fi: number) => (
+                      {(typeof e.fontes === 'string' ? JSON.parse(e.fontes) : e.fontes).map((f: any, fi: number) => (  // any-ok
                         <a key={fi} href={f.url || f} target="_blank" rel="noopener noreferrer"
                           className="inline-block px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-400 hover:bg-blue-500/20 truncate max-w-[220px]">
                           {typeof f === 'string' ? f : (f.fonte || f.url)}

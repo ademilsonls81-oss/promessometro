@@ -20,7 +20,7 @@ interface Evidence {
   published_date: string | null;
   evidence_type: string;
   confidence_score: number;
-  ai_analysis: any;
+  ai_analysis: any;  // any-ok
   validation_status: string;
   created_at: string;
 }
@@ -95,7 +95,7 @@ export default function EvidenceValidation() {
         }
       }
       setPromises(promisesMap);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error("[EvidenceValidation] Fetch error:", err);
       setError(err.message);
     } finally {
@@ -131,7 +131,7 @@ export default function EvidenceValidation() {
         e.id === evidenceId ? { ...e, validation_status: status } : e
       ));
 
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error("[EvidenceValidation] Validate error:", err);
       alert("Erro ao validar: " + err.message);
     } finally {

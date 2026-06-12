@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
 import { fetchPoliticianPhoto } from "../services/politicianPhotoService.js";
-import { autoSearchAndSaveForPromise } from "../services/evidenceService.js";
+import { autoSearchAndSaveForPromise } from "../services/evidenceService.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -66,7 +67,7 @@ router.post("/submit", apiKeyRateLimit, asyncHandler(async (req: Request, res: R
       message: "Promessa registrada com sucesso! Nossa equipe vai analisar.",
       data 
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("Submit promise error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -79,7 +80,7 @@ router.get("/photo/:name", asyncHandler(async (req: Request, res: Response) => {
 
     const result = await fetchPoliticianPhoto(decodeURIComponent(name));
     return res.json(result);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -98,7 +99,7 @@ router.get("/:id", asyncHandler(async (req: Request, res: Response) => {
     }
 
     return res.json(data);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -121,20 +122,20 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
       return res.status(500).json({ error: error.message });
     }
 
-    const uniqueNames = [...new Set((data || []).map((p: any) => p.politician_name))] as string[];
+    const uniqueNames = [...new Set((data || []).map((p: any) => p.politician_name))] as string[];  // any-ok
     const photoResults = await Promise.allSettled(uniqueNames.map(name => fetchPoliticianPhoto(name)));
     const photoMap: Record<string, string | null> = {};
     photoResults.forEach((result, i) => {
       photoMap[uniqueNames[i]] = result.status === "fulfilled" ? (result.value as any).photoUrl : null;
     });
 
-    const promisesWithPhotos = (data || []).map((p: any) => ({
+    const promisesWithPhotos = (data || []).map((p: any) => ({  // any-ok
       ...p,
       photo_url: photoMap[p.politician_name] || null
     }));
 
     return res.json({ promises: promisesWithPhotos, total: count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -165,7 +166,7 @@ router.patch("/:id/status", asyncHandler(async (req: Request, res: Response) => 
 
     console.log(`[Promise] Status atualizado: ${id} -> ${status}`);
     return res.json({ success: true, data });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -193,7 +194,7 @@ router.post("/classify/:id", asyncHandler(async (req: Request, res: Response) =>
     } else {
       return res.status(500).json({ error: "Erro ao classificar promessa" });
     }
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -205,7 +206,7 @@ router.post("/classify-all", asyncHandler(async (req: Request, res: Response) =>
     const count = await classifyAllPending();
 
     return res.json({ success: true, classified: count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));

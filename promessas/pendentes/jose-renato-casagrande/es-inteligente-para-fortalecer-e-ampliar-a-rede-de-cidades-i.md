@@ -1,0 +1,82 @@
+---
+titulo: "ES Inteligente Para fortalecer e ampliar a rede de cidades inteligentes no estado do Espírito Santo, mobilizamos várias "
+politico: "José Renato Casagrande"
+partido: "PSB"
+cargo: "governador"
+estado: "Espírito Santo"
+data_promessa: "2022-10-01"
+fonte_original: "Plano de Governo Espirito Santo 2023-2026 (PDF)"
+status: "🟡 pendente"
+categoria: "Outros"
+ultima_atualizacao: "2026-06-09"
+---
+
+
+
+
+
+# ES Inteligente Para fortalecer e ampliar a rede de cidades inteligentes no estado do Espírito Santo, mobilizamos várias 
+
+## 📌 Dados da Promessa
+
+| Campo | Valor |
+|-------|-------|
+| **Politico** | Jose Renato Casagrande |
+| **Partido** | PSB |
+| **Cargo** | governador |
+| **Estado** | Espirito Santo |
+| **Data da Promessa** | 2022-10-01 |
+| **Categoria** | Outros |
+| **Status Atual** | 🟡 pendente |
+| **Ultima Atualizacao** | 2026-06-09 |
+
+---
+
+## 📄 Descricao
+
+ES Inteligente Para fortalecer e ampliar a rede de cidades inteligentes no estado do Espírito Santo, mobilizamos várias secretarias e instituições de forma integrada com os segmentos produtivos. Um exemplo disso, é a iniciativa do “ES Inteligente” que é coordenado pelo Banco de Desenvolvimento do Espírito Santo (Bandes). O programa “Cidades Inteligentes” proporciona oportunidades de parcerias entre municípios e setor privado nas áreas de abastecimento de água e saneamento, energias
+
+---
+
+## 🔗 Fonte Original
+
+- **Link:** Plano de Governo Espirito Santo 2023-2026
+- **Veiculo/Plataforma:** PDF — TSE
+- **Data de publicacao:** 2022-08-15
+
+---
+
+## ✅ Criterio de Verificacao
+
+Aguardando definicao de criterio de verificacao especifico.
+
+---
+
+## 📊 Historico de Status
+
+| Data | Status Anterior | Novo Status | Responsavel | Nota |
+|------|----------------|-------------|-------------|------|
+| 2026-06-09 | — | 🟡 pendente | sistema | Promessa extraida do PDF do plano de governo |
+
+---
+
+## 🧠 Decisoes
+
+- [2026-06-09] Promessa extraida automaticamente via analise estrutural do texto do plano de governo.
+
+---
+
+## 📎 Evidencias
+
+| Data | Tipo | Descricao | Fonte | Link |
+|------|------|-----------|-------|------|
+| — | — | Nenhuma evidencia coletada ainda | — | — |
+
+
+---
+
+## 🔗 Conexoes
+
+- [[politicos/José Renato Casagrande]]
+- [[estados/Espírito Santo]]
+- [[categorias/Outros]]

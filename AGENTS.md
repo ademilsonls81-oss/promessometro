@@ -180,3 +180,58 @@ A última sprint SEMPRE é a Sprint Review Final. Ela:
 23. **Todas as deps declaradas em `package.json` antes de usar.** Gate `gate-import-resolve.py` pega deps não declaradas.
 24. **Versões fixadas** (sem `^` ou `~`) em produção. Dev deps podem ter `^`.
 25. **`@types/*` declarados em `devDependencies`**, não em `dependencies`.
+
+---
+
+## Anchored Summary — estado atual do vault (2026-06-09)
+
+> Última atualização: 2026-06-09. Este bloco é lido automaticamente em toda sessão.
+
+### Vault Obsidian (promessas/)
+
+| Métrica | Valor |
+|---------|-------|
+| Total promessas | **5.402** |
+| Políticos (arquivos únicos) | **34** |
+| Estados (arquivos únicos) | **27** (26 + Brasil) |
+| Categorias | **10** |
+| Arquivos sem estado (órfãos) | **33** (preservados, fora dos índices) |
+
+### O que foi feito até aqui
+
+1. **Extração v1** (heurística básica): 5.713 candidatas de 25 PDFs estaduais
+2. **Extração v2** (filtros de qualidade): 5.250 promessas limpas (remoção de slogans, ALL CAPS, URLs, truncados, seções, multi-linha)
+3. **Importação Supabase**: +1.922 promessas via cron de ranking
+4. **Normalização do vault** (09/06/2026):
+   - 11 pares de políticos duplicados (com/sem acento) unificados → 34 únicos
+   - 64 arquivos de estado (siglas + nomes) → 27 nomes completos
+   - 3 categorias duplicadas (Educacao→Educação, Saude→Saúde, Seguranca→Segurança)
+   - 1.732 backlinks quebrados → **0 órfãos**
+   - Backlinks duplicados removidos (cada promessa tem uma seção única)
+5. **Pipeline de sprints**: 11 sprints, 30 features, 100% concluído
+6. **Auditoria final**: HIGH=0, MED=0, LOW=278 (strings literais duplicadas entre promessas — esperado)
+
+### Graph View do Obsidian
+
+| Grupo | Query | Cor (hex) |
+|-------|-------|-----------|
+| Promessas | `path:promessas` | #e0d452 (verde musgo) |
+| Políticos | `path:politicos` | #625000 (roxo) |
+| Estados | `path:estados` | #54d4e0 (ciano) |
+| Categorias | `path:categorias` | #e052b8 (rosa) |
+| Execuções | `path:execucoes` | #50d460 (verde) |
+| Templates | `path:templates` | #5555ff (azul) |
+
+### Ferramentas úteis
+
+- `tmp/harness/query_vault.py` — CLI de consulta: `--estado SP --count`, `--politico "Paulo"`, `--search "hospit"`
+- `00-INDEX.md` — sumário executivo com links para todos os políticos, estados e categorias
+- `CONTEXTO.md` — inventário completo do vault
+
+### Próximos passos sugeridos
+
+1. Obter chave Groq/OpenAI/Gemini funcional para extração via IA (qualidade superior)
+2. OCR do PDF do Amazonas (único estado sem texto extraído — PDF escaneado)
+3. Investigar as 33 promessas sem campo `estado` no frontmatter
+4. Normalizar nomes de políticos para usar acentos (ex: "Cláudio Castro" em vez de "Claudio Castro")
+5. Rodar `node processar_planos.mjs` com chave válida para inserir promessas no Supabase

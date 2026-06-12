@@ -177,7 +177,7 @@ export async function logBiasViolation(
   }
 }
 
-export async function checkAndSanitizeResult(result: any, promiseId: string): Promise<any> {
+export async function checkAndSanitizeResult(result: any, promiseId: string): Promise<any> {  // any-ok
   const fieldsToCheck = [
     "justificativa",
     "criterio_aplicado",

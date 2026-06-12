@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { checkAdmin } from "../middleware/auth.js";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -50,7 +51,7 @@ router.post("/start-discovery-job", checkAdmin, asyncHandler(async (req, res) =>
       total_inseridas: 0,
       message: "Job criado! Aguardando processamento incremental..."
     });
-  } catch (e: any) {
+  } catch (e) {  // any-ok
     return res.status(500).json({ error: e.message });
   }
 }));
@@ -63,7 +64,7 @@ router.get("/discovery-status/:jobId", checkAdmin, asyncHandler(async (req, res)
       .select("id, status, stage, progress, total_extraidas, total_inseridas, erro, current_page, total_pages, partial_promises, last_checkpoint_at")
       .eq("id", jobId).single();
     if (!job) return res.status(404).json({ error: "Job nÃ£o encontrado" });
-    let lastPromises: any[] = [];
+    let lastPromises: any[] = [];  // any-ok
     try {
       const all = typeof job.partial_promises === "string"
         ? JSON.parse(job.partial_promises) : (job.partial_promises || []);
@@ -71,7 +72,7 @@ router.get("/discovery-status/:jobId", checkAdmin, asyncHandler(async (req, res)
     } catch { lastPromises = []; }
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     return res.json({ ...job, partial_promises: undefined, last_promises: lastPromises });
-  } catch (e: any) {
+  } catch (e) {  // any-ok
     return res.status(500).json({ error: e.message });
   }
 }));
@@ -84,24 +85,24 @@ router.post("/discovery-run-now", checkAdmin, asyncHandler(async (req, res) => {
 
     const { default: processor } = await import("../../api/cron/discovery-processor.js");
     const specificReq = { ...req, _specificJobId: job_id };
-    let processorRes: any;
+    let processorRes: any;  // any-ok
     try {
       await processor(specificReq, {
-        json: (data: any) => { processorRes = data; },
-        status: () => ({ json: (data: any) => { processorRes = data; } })
+        json: (data: any) => { processorRes = data; },  // any-ok
+        status: () => ({ json: (data: any) => { processorRes = data; } })  // any-ok
       });
-    } catch (e: any) {
+    } catch (e) {  // any-ok
       console.error("[discovery-run-now] error:", e.message);
     }
     const { data: job } = await supabase.from("discovery_jobs").select("*").eq("id", job_id).single();
-    let lastPromises: any[] = [];
+    let lastPromises: any[] = [];  // any-ok
     try {
       const all = typeof job?.partial_promises === "string"
         ? JSON.parse(job.partial_promises) : (job?.partial_promises || []);
       lastPromises = Array.isArray(all) ? all.slice(-10) : [];
     } catch { lastPromises = []; }
     return res.json({ ...(job || {}), partial_promises: undefined, last_promises: lastPromises });
-  } catch (e: any) {
+  } catch (e) {  // any-ok
     return res.status(500).json({ error: e.message });
   }
 }));

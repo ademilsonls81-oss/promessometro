@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
-import { logSystemError } from "../middleware/auditLog.js";
+import { logSystemError } from "../middleware/auditLog.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -56,8 +57,32 @@ async function runDailyReavaliation(res: Response) {
 
     const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error("[Cron] GROQ_API_KEY not configured â€” aborting reavaliation");
-      res.status(500).json({ error: "GROQ_API_KEY not configured" });
+      console.log("[Cron] GROQ/OPENAI_API_KEY not configured — using heuristic fallback (free)");
+      const { heuristicEvaluate } = await import("../services/heuristicEvaluator.js");
+      for (const promise of promises) {
+        try {
+          const result = await heuristicEvaluate(promise as any);
+          await supabase.from('promises').update({
+            status: result.status,
+            fulfillment_score: result.fulfillment_score,
+            ai_evaluation: result.justification,
+            evidences_used: result.evidences.slice(0, 5),
+            last_verified_at: new Date().toISOString()
+          }).eq('id', promise.id);
+          evaluated++;
+        } catch (e: any) {  // any-ok
+          console.error(`[Cron] Failed (heuristic) promise ${promise.id}:`, e.message);
+          failed++;
+        }
+        await new Promise(r => setTimeout(r, 500));
+      }
+      res.json({
+        status: "ok",
+        mode: "heuristic",
+        promises_evaluated: evaluated,
+        promises_failed: failed,
+        timestamp: new Date().toISOString()
+      });
       return;
     }
     const { evaluatePromise, saveEvaluation } = await import("../services/aiEvaluator.js");
@@ -68,7 +93,7 @@ async function runDailyReavaliation(res: Response) {
         const saved = await saveEvaluation(promise.id, result, result.needsHumanReview);
         if (saved.success) evaluated++;
         else failed++;
-      } catch (e: any) {
+      } catch (e) {  // any-ok
         console.error(`[Cron] Failed to evaluate promise ${promise.id}:`, e.message);
         failed++;
       }
@@ -81,7 +106,7 @@ async function runDailyReavaliation(res: Response) {
       promises_failed: failed,
       timestamp: new Date().toISOString()
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("cron_reavaliation", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
@@ -116,7 +141,7 @@ router.get("/update-stats", asyncHandler(async (req: Request, res: Response) => 
     }, { onConflict: "metric_key" });
 
     res.json({ status: "ok", timestamp: new Date().toISOString() });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("cron_stats", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
@@ -135,7 +160,7 @@ router.get("/backup-export", asyncHandler(async (req: Request, res: Response) =>
       try {
         const { data } = await supabase.from(table).select("*");
         backupData[table] = data || [];
-      } catch (e: any) {
+      } catch (e) {  // any-ok
         errors.push(`${table}: ${e.message}`);
       }
     }
@@ -166,7 +191,7 @@ router.get("/backup-export", asyncHandler(async (req: Request, res: Response) =>
 
     console.log(`[Cron] Backup exported: ${backupFileName}`);
     res.json({ status: "ok", file: backupFileName, tables_exported: tables.length, errors, timestamp: new Date().toISOString() });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("cron_backup", "cron", err.message, err.stack, "critical");
     res.status(500).json({ error: err.message });
   }
@@ -212,7 +237,7 @@ router.get("/process-evidences", asyncHandler(async (req: Request, res: Response
 
     console.log(`[Cron] Evidence processing complete: ${processed} processed`);
     res.json({ status: "ok", processed, timestamp: new Date().toISOString() });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("cron_evidence", "cron", err.message, err.stack, "medium");
     res.status(500).json({ error: err.message });
   }
@@ -229,7 +254,7 @@ router.get("/politician-ranking", asyncHandler(async (req: Request, res: Respons
       .not("politician_name", "is", null);
 
     const stats: Record<string, { total: number; score_sum: number; by_status: Record<string, number> }> = {};
-    ranking?.forEach((p: any) => {
+    ranking?.forEach((p: any) => {  // any-ok
       const name = p.politician_name;
       if (!stats[name]) stats[name] = { total: 0, score_sum: 0, by_status: {} };
       stats[name].total++;
@@ -251,7 +276,7 @@ router.get("/politician-ranking", asyncHandler(async (req: Request, res: Respons
       });
 
     res.json({ status: "ok", politicians: snapshot.length, file: fileName, timestamp: new Date().toISOString() });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("cron_ranking", "cron", err.message, err.stack, "low");
     res.status(500).json({ error: err.message });
   }

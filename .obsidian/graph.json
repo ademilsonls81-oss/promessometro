@@ -1,0 +1,128 @@
+{
+  "collapse-filter": true,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:promessas/cumpridas",
+      "color": {
+        "a": 1,
+        "rgb": 5431418
+      }
+    },
+    {
+      "query": "path:promessas/parciais",
+      "color": {
+        "a": 1,
+        "rgb": 14730322
+      }
+    },
+    {
+      "query": "path:promessas/pendentes",
+      "color": {
+        "a": 1,
+        "rgb": 13421772
+      }
+    },
+    {
+      "query": "path:promessas/descumpridas",
+      "color": {
+        "a": 1,
+        "rgb": 14701138
+      }
+    },
+    {
+      "query": "path:promessas/em-andamento",
+      "color": {
+        "a": 1,
+        "rgb": 5408480
+      }
+    },
+    {
+      "query": "path:politicos",
+      "color": {
+        "a": 1,
+        "rgb": 10179296
+      }
+    },
+    {
+      "query": "path:metodologia",
+      "color": {
+        "a": 1,
+        "rgb": 16777215
+      }
+    },
+    {
+      "query": "path:indicadores",
+      "color": {
+        "a": 1,
+        "rgb": 5428448
+      }
+    },
+    {
+      "query": "path:categorias",
+      "color": {
+        "a": 1,
+        "rgb": 14701240
+      }
+    },
+    {
+      "query": "path:estados",
+      "color": {
+        "a": 1,
+        "rgb": 14717266
+      }
+    },
+    {
+      "query": "path:execucoes",
+      "color": {
+        "a": 1,
+        "rgb": 2980431
+      }
+    },
+    {
+      "query": "path:templates",
+      "color": {
+        "a": 1,
+        "rgb": 5408480
+      }
+    },
+    {
+      "query": "path:CONTEXTO",
+      "color": {
+        "a": 1,
+        "rgb": 12886098
+      }
+    },
+    {
+      "query": "path:AGENT_RULES",
+      "color": {
+        "a": 1,
+        "rgb": 12886098
+      }
+    },
+    {
+      "query": "path:CLAUDE",
+      "color": {
+        "a": 1,
+        "rgb": 10526880
+      }
+    }
+  ],
+  "collapse-display": true,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 0.06699744995282277,
+  "close": false
+}

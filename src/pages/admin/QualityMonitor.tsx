@@ -98,7 +98,7 @@ export default function QualityMonitor() {
       setItems(res.data?.items || []);
       setCounts(res.data?.counts || { valid: 0, warning: 0, invalid: 0, notEvaluated: 0 });
       setNeedsAttention(res.data?.needsAttention || 0);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err?.response?.data?.error || err?.message || 'Erro ao carregar monitor');
     } finally {
       setLoadingData(false);
@@ -128,7 +128,7 @@ export default function QualityMonitor() {
       alert(`${res.data?.queued || 0} promessas enfileiradas para reavaliação`);
       fetchData();
       fetchLogs();
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert('Erro: ' + (err?.response?.data?.error || err.message));
     } finally {
       setActionLoading(null);
@@ -142,7 +142,7 @@ export default function QualityMonitor() {
       await api.post('/api/admin/quality-monitor/reprocess', { promiseId }, { headers });
       fetchData();
       fetchLogs();
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert('Erro: ' + (err?.response?.data?.error || err.message));
     } finally {
       setActionLoading(null);
@@ -156,7 +156,7 @@ export default function QualityMonitor() {
       await api.post('/api/admin/quality-monitor/approve', { evaluationId, promiseId }, { headers });
       fetchData();
       fetchLogs();
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert('Erro: ' + (err?.response?.data?.error || err.message));
     } finally {
       setActionLoading(null);

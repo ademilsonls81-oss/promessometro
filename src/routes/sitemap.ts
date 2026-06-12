@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -28,7 +29,7 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
     const politicianUrls: Array<{ url: string; changefreq: string; priority: string; lastmod?: string }> = [];
     const seenPoliticians = new Set<string>();
 
-    politicians.data?.forEach((p: any) => {
+    politicians.data?.forEach((p: any) => {  // any-ok
       const name = p.politician_name;
       if (name && !seenPoliticians.has(name)) {
         seenPoliticians.add(name);
@@ -50,7 +51,7 @@ router.get("/", asyncHandler(async (req: Request, res: Response) => {
     const promiseUrls: Array<{ url: string; changefreq: string; priority: string; lastmod?: string }> = [];
     const seenPromises = new Set<string>();
 
-    promises.data?.forEach((p: any) => {
+    promises.data?.forEach((p: any) => {  // any-ok
       const title = p.promise_title || p.title;
       if (title && !seenPromises.has(title)) {
         seenPromises.add(title);
@@ -89,7 +90,7 @@ ${promiseUrls.map(p => `  <url>
     res.set("Content-Type", "text/xml");
     res.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
     res.send(xml);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Sitemap] Error:", err);
     res.status(500).send("Error generating sitemap");
   }

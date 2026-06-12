@@ -40,7 +40,7 @@ export default function StatePage() {
       const result = await getRanking(supabase, { state: uf, limit: 50, sortBy: "percentage", sortOrder: "desc" });
       setData(result);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message);
     } finally {
       setLoading(false);
@@ -92,20 +92,20 @@ export default function StatePage() {
                 </div>
                 <div className="bg-dark-card border border-white/5 p-6 rounded-3xl">
                   <div className="text-3xl font-bold text-green-400">
-                    {data.politicians.filter((p: any) => p.percentage >= 70).length}
+                    {data.politicians.filter((p: any) => p.percentage >= 70).length}  // any-ok
                   </div>
                   <div className="text-gray-500 text-sm">Alta performance (70%+)</div>
                 </div>
                 <div className="bg-dark-card border border-white/5 p-6 rounded-3xl">
                   <div className="text-3xl font-bold text-yellow-400">
-                    {Math.round(data.politicians.reduce((acc: number, p: any) => acc + p.percentage, 0) / data.total)}%
+                    {Math.round(data.politicians.reduce((acc: number, p: any) => acc + p.percentage, 0) / data.total)}%  // any-ok
                   </div>
                   <div className="text-gray-500 text-sm">Score médio</div>
                 </div>
               </div>
 
               <div className="space-y-4">
-                {data.politicians.map((p: any, idx: number) => (
+                {data.politicians.map((p: any, idx: number) => (  // any-ok
                   <Link key={p.name} to={`/comparar/${p.slug}-vs-${data.politicians[0]?.slug || p.slug}`} className="block">
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}

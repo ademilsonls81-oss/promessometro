@@ -79,7 +79,7 @@ export default function Pricing() {
       } else {
         alert('Unable to start checkout. Please try again.');
       }
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert(err?.response?.data?.error ?? 'Checkout unavailable. Please try again later.');
     } finally {
       setStripeLoading(false);

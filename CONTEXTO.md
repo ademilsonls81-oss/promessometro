@@ -1,313 +1,215 @@
-# CONTEXTO PROMESSÔMETRO BRASIL v2.0
-# Data: 2026-05-16
-# Status: Deployado em https://promessometro-brasil.vercel.app
+# CONTEXTO — Promessometro — Inventario Completo
+
+> Vault do Obsidian com promessas de campanha de politicos brasileiros.
+> Atualizado em 2026-06-10. Total: 6085 promessas, 35 politicos.
 
 ---
 
-## O QUE É O SISTEMA
+## 🔗 Conexoes no Grafo
 
-Promessômetro é uma plataforma de transparência política que rastreia e avalia promessas
-de políticos brasileiros usando IA (Groq/Llama) + busca de evidências (Serper).
+Todas as promessas estao conectadas a:
+- `[[politicos/Nome]]` — quem prometeu
+- `[[estados/Estado]]` — onde
+- `[[categorias/Categoria]]` — assunto
 
-### Stack
-- **Frontend**: React + Vite + TypeScript (SPA)
-- **Backend**: Vercel Serverless Functions (api/*.js)
-- **Banco**: Supabase (PostgreSQL)
-- **IA**: Groq (llama-3.3-70b-versatile)
-- **Busca**: Serper.dev (Google Search API)
-- **Deploy**: Vercel (Frontend + API + Crons)
+### Cores no Graph View
 
----
-
-## SUPABASE - SCHEMA DO BANCO
-
-### Tabela: `politicians`
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | ID único |
-| name | text | Nome completo |
-| party | text | Partido |
-| state | text | Estado (UF ou BR) |
-| role | text | Cargo (presidente, governador, prefeito) |
-| city | text | Cidade (se prefeito) |
-| photo_url | text | URL da foto |
-| bio | text | Biografia |
-| is_active | boolean | Se está no mandato |
-| slug | text | Slug para URL |
-| election_year | int | Ano da eleição |
-| position | text | Cargo normalizado |
-| source_doc_url | text | URL documento fonte |
-| created_at | timestamptz | Criação |
-| updated_at | timestamptz | Atualização |
-
-### Tabela: `promises`
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | ID único |
-| politician_name | text | Nome do político |
-| politician_id | uuid FK | ID do político |
-| promise_title | text | Título da promessa |
-| category | text | Categoria (Economia, Saúde, etc) |
-| status | text | Status atual (cumprida, parcial, pendente, quebrada) |
-| fulfillment_score | int | Score 0-100 |
-| evidence | text | Evidência textual |
-| source_link | text | Link fonte original |
-| evidence_count | int | Contagem de evidências |
-| last_verified_at | timestamptz | Última verificação |
-| ai_evaluation | text | Justificativa da IA |
-| evidences_used | jsonb | Array de evidências usadas |
-| needs_human_review | boolean | Precisa revisão humana |
-| is_automated | boolean | Avaliação automática |
-| party | text | Partido |
-| data_promessa | date | Data da promessa |
-| created_at | timestamptz | Criação |
-| updated_at | timestamptz | Atualização |
-
-### Tabela: `promise_explanations` (FONTE ÚNICA DA VERDADE)
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | ID único |
-| promise_id | uuid FK | ID da promessa |
-| status | text | Status avaliado |
-| fulfillment_score | int | Score avaliado |
-| criterio_aplicado | text | Critério usado |
-| justificativa | text | Justificativa |
-| evidencias_usadas | jsonb | Array de evidências |
-| o_que_falta | text | O que falta |
-| o_que_foi_feito | text | O que foi feito |
-| confianca | numeric(0-1) | Nível de confiança |
-| modelo_ia | text | Modelo usado |
-| is_latest | boolean | É a versão mais recente |
-| gerado_em | timestamptz | Data de geração |
-| revisado_em | timestamptz | Data de revisão |
-| revisado_por | text | Quem revisou |
-
-### Tabela: `promise_evidences`
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | ID único |
-| promise_id | uuid FK | ID da promessa |
-| title | text | Título da evidência |
-| description | text | Descrição |
-| url | text | URL da fonte |
-| source_name | text | Nome da fonte |
-| evidence_type | text | Tipo (news, official) |
-| source_type | text | Tipo de fonte |
-| validation_status | text | Status de validação |
-| published_at | timestamptz | Data de publicação |
-| confiabilidade | int | Score de confiabilidade |
-| relevance_score | int | Score de relevância |
-| credibility_score | int | Score de credibilidade |
-| discovered_at | timestamptz | Data de descoberta |
-| validated | boolean | Se foi validada |
-| needs_review | boolean | Precisa revisão |
-
-### Tabela: `cron_executions`
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| execution_id | text PK | ID da execução |
-| trigger | text | Gatilho (vercel_cron, autonomous_seed) |
-| status | text | started/completed/failed |
-| started_at | timestamptz | Início |
-| completed_at | timestamptz | Fim |
-| promises_evaluated | int | Promessas avaliadas |
-| promises_failed | int | Falhas |
-| details | jsonb | Detalhes da execução |
-
-### Tabela: `daily_monitor_log`
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid PK | ID único |
-| monitor_name | text | Nome do monitor |
-| promises_processed | int | Promessas processadas |
-| new_evidences_found | int | Novas evidências |
-| errors | text | Erros JSON |
-| started_at | timestamptz | Início |
-| completed_at | timestamptz | Fim |
-
-### Tabela: `status_history`
-- Colunas conhecidas: `id`, `promise_id`, `previous_status`, `new_status`
-- Colunas que NÃO existem: `previous_score`, `new_score`, `changed_by`, `evaluation_type`, `change_reason`
-
-### Tabela: `audit_logs`
-- Colunas conhecidas: `id`, `action`, `table_name`, `details`
-- Colunas que NÃO existem: `record_id`, `old_value`, `new_value`, `performed_by`, `old_data`, `new_data`
-
-### Tabela: `feeds`
-- Usada pelo pipeline para descobrir domínios ativos
-- Colunas: `url`, `active`, `category`
+| Pasta | Cor | Descricao |
+|-------|-----|-----------|
+| `promessas/cumpridas/` | 🟢 Verde | Promessas cumpridas (n212) |
+| `promessas/parciais/` | 🟡 Amarelo | Promessas parciais (n594) |
+| `promessas/pendentes/` | ⚪ Cinza | Promessas pendentes (n5166) |
+| `promessas/descumpridas/` | 🔴 Vermelho | Promessas descumpridas (n170) |
+| `promessas/em-andamento/` | 🔵 Azul | Promessas em andamento (n3) |
+| `politicos/` | 🟣 Roxo | Index por politico (n35) |
+| `metodologia/` | ⚪ Branco | Documentos da metodologia v1.1 |
+| `indicadores/` | 🔵 Ciano | Fichas de indicadores |
+| `estados/` | 🟠 Laranja | Index por estado (n27) |
+| `categorias/` | 🩷 Rosa | Index por categoria (n11) |
+| `execucoes/` | 🟢 Verde Escuro | Logs de execucao |
+| `templates/` | 🔵 Azul Escuro | Templates |
+| `CONTEXTO` | 🟡 Dourado | Este arquivo |
+| `AGENT_RULES` | 🟡 Dourado | Regras do agente |
+| `CLAUDE` | ⚪ Prata | Regras globais |
 
 ---
 
-## STATUS NORMALIZADOS (4 VALORES)
+## 📊 Inventario
 
-| Status DB | Label | Score Range |
-|-----------|-------|-------------|
-| `cumprida` | Cumprida | 80-100 |
-| `parcial` | Parcialmente Cumprida | 40-79 |
-| `pendente` | Pendente | 0-39 |
-| `quebrada` | Descumprida | 0 |
+| Metrica | Valor |
+|---------|-------|
+| Total de promessas | 6085 |
+| Total de politicos | 35 |
+| Total de estados | 27 |
+| Total de categorias | 11 |
+| Promessas pendentes | 5166 |
+| Promessas parciais | 594 |
+| Promessas cumpridas | 212 |
+| Promessas descumpridas | 170 |
+| Promessas em andamento | 3 |
+| Normalizacoes aplicadas | 1 |
 
-### Mapeamento Reverso
-- `parcialmente_cumprida`, `em_andamento` → `parcial`
-- `nao_iniciada`, `nao_classificada`, `pendente` → `pendente`
-- `descumprida` → `quebrada`
-- `cumprida` → `cumprida`
+### Politicos
 
----
+| # | Politico | Partido | Estado | Promessas |
+|---|----------|---------|--------|-----------|
+| 1 | [[politicos/Antonio Denarium]] | PP | Roraima | 231 |
+| 2 | [[politicos/Bruno Reis]] | União Brasil | Bahia | 12 |
+| 3 | [[politicos/Carlos Massa Ratinho Junior]] | PSD | Paraná | 45 |
+| 4 | [[politicos/Carlos Orleans Brandao Junior]] | PSB | Maranhão | 374 |
+| 5 | [[politicos/Cláudio Castro]] | PL | Rio de Janeiro | 71 |
+| 6 | [[politicos/Clécio Luís Vilhena Vieira]] | SD | Amapá | 79 |
+| 7 | [[politicos/Eduardo Correa Riedel]] | PSDB | Mato Grosso do Sul | 305 |
+| 8 | [[politicos/Eduardo Leite]] | PSDB | Rio Grande do Sul | 121 |
+| 9 | [[politicos/Eduardo Paes]] | PSD | Rio de Janeiro | 10 |
+| 10 | [[politicos/Elmano de Freitas da Costa]] | PT | Ceará | 191 |
+| 11 | [[politicos/Evandro Leitão]] | PT | Ceará | 12 |
+| 12 | [[politicos/Fuad Noman]] | PSD | Minas Gerais | 26 |
+| 13 | [[politicos/Fábio Mitidieri]] | PSD | Sergipe | 464 |
+| 14 | [[politicos/Fátima Bezerra]] | PT | Rio Grande do Norte | 286 |
+| 15 | [[politicos/Gladson de Lima Cameli]] | PP | Acre | 192 |
+| 16 | [[politicos/Helder Zahluth Barbalho]] | MDB | Pará | 57 |
+| 17 | [[politicos/Ibaneis Rocha Barros Junior]] | MDB | Distrito Federal | 346 |
+| 18 | [[politicos/Jair Bolsonaro]] | PL | Brasil | 47 |
+| 19 | [[politicos/Jerônimo Rodrigues]] | PT | Bahia | 709 |
+| 20 | [[politicos/Jorginho Mello]] | PL | Santa Catarina | 64 |
+| 21 | [[politicos/José Renato Casagrande]] | PSB | Espírito Santo | 326 |
+| 22 | [[politicos/João Azevedo Lins Filho]] | PSB | Paraíba | 199 |
+| 23 | [[politicos/Luiz Inácio Lula da Silva]] | PT | Brasil | 12 |
+| 24 | [[politicos/Marcos José Rocha dos Santos]] | UNIAO | Rondônia | 136 |
+| 25 | [[politicos/Mauro Mendes]] | UNIÃO | Mato Grosso | 145 |
+| 26 | [[politicos/Paulo Dantas]] | MDB | Alagoas | 715 |
+| 27 | [[politicos/Paulo Suruagy do Amaral Dantas]] | MDB | Alagoas | 0 |
+| 28 | [[politicos/Rafael Tajra Fonteles]] | PT | Piauí | 160 |
+| 29 | [[politicos/Raquel Teixeira Lyra Lucena]] | PSDB | Pernambuco | 149 |
+| 30 | [[politicos/Ricardo Nunes]] | MDB | São Paulo | 21 |
+| 31 | [[politicos/Romeu Zema]] | Novo | Minas Gerais | 39 |
+| 32 | [[politicos/Ronaldo Ramos Caiado]] | UNIAO | Goiás | 64 |
+| 33 | [[politicos/Tarcísio de Freitas]] | Republicanos | São Paulo | 293 |
+| 34 | [[politicos/Wanderlei Barbosa]] | REPUBLICANOS | Tocantins | 144 |
+| 35 | [[politicos/Wilson Miranda Lima]] | UNIÃO | Amazonas | 99 |
 
-## ENDPOINTS API (api/index.js)
+### Estados
 
-| Método | Path | Descrição |
-|--------|------|-----------|
-| GET | `/api/health` | Health check |
-| GET | `/api/politicians/ranking` | Ranking de políticos |
-| GET | `/api/politician/:slug` | Perfil de político + promessas |
-| GET | `/api/promises` | Lista de promessas |
-| POST | `/api/promises/submit` | Submeter nova promessa |
-| GET | `/api/evaluate/:promiseId` | Avaliação unificada |
-| GET/POST | `/api/batch-evaluate` | Seed de avaliações |
-| GET | `/api/stats` | Estatísticas gerais |
-| GET/POST | `/api/autonomous-seed` | Seed autônomo completo |
+| # | Estado | Promessas |
+|---|--------|-----------|
+| 1 | [[estados/Acre]] | 192 |
+| 2 | [[estados/Alagoas]] | 715 |
+| 3 | [[estados/Amapá]] | 79 |
+| 4 | [[estados/Amazonas]] | 99 |
+| 5 | [[estados/Bahia]] | 721 |
+| 6 | [[estados/Brasil]] | 59 |
+| 7 | [[estados/Ceará]] | 203 |
+| 8 | [[estados/Distrito Federal]] | 346 |
+| 9 | [[estados/Espírito Santo]] | 326 |
+| 10 | [[estados/Goiás]] | 64 |
+| 11 | [[estados/Maranhão]] | 374 |
+| 12 | [[estados/Mato Grosso]] | 145 |
+| 13 | [[estados/Mato Grosso do Sul]] | 305 |
+| 14 | [[estados/Minas Gerais]] | 65 |
+| 15 | [[estados/Paraná]] | 45 |
+| 16 | [[estados/Paraíba]] | 199 |
+| 17 | [[estados/Pará]] | 57 |
+| 18 | [[estados/Pernambuco]] | 149 |
+| 19 | [[estados/Piauí]] | 160 |
+| 20 | [[estados/Rio Grande do Norte]] | 286 |
+| 21 | [[estados/Rio Grande do Sul]] | 121 |
+| 22 | [[estados/Rio de Janeiro]] | 81 |
+| 23 | [[estados/Rondônia]] | 136 |
+| 24 | [[estados/Roraima]] | 231 |
+| 25 | [[estados/Santa Catarina]] | 64 |
+| 26 | [[estados/Sergipe]] | 464 |
+| 27 | [[estados/São Paulo]] | 314 |
+| 28 | [[estados/Tocantins]] | 144 |
 
-### Endpoints Cron (arquivos separados)
-| Path | Arquivo | Descrição |
-|------|---------|-----------|
-| `/api/cron/pipeline-orchestrator` | `api/cron/pipeline-orchestrator.js` | Pipeline completo |
-| `/api/cron/daily-reavaliation` | `api/cron/daily-reavaliation.js` | Reavaliação diária |
-| `/api/cron/discover-evidences` | `api/cron/discover-evidences.js` | Descoberta de evidências |
-| `/api/sitemap` | `api/sitemap.js` | Sitemap XML |
+### Categorias
 
----
-
-## O QUE FIZEMOS HOJE (2026-05-16)
-
-### 1. Corrigimos endpoints faltantes
-- Adicionado `/api/politician/:slug` para perfil de político
-- Adicionado `/api/promises/submit` para submeter promessas
-- Ranking e perfil estavam retornando "Endpoint nao encontrado"
-
-### 2. Corrigimos sitemap 500
-- `api/sitemap.js` usava `module.exports` (CommonJS) → convertido para `export default` (ESM)
-- `createClient` no escopo do módulo causava crash → movido para função lazy `db()`
-- Usava anon key com RLS → agora usa service role key
-- Agora inclui URLs de políticos e promessas no XML
-
-### 3. Criamos endpoint autônomo de seed
-- `api/autonomous-seed.js` - popula TODAS as tabelas automaticamente
-- Descobre evidências via Serper (10 por promessa)
-- Avalia com Groq AI (llama-3.3-70b-versatile)
-- Popula `promises`, `promise_evidences`, `promise_explanations`
-- Processa em batches de 3 promessas para evitar timeout
-
-### 4. Corrigimos nomes de colunas
-- `promise_evidences`: usa `title`, `description`, `source_name` (NÃO `titulo`, `descricao`, `fonte`)
-- `status_history`: colunas limitadas a `promise_id`, `previous_status`, `new_status`
-- `audit_logs`: colunas limitadas a `action`, `table_name`, `details`
-- `promise_explanations.confianca` é numeric(0-1), NÃO int
-
-### 5. Populamos o banco completamente
-- 41 promessas avaliadas
-- ~350 evidências descobertas e inseridas
-- 41 explicações em `promise_explanations`
-- 12 políticos no ranking
-
-### 6. Regra crítica descoberta
-- `createClient` do Supabase NUNCA pode ser chamado no escopo do módulo
-- Sempre usar função lazy `db()` que cria o client sob demanda
-- Isso causa erro 500 no Vercel serverless durante cold starts
-
-### 7. Correções aplicadas (segunda sessão - 16/05/2026 tarde)
-- **Score clamping corrigido**: promessas "cumpridas" com score 0 agora recebem score 85
-  - Criado script SQL `scripts/fix-score-clamping.sql` para corrigir dados existentes
-  - Atualizado `api/index.js` batch-evaluate para clamped scores corretamente
-- **Campo `fonte` vazio corrigido**: adicionada função `extractHostname(url)` para extrair hostname quando Serper não retorna `source`
-  - Aplicado em `api/autonomous-seed.js`, `api/cron/daily-reavaliation.js`, `api/cron/pipeline-orchestrator.js`
-- **Tratamento de erro da IA melhorado**: fallback agora retorna status/score original com score clamped e mensagem descritiva
-  - Inclui motivo da falha (GROQ_API_KEY não configurada ou erro HTTP)
-- **status_history e audit_logs agora são inseridos**: com schema correto (colunas existentes)
-  - `status_history`: `promise_id`, `previous_status`, `new_status`
-  - `audit_logs`: `action`, `table_name`, `details` (JSON)
-- **Deduplicação de evidências**: verifica URLs existentes antes de inserir
-  - Usa Set de URLs existentes + check no mesmo batch
-- **pipeline-orchestrator.js corrigido**:
-  - `createClient` movido para função lazy `db()`
-  - Colunas de `promise_evidences` corrigidas (`title`, `description`, `source_name`)
-  - `confianca` agora usa valores 0.5/0.85 (NÃO 50/85)
-  - `status_history` e `audit_logs` com schema correto
-
----
-
-## O QUE FALTA FAZER
-
-### Urgente
-1. **Rodar SQL migration** - Executar `scripts/fix-score-clamping.sql` no Supabase para corrigir scores existentes
-2. **Verificar GROQ_API_KEY no Vercel** - Avaliações IA ainda podem estar falhando se a key não estiver configurada
-3. **Deploy das correções** - Subir alterações para produção (autonomous-seed, daily-reavaliation, pipeline-orchestrator, index.js)
-
-### Melhorias
-4. **Pipeline cron não está rodando** - Vercel crons podem não estar configurados no plano free
-   - Verificar se crons estão ativos no dashboard Vercel
-   - Considerar alternativa: GitHub Actions ou endpoint manual
-5. **Frontend precisa de refresh** - Algumas páginas podem cache antigo
-   - Verificar se `/ranking` e `/promessas` renderizam corretamente
-   - Verificar se badges de status usam labels corretos
-6. **Página de detalhes da promessa** - Verificar se `/promessa/:slug` funciona
-   - Frontend precisa de rota para detalhes individuais
-   - Usar endpoint `/api/evaluate/:id`
-
-### Longo Prazo
-7. **Adicionar mais políticos** - Apenas 12 políticos no banco
-8. **Melhorar prompt da IA** - Justificativas genéricas ("herdada do status")
-9. **Adicionar fontes brasileiras** - Expandir lista de domínios confiáveis
-10. **Cache de evidências** - Não buscar mesma promessa repetidamente
-11. **Admin dashboard** - Página para gerenciar políticos e promessas
-12. **Notificações** - Alertar quando promessa muda de status
+| # | Categoria | Promessas |
+|---|-----------|-----------|
+| 1 | [[categorias/Economia]] | 660 |
+| 2 | [[categorias/Educação]] | 519 |
+| 3 | [[categorias/Habitação]] | 88 |
+| 4 | [[categorias/Infraestrutura]] | 594 |
+| 5 | [[categorias/Meio Ambiente]] | 346 |
+| 6 | [[categorias/Outros]] | 2494 |
+| 7 | [[categorias/Relações Exteriores]] | 1 |
+| 8 | [[categorias/Saúde]] | 292 |
+| 9 | [[categorias/Segurança]] | 212 |
+| 10 | [[categorias/Trabalho]] | 82 |
+| 11 | [[categorias/Transporte]] | 123 |
 
 ---
 
-## VARIÁVEIS DE AMBIENTE (VERCEL)
+## 📁 Estrutura do Vault
 
 ```
-VITE_SUPABASE_URL = https://liqutcjzzrqstivvfele.supabase.co
-SUPABASE_SERVICE_ROLE_KEY = (configurada)
-SUPABASE_ANON_KEY = (configurada)
-GROQ_API_KEY = (VERIFICAR - avaliações podem estar falhando)
-OPENAI_BASE_URL = https://api.groq.com/openai/v1
-SERPER_API_KEY = (configurada)
-CRON_SECRET = (opcional)
-SLACK_WEBHOOK_URL = (opcional)
-NODE_ENV = production
-```
+/
++-- promessas/pendentes/[politico]/    ← Promessas pendentes (n5166)
++-- promessas/parciais/[politico]/     ← Promessas parciais (n594)
++-- promessas/cumpridas/[politico]/    ← Promessas cumpridas (n212)
++-- promessas/descumpridas/[politico]/ ← Promessas descumpridas (n170)
++-- promessas/em-andamento/[politico]/ ← Promessas em andamento (n3)
++-- politicos/                ← Index por politico com scores C3 (n35)
++-- metodologia/              ← Documentacao da metodologia v1.1
+¦   +-- FORMULA.md            ← Formula oficial (C1x0.40)+(C2x0.35)+(C3x0.25)
+¦   +-- CAMADA-1-cumprimento.md
+¦   +-- CAMADA-2-indicadores.md
+¦   +-- CAMADA-3-juridico.md
+¦   +-- FONTES.md             ← Niveis de fonte 1-5
+¦   +-- GRADES.md             ← Tabela A-F
+¦   +-- LEGADO.md             ← Score_Mandato e Legado_Total
++-- indicadores/              ← Fichas de indicadores por categoria
+¦   +-- seguranca.md
+¦   +-- financas.md
+¦   +-- funcionalismo.md
++-- estados/                  ← Index por estado (n27)
++-- categorias/               ← Index por categoria (n11)
++-- execucoes/                ← Logs de execucao
++-- .obsidian/graph.json      ← Cores do grafo
++-- CONTEXTO.md               ← Este arquivo
++-- 00-INDEX.md               ← Sumario executivo
++-- SPEC.md                   ← Especificacao do projeto
++-- AGENTS.md                 ← Regras do agente IA
++-- AGENT_RULES.md            ← Regras de extracao (atualizadas v1.1)
++-- CLAUDE.md                 ← Regras globais do agente (atualizadas v1.1)
++-- RESUME_PIPELINE.md        ← Documentacao do pipeline
++-- templates/                ← Templates (v1.1)
++-- storage/                  ← PDFs originais
++-- tmp/harness/              ← Scripts temporarios
++-- node_modules/             ← Dependencias
 
 ---
 
-## COMANDOS ÚTEIS
+## 🧮 Metodologia (v1.1)
 
-```bash
-# Testar seed autônomo
-curl https://promessometro-brasil.vercel.app/api/autonomous-seed?batch=3&offset=0
+O Promessometro usa a metodologia de 3 camadas para avaliar politicos:
 
-# Verificar ranking
-curl https://promessometro-brasil.vercel.app/api/politicians/ranking
+| Camada | Componente | Peso | Documento |
+|--------|-----------|------|-----------|
+| **C1** | Cumprimento de Promessas | 40% | `metodologia/CAMADA-1-cumprimento.md` |
+| **C2** | Indicadores | 35% | `metodologia/CAMADA-2-indicadores.md` |
+| **C3** | Fatos Juridicos | 25% | `metodologia/CAMADA-3-juridico.md` |
 
-# Verificar saúde
-curl https://promessometro-brasil.vercel.app/api/health
+**Formula:** `Nota_Final = (C1 x 0,40) + (C2 x 0,35) + (C3 x 0,25)`
 
-# Verificar stats
-curl https://promessometro-brasil.vercel.app/api/stats
-
-# Popular avaliações faltantes
-curl -X POST https://promessometro-brasil.vercel.app/api/batch-evaluate
-```
+Cada politico tem `c3_score` (inicia 100, decresce com penalidades), `legado_total` (acumulativo entre mandatos) e `nota_final` calculada pela formula. Consulte `metodologia/FORMULA.md` para detalhes completos.
 
 ---
 
-## REGRAS CRÍTICAS
+## Como usar este vault
 
-1. **NUNCA** usar `createClient` no escopo do módulo - SEMPRE usar função lazy `db()`
-2. **NUNCA** commitar chaves de API no código - usar variáveis de ambiente
-3. **SEMPRE** usar `promise_explanations` com `is_latest=true` como fonte única
-4. **SEMPRE** mapear status para 4 valores normalizados antes de exibir no frontend
-5. **SEMPRE** usar `export default` nos arquivos da api/ (ESM, não CommonJS)
-6. **NUNCA** assumir schema do banco - verificar colunas existentes antes de inserir
+### Para encontrar todas as promessas de um politico
+Abra `politicos/Antonio Denarium.md` ou use o Graph View (roxo).
+
+### Para encontrar todas as promessas de um estado
+Abra `estados/Acre.md` ou use o Graph View (laranja).
+
+### Para encontrar todas as promessas de uma categoria
+Abra `categorias/Economia.md` ou use o Graph View (rosa).
+
+### Para entender a metodologia
+Abra `metodologia/FORMULA.md` — formula, grades e regras completas.
+
+---
+
+*Atualizado em 2026-06-10. Metodologia v1.1.*

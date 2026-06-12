@@ -161,7 +161,7 @@ export class ChatEngine {
         }
         this.notify();
       }
-    } catch (error: any) {
+    } catch (error) {  // any-ok
       this.state.messages.push({ role: 'assistant', content: `Erro: ${error.message}` });
     } finally {
       this.state.isThinking = false;

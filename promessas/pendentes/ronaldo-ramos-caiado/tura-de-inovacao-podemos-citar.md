@@ -1,0 +1,79 @@
+---
+titulo: "tura de inovação, podemos citar"
+politico: "Ronaldo Ramos Caiado"
+partido: "UNIAO"
+cargo: "governador"
+estado: "Goias"
+data_promessa: "2026-06-10"
+fonte_original: ""
+status: "🟡 pendente"
+categoria: "Saude"
+ultima_atualizacao: "2026-06-10"
+---
+
+# tura de inovação, podemos citar
+
+## 📌 Dados da Promessa
+
+| Campo | Valor |
+|-------|-------|
+| **Político** | Ronaldo Ramos Caiado |
+| **Partido** | UNIAO |
+| **Cargo** | governador |
+| **Estado** | Goias |
+| **Data da Promessa** | 2026-06-10 |
+| **Categoria** | {{categoria}} |
+| **Status Atual** | 🟡 pendente |
+| **Última Atualização** | 2026-06-10 |
+
+---
+
+## 📄 Descrição
+
+> Descreva aqui a promessa de forma clara e objetiva, com as palavras originais do político sempre que possível.
+
+Centro de Excelência em Bioinsumos; Formação de capital humano: o Governo do Estado Centro de Estudos, Monitoramento e Previsões tem dado ênfase na Educação Profissional e Tecnológica, Ambientais. com a preparação de jovens e adultos para o mercado de tra- balho de Tecnologia da Informação, na criação das Escolas Esses centros contam com a participação de equipe técni- do Futuro, onde, além do conteúdo técnico, o aluno apren- ca altamente especializada, e visam a prospecção de soluções para d...
+
+---
+
+## 🔗 Fonte Original
+
+- **Link:** 
+- **Veículo/Plataforma:** Plano de Governo Goias
+- **Data de publicação:** 2022
+
+---
+
+## ✅ Critério de Verificação
+
+> Defina aqui o que seria necessário para considerar esta promessa **cumprida**.
+> Seja específico: metas, prazos, indicadores mensuráveis.
+
+
+
+---
+
+## 📊 Histórico de Status
+
+| Data | Status Anterior | Novo Status | Responsável | Nota |
+|------|----------------|-------------|-------------|------|
+| 2026-06-10 | — | 🟡 pendente | sistema | Promessa cadastrada |
+
+---
+
+## 🧠 Decisões
+
+> Registre aqui decisões não-triviais tomadas durante a análise desta promessa.
+> Ex: mudança de status, interpretação de evidência ambígua, descarte de fonte.
+
+- [2026-06-10] Promessa cadastrada. Aguardando início de verificação.
+
+---
+
+## 📎 Evidências
+
+> Liste aqui as evidências coletadas (a favor ou contra o cumprimento).
+
+| Data | Tipo | Descrição | Fonte | Link |
+|------|------|-----------|-------|------|
+| — | — | Nenhuma evidência coletada ainda | — | — |

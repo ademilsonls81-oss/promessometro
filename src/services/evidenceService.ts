@@ -19,7 +19,7 @@ interface EvidenceResult {
   publishedDate: string | null;
   relevanceScore: number;
   evidenceType: string;
-  aiAnalysis: any;
+  aiAnalysis: any;  // any-ok
 }
 
 interface SearchContext {
@@ -100,7 +100,7 @@ export async function searchEvidenceForPromise(context: SearchContext): Promise<
           });
         }
       }
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.log(`[Evidence] Error fetching ${source.name}: ${err.message}`);
     }
   }

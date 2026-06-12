@@ -51,7 +51,7 @@ export async function runMonthlyReset() {
     const resetCount = data?.length || 0;
     console.log(`[Cron] ✅ Reset ${resetCount} free users for ${dateKey}`);
     lastResetDate = dateKey;
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`[Cron] Monthly reset failed: ${err.message}`);
   } finally {
     isRunning = false;

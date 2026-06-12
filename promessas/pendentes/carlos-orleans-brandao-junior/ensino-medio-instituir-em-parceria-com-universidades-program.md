@@ -1,0 +1,82 @@
+---
+titulo: "ENSINO MÉDIO Instituir, em parceria com universidades, programa de reforço escolar de português e matemática para alunos"
+politico: "Carlos Orleans Brandao Junior"
+partido: "PSB"
+cargo: "governador"
+estado: "Maranhão"
+data_promessa: "2022-10-01"
+fonte_original: "Plano de Governo Maranhao 2023-2026 (PDF)"
+status: "🟡 pendente"
+categoria: "Educação"
+ultima_atualizacao: "2026-06-09"
+---
+
+
+
+
+
+# ENSINO MÉDIO Instituir, em parceria com universidades, programa de reforço escolar de português e matemática para alunos
+
+## 📌 Dados da Promessa
+
+| Campo | Valor |
+|-------|-------|
+| **Politico** | Carlos Orleans Brandao Junior |
+| **Partido** | PSB |
+| **Cargo** | governador |
+| **Estado** | Maranhao |
+| **Data da Promessa** | 2022-10-01 |
+| **Categoria** | Educacao |
+| **Status Atual** | 🟡 pendente |
+| **Ultima Atualizacao** | 2026-06-09 |
+
+---
+
+## 📄 Descricao
+
+ENSINO MÉDIO Instituir, em parceria com universidades, programa de reforço escolar de português e matemática para alunos do Ensino Médio, como forma de minimizar os impactos na aprendizagem ao longo da pandemia. O programa será também oportunidade de estágio para alunos de graduação da UEMA e outras instituições de ensino.
+
+---
+
+## 🔗 Fonte Original
+
+- **Link:** Plano de Governo Maranhao 2023-2026
+- **Veiculo/Plataforma:** PDF — TSE
+- **Data de publicacao:** 2022-08-15
+
+---
+
+## ✅ Criterio de Verificacao
+
+Aguardando definicao de criterio de verificacao especifico.
+
+---
+
+## 📊 Historico de Status
+
+| Data | Status Anterior | Novo Status | Responsavel | Nota |
+|------|----------------|-------------|-------------|------|
+| 2026-06-09 | — | 🟡 pendente | sistema | Promessa extraida do PDF do plano de governo |
+
+---
+
+## 🧠 Decisoes
+
+- [2026-06-09] Promessa extraida automaticamente via analise estrutural do texto do plano de governo.
+
+---
+
+## 📎 Evidencias
+
+| Data | Tipo | Descricao | Fonte | Link |
+|------|------|-----------|-------|------|
+| — | — | Nenhuma evidencia coletada ainda | — | — |
+
+
+---
+
+## 🔗 Conexoes
+
+- [[politicos/Carlos Orleans Brandao Junior]]
+- [[estados/Maranhão]]
+- [[categorias/Educação]]

@@ -12,68 +12,8 @@
             "destination": "/api/cron/daily-reavaliation.js"
         },
         {
-            "source": "/api/cron/discover-evidences",
-            "destination": "/api/cron/discover-evidences.js"
-        },
-        {
-            "source": "/api/cron/pipeline-orchestrator",
-            "destination": "/api/cron/pipeline-orchestrator.js"
-        },
-        {
-            "source": "/api/cron/update-stats",
-            "destination": "/api/cron/update-stats.js"
-        },
-        {
-            "source": "/api/cron/backup-export",
-            "destination": "/api/cron/backup-export.js"
-        },
-        {
-            "source": "/api/cron/process-evidences",
-            "destination": "/api/cron/process-evidences.js"
-        },
-        {
-            "source": "/api/cron/politician-ranking",
-            "destination": "/api/cron/politician-ranking.js"
-        },
-        {
-            "source": "/api/cron/test-run",
-            "destination": "/api/cron/test-run.js"
-        },
-        {
-            "source": "/api/sitemap.xml",
-            "destination": "/api/sitemap.js"
-        },
-        {
-            "source": "/api/autonomous-seed",
-            "destination": "/api/autonomous-seed.js"
-        },
-        {
-            "source": "/api/sitemap",
-            "destination": "/api/sitemap.js"
-        },
-        {
-            "source": "/api/cron/metodologia-audit",
-            "destination": "/api/cron/metodologia-audit.js"
-        },
-        {
             "source": "/api/cron/discovery-processor",
             "destination": "/api/cron/discovery-processor.js"
-        },
-        {
-            "source": "/api/force-reavaliation",
-            "destination": "/api/index.js"
-        },
-        {
-            "source": "/api/seed-evaluations",
-            "destination": "/api/index.js"
-        },
-        {
-            "source": "/api/sql",
-            "destination": "/api/sql.js"
-        },
-        {
-            "source": "/api/(.*)",
-            "destination": "/api/index.js"
         },
         {
             "source": "/((?!api|_next/static|_next/image|favicon.ico).*)",
@@ -82,25 +22,18 @@
     ],
     "crons": [
         {
-            "path": "/api/cron/pipeline-orchestrator",
-            "schedule": "0 6 * * *"
-        },
-        {
             "path": "/api/cron/daily-reavaliation",
             "schedule": "0 6 * * *"
         }
     ],
     "functions": {
-        "api/index.js": {
-            "maxDuration": 120
-        },
         "api/cron/process-pending.js": {
             "maxDuration": 60
         },
         "api/cron/daily-reavaliation.js": {
             "maxDuration": 120
         },
-        "api/cron/pipeline-orchestrator.js": {
+        "api/cron/discovery-processor.js": {
             "maxDuration": 120
         }
     },

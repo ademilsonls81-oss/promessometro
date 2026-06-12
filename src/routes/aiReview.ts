@@ -3,7 +3,8 @@ import { checkAdmin } from "../middleware/auth.js";
 import { getPendingReviews, approveEvaluation } from "../services/aiEvaluator.js";
 import { supabase } from "../lib/supabase.js";
 import { validateBody } from "../middleware/security.js";
-import { z } from "zod";
+import { z } from "zod";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -52,7 +53,7 @@ router.get("/ai-review", checkAdmin, asyncHandler(async (req: Request, res: Resp
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -120,7 +121,7 @@ router.post("/ai-review/action", checkAdmin, validateBody(reviewSchema), asyncHa
     } else {
       res.status(400).json({ error: "AÃ§Ã£o nÃ£o reconhecida" });
     }
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -147,7 +148,7 @@ router.get("/ai-review/stats", checkAdmin, asyncHandler(async (_req: Request, re
         high: 0
       }
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));

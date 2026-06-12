@@ -28,7 +28,7 @@ router.post("/scrape/:politicianId", asyncHandler(async (req: Request, res: Resp
       message: result.message
     });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
@@ -47,7 +47,7 @@ router.post("/scrape-all", checkAdmin, asyncHandler(async (_req: Request, res: R
       errors: result.errors
     });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
@@ -66,7 +66,7 @@ router.post("/daily-monitor", checkAdmin, asyncHandler(async (_req: Request, res
       scoresUpdated: result.scoresUpdated
     });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error(`[Scraper API] Erro:`, err);
     return res.status(500).json({ error: err.message });
   }
@@ -82,7 +82,7 @@ router.get("/jobs", asyncHandler(async (_req: Request, res: Response) => {
 
     return res.json({ jobs: jobs || [] });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
@@ -97,12 +97,13 @@ router.get("/monitor-logs", asyncHandler(async (_req: Request, res: Response) =>
 
     return res.json({ logs: logs || [] });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return res.status(500).json({ error: err.message });
   }
 }));
 
-import { supabase } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export default router;

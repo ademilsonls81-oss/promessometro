@@ -239,7 +239,7 @@ export async function executeRecaptcha(action: string): Promise<RecaptchaResult>
                   action === "submit_report" ? 0.6 : 0.5;
 
     return { success: true, score, token };
-  } catch (e: any) {
+  } catch (e) {  // any-ok
     return { success: false, score: 0, error: e.message };
   }
 }

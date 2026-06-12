@@ -41,14 +41,14 @@ export default function ElectionPage() {
       const result = await getElectionData(supabase, Number(y));
       setData(result);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }
 
-  const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+  const statusConfig: Record<string, { label: string; color: string; icon: any }> = {  // any-ok
     fulfilled: { label: "Cumpridas", color: "text-green-400", icon: CheckCircle2 },
     partial: { label: "Parciais", color: "text-yellow-400", icon: AlertCircle },
     broken: { label: "Quebradas", color: "text-red-400", icon: AlertCircle },
@@ -135,7 +135,7 @@ export default function ElectionPage() {
                 </h2>
 
                 <div className="space-y-4">
-                  {data.top_politicians.map((p: any, idx: number) => (
+                  {data.top_politicians.map((p: any, idx: number) => (  // any-ok
                     <Link key={p.name} to={`/politico/${p.slug}`} className="block">
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}

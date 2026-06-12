@@ -37,7 +37,7 @@ export async function nativeShare(data: ShareData): Promise<boolean> {
         url: data.url
       });
       return true;
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       if (err.name === "AbortError") return false;
       console.warn("[Share] Native share failed:", err);
     }

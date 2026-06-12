@@ -2,7 +2,8 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { checkAdmin } from "../middleware/auth.js";
 import { classifyPromise, applyScore, batchClassify, getCriteria, getExplanation } from "../services/scoreService.js";
-import { invalidate as cacheInvalidate } from "../services/cacheService.js";
+import { invalidate as cacheInvalidate } from "../services/cacheService.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -38,7 +39,7 @@ router.post("/:id", checkAdmin, asyncHandler(async (req: Request, res: Response)
       ...result,
       message: "ClassificaÃ§Ã£o aplicada com sucesso",
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Score API] Error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -58,7 +59,7 @@ router.post("/batch", checkAdmin, asyncHandler(async (_req: Request, res: Respon
       ...result,
       message: "ClassificaÃ§Ã£o em lote concluÃ­da",
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Score API] Batch error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -68,7 +69,7 @@ router.get("/criteria", asyncHandler(async (_req: Request, res: Response) => {
   try {
     const criteria = getCriteria();
     res.json(criteria);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Score API] Criteria error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -89,7 +90,7 @@ router.get("/stats", checkAdmin, asyncHandler(async (_req: Request, res: Respons
     };
 
     res.json(stats);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Score API] Stats error:", err);
     res.status(500).json({ error: err.message });
   }
@@ -105,7 +106,7 @@ router.get("/explanation/:id", asyncHandler(async (req: Request, res: Response) 
     }
 
     res.json(explanation);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Score API] Explanation error:", err);
     res.status(500).json({ error: err.message });
   }

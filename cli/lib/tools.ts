@@ -64,7 +64,7 @@ export const tools = [
       try {
         const { stdout, stderr } = await execAsync(command, { cwd, timeout: 30000 });
         return stdout || stderr || '(sem output)';
-      } catch (error: any) {
+      } catch (error) {  // any-ok
         return `Erro: ${error.message}`;
       }
     },

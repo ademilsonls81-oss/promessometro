@@ -1,4 +1,5 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response } from "express";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -53,7 +54,7 @@ router.post("/recaptcha-verify", asyncHandler(async (req: Request, res: Response
       score: data.score || 0,
       error: data["error-codes"]?.join(", ") || "Verification failed"
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[reCAPTCHA] Verification error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }

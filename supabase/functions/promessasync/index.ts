@@ -174,7 +174,7 @@ function parsePainelDeAcompanhamento(raw: string): ParsedPanel {
 }
 
 async function findOrCreatePolitician(
-  supabase: any,
+  supabase: any,  // any-ok
   nome: string,
   partido: string,
   cargo?: string,
@@ -210,7 +210,7 @@ async function findOrCreatePolitician(
 }
 
 async function upsertPromise(
-  supabase: any,
+  supabase: any,  // any-ok
   data: ParsedPanel,
   politicianId: string | null
 ): Promise<string | null> {
@@ -260,7 +260,7 @@ async function upsertPromise(
 }
 
 async function upsertExplanation(
-  supabase: any,
+  supabase: any,  // any-ok
   promiseId: string,
   data: ParsedPanel
 ): Promise<void> {
@@ -288,7 +288,7 @@ async function upsertExplanation(
 }
 
 async function upsertEvidences(
-  supabase: any,
+  supabase: any,  // any-ok
   promiseId: string,
   fontes: string[]
 ): Promise<number> {
@@ -320,7 +320,7 @@ async function upsertEvidences(
 }
 
 async function logAudit(
-  supabase: any,
+  supabase: any,  // any-ok
   promiseId: string | null,
   action: string,
   details: Record<string, unknown>

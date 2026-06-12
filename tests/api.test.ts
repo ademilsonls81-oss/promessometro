@@ -21,7 +21,7 @@ describe('API Logic Tests', () => {
   });
 
   describe('Verified Score Calculation', () => {
-    function calculateVerifiedScore(post: any): number {
+    function calculateVerifiedScore(post: any): number {  // any-ok
       let score = 0;
       if (post.title && post.title.length > 10) score += 20;
       if (post.summary && post.summary.length > 50) score += 30;

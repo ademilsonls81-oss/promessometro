@@ -1,0 +1,101 @@
+---
+categoria: "Habitação"
+total_promessas: 82
+ultima_atualizacao: "2026-06-10"
+---
+
+# Habitação
+
+## 📌 Dados
+
+| Campo | Valor |
+|-------|-------|
+| **Categoria** | Habitação |
+| **Total de Promessas** | 88 |
+
+---
+
+## 📋 Promessas
+
+- 🔴 [[promessas/descumpridas/antonio-denarium/ampliacao-do-programa-de-casas-populares|Ampliação do Programa de Casas Populares]] — [[politicos/Antonio Denarium]]
+- 🟢 [[promessas/cumpridas/antonio-denarium/plano-habitacional-para-o-servidor-publico-concursado|Plano Habitacional para o Servidor Público Concursado]] — [[politicos/Antonio Denarium]]
+- 🔵 [[promessas/parciais/bruno-reis/implementar-um-programa-de-habitacao-para-familias-de-baixa-renda|Implementar um programa de habitação para famílias de baixa renda]] — [[politicos/Bruno Reis]]
+- 🟡 [[promessas/pendentes/carlos-orleans-brandao-junior/acessibilidade-criar-novo-eixo-do-programa-cheque-minha-casa|ACESSIBILIDADE Criar novo eixo do Programa Cheque Minha Casa, com objetivo de of]] — [[politicos/Carlos Orleans Brandao Junior]]
+- 🟡 [[promessas/pendentes/carlos-orleans-brandao-junior/cheque-minha-casa-fortalecer-o-programa-cheque-minha-casa-pa|CHEQUE MINHA CASA Fortalecer o Programa Cheque Minha Casa (para reforma de morad]] — [[politicos/Carlos Orleans Brandao Junior]]
+- 🟡 [[promessas/pendentes/carlos-orleans-brandao-junior/minha-casa-meu-maranhao-fortalecer-o-programa-minha-casa-meu|MINHA CASA, MEU MARANHÃO Fortalecer o programa Minha Casa, Meu Maranhão, amplian]] — [[politicos/Carlos Orleans Brandao Junior]]
+- 🟡 [[promessas/pendentes/carlos-orleans-brandao-junior/reconstrucao-pos-enchentes-celebrar-convenios-com-os-municip|RECONSTRUÇÃO PÓS ENCHENTES Celebrar convênios com os municípios atingidos pelas ]] — [[politicos/Carlos Orleans Brandao Junior]]
+- 🟡 [[promessas/pendentes/eduardo-correa-riedel/ampliar-as-parcerias-com-os-governos-federal-e-municipal-par|Ampliar as parcerias com os governos federal e municipal para construção de mora]] — [[politicos/Eduardo Correa Riedel]]
+- 🟡 [[promessas/pendentes/eduardo-correa-riedel/buscar-novas-parcerias-e-arranjos-institucionais-para-amplia|Buscar novas parcerias e arranjos institucionais para ampliar a oferta de moradi]] — [[politicos/Eduardo Correa Riedel]]
+- 🟡 [[promessas/pendentes/eduardo-correa-riedel/reduzir-o-deficit-habitacional-moradia-e-urbanizacao-fortale|Reduzir o déficit habitacional. Moradia e urbanização • Fortalecer os programas ]] — [[politicos/Eduardo Correa Riedel]]
+- 🟡 [[promessas/pendentes/eduardo-leite/elaborar-plano-de-moradia-estabelecer-a-cooperacao-para-a-po|Elaborar plano de moradia • Estabelecer a cooperação para a população em situaçã]] — [[politicos/Eduardo Leite]]
+- 🟡 [[promessas/pendentes/elmano-de-freitas-da-costa/acesso-a-moradia-digna-assegurando-um-direito-basico-de-todo|Acesso à moradia digna assegurando um direito básico de todos e todas;]] — [[politicos/Elmano de Freitas da Costa]]
+- 🔵 [[promessas/parciais/evandro-leitao/implementacao-do-maior-programa-de-habitacao-da-cidade-em-parceria-com-minha-cas|Implementação do maior programa de habitação da cidade em parceria com Minha Cas]] — [[politicos/Evandro Leitão]]
+- 🟡 [[promessas/pendentes/fatima-bezerra/implementar-programas-de-habitacao-de-interesse-social|Implementar programas de habitação de interesse social]] — [[politicos/Fátima Bezerra]]
+- 🟡 [[promessas/pendentes/fatima-bezerra/melhorar-a-infraestrutura-urbana-em-habitacoes-populares|Melhorar a infraestrutura urbana em habitações populares]] — [[politicos/Fátima Bezerra]]
+- 🟢 [[promessas/cumpridas/fatima-bezerra/promover-a-regularizacao-fundiaria-de-assentamentos|Promover a regularização fundiária de assentamentos]] — [[politicos/Fátima Bezerra]]
+- 🔵 [[promessas/parciais/fuad-noman/ampliacao-da-habitabilidade|Ampliação da Habitabilidade]] — [[politicos/Fuad Noman]]
+- 🔵 [[promessas/parciais/fuad-noman/programa-de-habitacao-social-com-5-mil-unidades-para-familias-de-baixa-renda|Programa de habitação social com 5 mil unidades para famílias de baixa renda]] — [[politicos/Fuad Noman]]
+- 🔵 [[promessas/parciais/fuad-noman/reforma-da-habitacao|Reforma da habitação]] — [[politicos/Fuad Noman]]
+- 🔵 [[promessas/parciais/gladson-de-lima-cameli/ampliacao-de-convenios-para-habitacao-rural|Ampliação de convênios para habitação rural]] — [[politicos/Gladson de Lima Cameli]]
+- 🟡 [[promessas/pendentes/gladson-de-lima-cameli/implementar-o-programa-de-erradicacao-da-pobreza|Implementar o Programa de Erradicação da Pobreza]] — [[politicos/Gladson de Lima Cameli]]
+- 🟡 [[promessas/pendentes/gladson-de-lima-cameli/programa-de-moradia-para-servidores-publicos|Programa de moradia para servidores públicos]] — [[politicos/Gladson de Lima Cameli]]
+- 🟡 [[promessas/pendentes/gladson-de-lima-cameli/regularizacao-fundiaria-urbana-e-rural|Regularização fundiária urbana e rural]] — [[politicos/Gladson de Lima Cameli]]
+- 🔵 [[promessas/parciais/gladson-de-lima-cameli/requalificacao-de-centros-urbanos-degradados|Requalificação de centros urbanos degradados]] — [[politicos/Gladson de Lima Cameli]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/alcancar-a-meta-de-regularizacao-fundiaria-de-150-mil-unidades-habitacionais-ben|Alcançar a meta de regularização fundiária de 150 mil unidades habitacionais, be]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/ampliar-os-projetos-de-moradia-para-idosos-pessoa-com-defici|Ampliar os projetos de moradia para idosos, Pessoa com Deficiência PCD e família]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/construir-40-mil-novas-moradias|Construir 40 mil novas moradias.]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🔴 [[promessas/descumpridas/ibaneis-rocha-barros-junior/construir-40-mil-novas-moradias-de-interesse-social-para-a-populacao-de-baixa-re|Construir 40 mil novas moradias de interesse social para a população de baixa re]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/criar-linhas-de-credito-de-financiamento-diferenciadas-para-viabilizar-a-aquisic|Criar linhas de crédito de financiamento diferenciadas para viabilizar a aquisiç]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/criar-novos-bairros-formais-regulamentados-joquei-clube-vargem-da-bencao-qe-60-t|Criar novos bairros formais regulamentados: Jóquei Clube, Vargem da Benção, QE 6]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🔴 [[promessas/descumpridas/ibaneis-rocha-barros-junior/criar-novos-bairros-planejados-incluindo-setor-habitacional-joquei-clube-vicente|Criar novos bairros planejados, incluindo Setor Habitacional Jóquei Clube (Vicen]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/dar-continuidade-ao-comite-energia-legal-para-implantacao-de-redes-de-abastecime|Dar continuidade ao Comitê Energia Legal para implantação de redes de abastecime]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🔴 [[promessas/descumpridas/ibaneis-rocha-barros-junior/diversificar-a-politica-habitacional-com-venda-subsidiada-lotes-urbanizados-com-|Diversificar a política habitacional com venda subsidiada, lotes urbanizados com]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/estabelecer-calendario-de-atendimento-itinerante-e-presencia|Estabelecer calendário de atendimento itinerante e presencial individualizado na]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/estruturar-o-banco-de-material-do-distrito-federal-para-auxiliar-pequenas-obras-|Estruturar o Banco de Material do Distrito Federal para auxiliar pequenas obras ]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/promover-a-escrituracao-de-lotes-distribuidos-em-programas-de-assentamento-conso|Promover a escrituração de lotes distribuídos em programas de assentamento conso]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/ibaneis-rocha-barros-junior/promover-a-identificacao-analise-e-escrituracao-de-imoveis-de-ocupantes-em-progr|Promover a identificação, análise e escrituração de imóveis de ocupantes em prog]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🔴 [[promessas/descumpridas/ibaneis-rocha-barros-junior/regularizar-150-mil-unidades-habitacionais-em-areas-de-interesse-social-do-df|Regularizar 150 mil unidades habitacionais em áreas de interesse social do DF]] — [[politicos/Ibaneis Rocha Barros Junior]]
+- 🟡 [[promessas/pendentes/jeronimo-rodrigues/ampliar-e-fortalecer-os-mecanismos-de-promocao-da-equidade-e|Ampliar e fortalecer os mecanismos de promoção da equidade e de enfrentamento da]] — [[politicos/Jerônimo Rodrigues]]
+- 🟡 [[promessas/pendentes/jeronimo-rodrigues/criar-um-programa-de-financiamento-de-moradia-para-servidore|Criar um programa de financiamento de moradia para servidores públicos com prior]] — [[politicos/Jerônimo Rodrigues]]
+- 🟡 [[promessas/pendentes/jeronimo-rodrigues/implementar-politicas-de-estimulo-e-apoio-a-regularizacao-fu|Implementar políticas de estímulo e apoio à regularização fundiária e garantia d]] — [[politicos/Jerônimo Rodrigues]]
+- 🟡 [[promessas/pendentes/jose-renato-casagrande/implementar-politica-de-habitacao-de-interesse-social|Implementar política de habitação de interesse social]] — [[politicos/José Renato Casagrande]]
+- 🟢 [[promessas/cumpridas/luiz-inacio-lula-da-silva/retomada-do-programa-minha-casa-minha-vida|Retomada do programa Minha Casa, Minha Vida]] — [[politicos/Luiz Inácio Lula da Silva]]
+- 🟡 [[promessas/pendentes/paulo-dantas/ampliar-o-programa-de-reformas-habitacionais|Ampliar o programa de reformas habitacionais]] — [[politicos/Paulo Dantas]]
+- 🔵 [[promessas/parciais/paulo-dantas/ampliar-programas-de-habitacao-popular-e-regularizacao-fundiaria|Ampliar programas de habitação popular e regularização fundiária]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/construir-5-000-novas-unidades-habitacionais-para-familias-de-baixa-renda|Construir 5.000 novas unidades habitacionais para famílias de baixa renda]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/criar-cadastro-unico-para-programas-habitacionais|Criar cadastro único para programas habitacionais]] — [[politicos/Paulo Dantas]]
+- 🔵 [[promessas/parciais/paulo-dantas/criar-programa-de-subsidio-para-reforma-de-residencias-em-area-de-risco|Criar programa de subsídio para reforma de residências em área de risco]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/criar-selo-de-habitacao-social-sustentavel|Criar selo de habitação social sustentável]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/estimular-a-construcao-de-habitacoes-adaptadas-para-idosos|Estimular a construção de habitações adaptadas para idosos]] — [[politicos/Paulo Dantas]]
+- 🔵 [[promessas/parciais/paulo-dantas/expandir-o-programa-de-melhoria-das-condicoes-de-moradia-banheiros-e-telhados|Expandir o programa de melhoria das condições de moradia (banheiros e telhados)]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/fomentar-parcerias-com-o-setor-privado-para-habitacao-popular|Fomentar parcerias com o setor privado para habitação popular]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/fortalecer-a-regularizacao-fundiaria-de-assentamentos-rurais|Fortalecer a regularização fundiária de assentamentos rurais]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/fortalecer-o-conselho-estadual-de-habitacao|Fortalecer o Conselho Estadual de Habitação]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/fortalecer-o-financiamento-habitacional-de-interesse-social|Fortalecer o financiamento habitacional de interesse social]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/implementar-politica-de-auxilio-aluguel-para-familias-em-situacao-de-risco|Implementar política de auxílio-aluguel para famílias em situação de risco]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/implementar-politica-de-habitacao-para-a-populacao-em-situacao-de-rua|Implementar política de habitação para a população em situação de rua]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/implementar-programa-de-subsidio-estadual-para-entrada-de-imoveis-populares|Implementar programa de subsídio estadual para entrada de imóveis populares]] — [[politicos/Paulo Dantas]]
+- 🔵 [[promessas/parciais/paulo-dantas/implementar-projetos-de-urbanizacao-em-assentamentos-e-areas-vulneraveis|Implementar projetos de urbanização em assentamentos e áreas vulneráveis]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/implementar-rede-de-assistencia-tecnica-gratuita-para-construcao-popular|Implementar rede de assistência técnica gratuita para construção popular]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/implementar-sistema-de-cadastro-unico-habitacional-estadual|Implementar sistema de cadastro único habitacional estadual]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/incentivar-a-construcao-com-materiais-regionais|Incentivar a construção com materiais regionais]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/incentivar-o-uso-de-terrenos-vazios-publicos-para-habitacao-de-interesse-social|Incentivar o uso de terrenos vazios públicos para habitação de interesse social]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/promover-a-reforma-de-conjuntos-habitacionais-degradados|Promover a reforma de conjuntos habitacionais degradados]] — [[politicos/Paulo Dantas]]
+- 🔵 [[promessas/parciais/paulo-dantas/promover-a-regularizacao-de-titulos-de-terra-de-assentamentos-urbanos|Promover a regularização de títulos de terra de assentamentos urbanos]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/promover-parcerias-para-a-regularizacao-fundiaria-de-comunidades-tradicionais|Promover parcerias para a regularização fundiária de comunidades tradicionais]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/realizar-a-regularizacao-fundiaria-de-10-000-imoveis-urbanos|Realizar a regularização fundiária de 10.000 imóveis urbanos]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/urbanizar-areas-de-ocupacao-com-infraestrutura-basica|Urbanizar áreas de ocupação com infraestrutura básica]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/paulo-dantas/urbanizar-favelas-e-comunidades-informais|Urbanizar favelas e comunidades informais]] — [[politicos/Paulo Dantas]]
+- 🟡 [[promessas/pendentes/ricardo-nunes/criacao-de-casas-do-trabalhador|Criação de casas do trabalhador]] — [[politicos/Ricardo Nunes]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/adensamento-urbano-politicas-publicas-para-adensamento-e-oferta-de-moradias-em-a|Adensamento urbano: Políticas públicas para adensamento e oferta de moradias em ]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/casa-verde-e-amarela-fortalecer-o-programa-com-subsidios-estaduais-e-municipais|Casa Verde e Amarela: Fortalecer o programa com subsídios estaduais e municipais]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/habitacao-no-centro-construir-his-habitacao-de-interesse-social-e-hmp-habitacao-|Habitação no Centro: Construir HIS (Habitação de Interesse Social) e HMP (Habita]] — [[politicos/Tarcísio de Freitas]]
+- 🟢 [[promessas/cumpridas/tarcisio-de-freitas/licenciamento-aprimorar-o-graprohab-para-agilizar-analise-e-aprovacao-de-empreen|Licenciamento: Aprimorar o Graprohab para agilizar análise e aprovação de empree]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/oferta-de-habitacao-aumentar-substancialmente-a-oferta-com-fomento-do-estado-e-p|Oferta de Habitação: Aumentar substancialmente a oferta com fomento do Estado e ]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/programas-estaduais-de-habitacao-aprimorar-e-intensificar-programas-existentes-p|Programas Estaduais de Habitação: Aprimorar e intensificar programas existentes ]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/regulacao-instituir-porcoes-territoriais-para-habitacao-em-eixos-de-mobilidade-a|Regulação: Instituir porções territoriais para habitação em eixos de mobilidade,]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/regularizacao-fundiaria-promover-urbanizacao-de-favelas-e-uso-de-inteligencia-ar|Regularização Fundiária: Promover urbanização de favelas e uso de inteligência a]] — [[politicos/Tarcísio de Freitas]]
+- 🟡 [[promessas/pendentes/tarcisio-de-freitas/solucoes-em-habitacao-promover-projetos-de-habitacao-social-|Soluções em Habitação: Promover projetos de habitação social de forma inovadora,]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/solucoes-em-habitacao-promover-projetos-inovadores-de-habitacao-social-uso-nao-n|Soluções em Habitação: Promover projetos inovadores de habitação social (uso, nã]] — [[politicos/Tarcísio de Freitas]]
+- 🔵 [[promessas/parciais/tarcisio-de-freitas/urbanizacao-fomentar-politicas-de-urbanizacao-de-favelas-em-colaboracao-com-pref|Urbanização: Fomentar políticas de urbanização de favelas em colaboração com pre]] — [[politicos/Tarcísio de Freitas]]
+- 🟡 [[promessas/pendentes/wanderlei-barbosa/plano-estadual-de-moradia-popular|Plano Estadual de Moradia Popular]] — [[politicos/Wanderlei Barbosa]]

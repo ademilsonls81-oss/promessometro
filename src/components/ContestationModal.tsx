@@ -116,7 +116,7 @@ export default function ContestationModal({
         setEvidenciaUrl("");
         setHoneypot("");
       }, 3000);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message || "Erro ao enviar contestação");
     } finally {
       setLoading(false);

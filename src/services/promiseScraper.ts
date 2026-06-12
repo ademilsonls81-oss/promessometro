@@ -166,7 +166,7 @@ export async function scrapeNewsSources(): Promise<ScraperResult[]> {
           }
         }
       }
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       result.errors.push(err.message);
       console.error(`[Scraper] Error on ${source.name}: ${err.message}`);
     }

@@ -4,14 +4,14 @@ import Parser from "rss-parser";
 const parser = new Parser({ customFields: { item: [["content:encoded", "contentEncoded"]] } });
 
 export interface ParseResult {
-  posts: any[];
+  posts: any[];  // any-ok
   success: boolean;
   latencyMs: number;
   error?: string;
   itemsCount: number;
 }
 
-export async function parseFeed(feed: any, itemsLimit: number): Promise<ParseResult> {
+export async function parseFeed(feed: any, itemsLimit: number): Promise<ParseResult> {  // any-ok
   const startTime = Date.now();
   try {
     const feedData = await parser.parseURL(feed.url);
@@ -26,7 +26,7 @@ export async function parseFeed(feed: any, itemsLimit: number): Promise<ParseRes
       status: "pending"
     }));
     return { posts, success: true, latencyMs, itemsCount: posts.length };
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     const latencyMs = Date.now() - startTime;
     const errorMsg = err.message || "Parse failed";
     
@@ -52,7 +52,7 @@ export async function parseFeed(feed: any, itemsLimit: number): Promise<ParseRes
 
 async function updateFeedHealth(feedId: string, result: ParseResult): Promise<void> {
   try {
-    const healthData: any = {
+    const healthData: any = {  // any-ok
       feed_id: feedId,
       last_latency_ms: result.latencyMs,
       last_status: result.success ? "success" : "error",

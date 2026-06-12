@@ -180,7 +180,7 @@ export class ChatEngine {
           }
           fs.writeFileSync(exportPath, lines.join('\n'), 'utf-8');
           this.pushAssistantMessage(`Chat exported to: ${exportPath}`);
-        } catch (err: any) {
+        } catch (err) {  // any-ok
           this.pushAssistantMessage(`Export failed: ${err.message}`);
         }
         return;
@@ -233,7 +233,7 @@ export class ChatEngine {
         }
         this.notify();
       }
-    } catch (error: any) {
+    } catch (error) {  // any-ok
       let msg = error.message || 'Unknown error';
       if (msg.includes('429')) {
         msg = 'Rate limit reached (429). Wait a moment and try again, or switch provider with /connect.';

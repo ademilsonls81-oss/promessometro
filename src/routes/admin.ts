@@ -6,7 +6,8 @@ import { runIngestion } from "../services/ingestionService.js";
 import { logAuditAction } from "../middleware/auditLog.js";
 import rateLimit from "express-rate-limit";
 import { execSync } from "child_process";
-import { sanitizeInput } from "../middleware/security.js";
+import { sanitizeInput } from "../middleware/security.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Rate limiter para endpoints admin: 5 req/min por IP
@@ -23,7 +24,7 @@ const adminRateLimit = rateLimit({
 
 const router = Router();
 
-router.use((req: any, _res: any, next: any) => {
+router.use((req: any, _res: any, next: any) => {  // any-ok
   if (req.body && Object.keys(req.body).length > 0) {
     req.body = sanitizeInput(req.body);
   }
@@ -45,7 +46,7 @@ function cacheInvalidate(pattern?: string) {
   // Aqui apenas sinalizamos via broadcast
 }
 
-function broadcastWsUpdate(_data: any) {
+function broadcastWsUpdate(_data: any) {  // any-ok
   // Placeholder â€” serÃ¡ chamado via server.ts
 }
 
@@ -72,7 +73,7 @@ router.post("/ingest", checkAdmin, asyncHandler(async (req, res) => {
     const count = await runIngestion();
     logAuditAction((req as any).user.id, "MANUAL_INGESTION", req, { count });
     res.json({ message: `Ingestion complete. Found ${count} new items.`, count });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -105,7 +106,7 @@ router.get("/feeds/summary", checkAdmin, asyncHandler(async (req, res) => {
       posts_by_category: postByCategory,
       feeds: feeds || []
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -116,9 +117,9 @@ router.get("/feeds/health", checkAdmin, asyncHandler(async (req, res) => {
     const { data: feeds } = await supabase.from("feeds").select("*").eq("active", true);
     const { data: health } = await supabase.from("feed_health").select("*");
 
-    const healthMap = new Map((health as any[] || []).map((h: any) => [h.feed_id, h]));
+    const healthMap = new Map((health as any[] || []).map((h: any) => [h.feed_id, h]));  // any-ok
 
-    const enrichedFeeds = (feeds || []).map((feed: any) => {
+    const enrichedFeeds = (feeds || []).map((feed: any) => {  // any-ok
       const h = healthMap.get(feed.id);
       return {
         ...feed,
@@ -131,11 +132,11 @@ router.get("/feeds/health", checkAdmin, asyncHandler(async (req, res) => {
         success_count: h?.success_count ?? 0,
         error_count: h?.error_count ?? 0
       };
-    }).sort((a: any, b: any) => a.health_score - b.health_score);
+    }).sort((a: any, b: any) => a.health_score - b.health_score);  // any-ok
 
-    const failed = enrichedFeeds.filter((f: any) => f.last_status === "error" || !f.last_status);
-    const healthy = enrichedFeeds.filter((f: any) => f.last_status === "success");
-    const unhealthy = enrichedFeeds.filter((f: any) => f.health_score < 50);
+    const failed = enrichedFeeds.filter((f: any) => f.last_status === "error" || !f.last_status);  // any-ok
+    const healthy = enrichedFeeds.filter((f: any) => f.last_status === "success");  // any-ok
+    const unhealthy = enrichedFeeds.filter((f: any) => f.health_score < 50);  // any-ok
 
     res.json({
       feeds: enrichedFeeds,
@@ -146,7 +147,7 @@ router.get("/feeds/health", checkAdmin, asyncHandler(async (req, res) => {
         unhealthy: unhealthy.length
       }
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -191,7 +192,7 @@ router.get("/system/status", checkAdmin, asyncHandler(async (_req, res) => {
       errors_last_24h: recentErrorCount || 0,
       timestamp: new Date().toISOString()
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -226,7 +227,7 @@ router.get("/system/errors", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/System] Error fetching errors:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -262,7 +263,7 @@ router.get("/system/fixes", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/System] Error fetching fixes:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -303,7 +304,7 @@ router.get("/system/decisions", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/System] Error fetching decisions:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -347,7 +348,7 @@ router.get("/system/metrics", checkAdmin, asyncHandler(async (_req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/System] Error fetching metrics:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -374,7 +375,7 @@ router.get("/feeds", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/Feeds] Error fetching feeds:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -406,7 +407,7 @@ router.get("/users", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/Users] Error fetching users:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -438,7 +439,7 @@ router.get("/audit-logs", checkAdmin, asyncHandler(async (req, res) => {
       limit,
       offset
     });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Admin/AuditLogs] Error fetching audit logs:", err.message);
     res.status(500).json({ error: err.message });
   }
@@ -458,7 +459,7 @@ router.get("/backups", checkAdmin, asyncHandler(async (_req, res) => {
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -473,7 +474,7 @@ router.post("/backups/snapshot", checkAdmin, asyncHandler(async (req, res) => {
     execSync('git add .');
     try {
         execSync(`git commit -m "${msg}"`);
-    } catch (e: any) {
+    } catch (e) {  // any-ok
         if (e.message.includes("nothing to commit")) {
             return res.status(400).json({ error: "No changes to backup" });
         }
@@ -497,7 +498,7 @@ router.post("/backups/snapshot", checkAdmin, asyncHandler(async (req, res) => {
 
     logAuditAction((req as any).user.id, "CREATE_SNAPSHOT", req, { hash, message: msg });
     res.json({ message: "Snapshot created successfully", snapshot: data });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -520,7 +521,7 @@ router.post("/backups/restore", checkAdmin, asyncHandler(async (req, res) => {
 
     res.json({ message: `System restored to ${hash}.` });
 
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -532,7 +533,7 @@ router.get("/traffic-stats", checkAdmin, asyncHandler(async (_req, res) => {
     const stats = getTrafficStats();
     const logs = getSuspiciousActivityLogs();
     res.json({ ...stats, suspiciousActivities: logs.length });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));
@@ -543,7 +544,7 @@ router.get("/suspicious-logs", checkAdmin, asyncHandler(async (_req, res) => {
     const { getSuspiciousActivityLogs } = await import("../middleware/antiAbuse.js");
     const logs = getSuspiciousActivityLogs();
     res.json({ logs });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));

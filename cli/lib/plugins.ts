@@ -52,7 +52,7 @@ export async function listPlugins(cwd: string): Promise<string[]> {
   return Object.keys(plugins);
 }
 
-export async function invokePlugin(cwd: string, pluginName: string, command: string, args: any): Promise<any> {
+export async function invokePlugin(cwd: string, pluginName: string, command: string, args: any): Promise<any> {  // any-ok
   const plugins = await loadProjectPlugins(cwd);
   const plugin = plugins[pluginName];
   

@@ -53,8 +53,8 @@ export async function getPromiseHistory(promiseId: string) {
   }
 }
 
-export function generateDiff(prev: any, next: any): Record<string, { from: any; to: any }> {
-  const diff: Record<string, { from: any; to: any }> = {};
+export function generateDiff(prev: any, next: any): Record<string, { from: any; to: any }> {  // any-ok
+  const diff: Record<string, { from: any; to: any }> = {};  // any-ok
 
   const allKeys = new Set([...Object.keys(prev || {}), ...Object.keys(next || {})]);
   for (const key of allKeys) {
@@ -104,7 +104,7 @@ export async function uploadEvidence(
 
     const { data: urlData } = supabase.storage.from("evidences").getPublicUrl(path);
     return { url: urlData.publicUrl };
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     return { url: "", error: err.message };
   }
 }

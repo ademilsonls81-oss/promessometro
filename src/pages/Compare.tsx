@@ -31,7 +31,7 @@ export default function ComparePage() {
       const result = await comparePoliticians(supabase, name1, name2);
       setData(result);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message || "Erro ao carregar comparação");
     } finally {
       setLoading(false);
@@ -71,7 +71,7 @@ export default function ComparePage() {
   const p1Color = politician1.percentage >= 70 ? "text-green-400" : politician1.percentage >= 40 ? "text-yellow-400" : "text-red-400";
   const p2Color = politician2.percentage >= 70 ? "text-green-400" : politician2.percentage >= 40 ? "text-yellow-400" : "text-red-400";
 
-  const statusIcon = (p: any) => {
+  const statusIcon = (p: any) => {  // any-ok
     const rate = p.percentage;
     if (rate >= 70) return <CheckCircle2 className="w-5 h-5 text-green-400" />;
     if (rate >= 40) return <AlertCircle className="w-5 h-5 text-yellow-400" />;

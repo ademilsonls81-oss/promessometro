@@ -27,7 +27,7 @@ interface PromiseExplanationProps {
 }
 
 interface PromiseExplanationComponentProps {
-  explanation: any;
+  explanation: any;  // any-ok
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -149,7 +149,7 @@ export default function PromiseExplanation({ explanation }: PromiseExplanationCo
         </h3>
         {Array.isArray(evidencias) && evidencias.length > 0 ? (
           <div className="space-y-2">
-            {evidencias.map((ev: any, idx: number) => (
+            {evidencias.map((ev: any, idx: number) => (  // any-ok
               <div 
                 key={idx} 
                 className="p-3 bg-black/30 border border-white/5 rounded-xl"

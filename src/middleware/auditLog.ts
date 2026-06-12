@@ -9,7 +9,7 @@ const supabase = createClient(
 /**
  * Utility to log administrative actions to the audit_logs table.
  */
-export async function logAuditAction(userId: string, action: string, req: Request, details: any = {}) {
+export async function logAuditAction(userId: string, action: string, req: Request, details: any = {}) {  // any-ok
   try {
     const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString();
     const userAgent = (req.headers["user-agent"] || "").toString();

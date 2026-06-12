@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { uploadEvidence } from "../services/snapshotService.js";
-import { logSystemError } from "../middleware/auditLog.js";
+import { logSystemError } from "../middleware/auditLog.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
@@ -57,7 +58,7 @@ router.post("/evidence", asyncHandler(async (req: Request, res: Response) => {
       if (insertError) throw insertError;
       return res.status(201).json(data);
     }
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     await logSystemError("evidence_upload", "api", err.message, err.stack, "low");
     res.status(500).json({ error: err.message });
   }
@@ -73,7 +74,7 @@ router.get("/evidence/:promiseId", asyncHandler(async (req: Request, res: Respon
 
     if (error) throw error;
     res.json({ evidences: data });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));

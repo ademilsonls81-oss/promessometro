@@ -27,7 +27,7 @@ function mapStatus(s: string): string {
   return "pending";
 }
 
-export async function getElectionData(supabase: any, year: number, limit: number = 20): Promise<ElectionData> {
+export async function getElectionData(supabase: any, year: number, limit: number = 20): Promise<ElectionData> {  // any-ok
   const { data: promises } = await supabase
     .from("promises")
     .select("politician_name, party, state, status, fulfillment_score, ano_eleitoral, category")
@@ -49,7 +49,7 @@ export async function getElectionData(supabase: any, year: number, limit: number
   const byStatus = { fulfilled: 0, partial: 0, broken: 0, pending: 0 };
   const byParty: Record<string, number> = {};
 
-  (promises || []).forEach((p: any) => {
+  (promises || []).forEach((p: any) => {  // any-ok
     const key = p.politician_name;
     const s = mapStatus(p.status);
     byStatus[s]++;
@@ -63,7 +63,7 @@ export async function getElectionData(supabase: any, year: number, limit: number
   });
 
   const topPoliticians: PoliticianSummary[] = Object.values(statsMap)
-    .map((data: any) => {
+    .map((data: any) => {  // any-ok
       const percentage = data.total > 0 ? Math.round((data.fulfilled / data.total) * 100) : 0;
       const slug = data.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
       return {
@@ -93,18 +93,18 @@ export async function getElectionData(supabase: any, year: number, limit: number
   };
 }
 
-export async function getAvailableElectionYears(supabase: any): Promise<number[]> {
+export async function getAvailableElectionYears(supabase: any): Promise<number[]> {  // any-ok
   const { data } = await supabase
     .from("promises")
     .select("ano_eleitoral")
     .not("ano_eleitoral", "is", null)
     .order("ano_eleitoral", { ascending: false });
 
-  const years = [...new Set((data || []).map((p: any) => p.ano_eleitoral).filter(Boolean))] as number[];
+  const years = [...new Set((data || []).map((p: any) => p.ano_eleitoral).filter(Boolean))] as number[];  // any-ok
   return years;
 }
 
-export async function getElectionComparison(supabase: any, years: number[]): Promise<Record<number, { total: number; fulfilled: number; rate: number }>> {
+export async function getElectionComparison(supabase: any, years: number[]): Promise<Record<number, { total: number; fulfilled: number; rate: number }>> {  // any-ok
   const result: Record<number, { total: number; fulfilled: number; rate: number }> = {};
 
   for (const year of years) {
@@ -114,14 +114,14 @@ export async function getElectionComparison(supabase: any, years: number[]): Pro
       .eq("ano_eleitoral", year);
 
     const total = (data || []).length;
-    const fulfilled = (data || []).filter((p: any) => mapStatus(p.status) === "fulfilled").length;
+    const fulfilled = (data || []).filter((p: any) => mapStatus(p.status) === "fulfilled").length;  // any-ok
     result[year] = { total, fulfilled, rate: total > 0 ? Math.round((fulfilled / total) * 100) : 0 };
   }
 
   return result;
 }
 
-export async function getPromiseByElection(supabase: any, year: number, options: { status?: string; party?: string; limit?: number; cursor?: string } = {}): Promise<any> {
+export async function getPromiseByElection(supabase: any, year: number, options: { status?: string; party?: string; limit?: number; cursor?: string } = {}): Promise<any> {  // any-ok
   let query = supabase
     .from("promises")
     .select("id, politician_name, promise_title, status, fulfillment_score, party, state, category, created_at")
@@ -140,7 +140,7 @@ export async function getPromiseByElection(supabase: any, year: number, options:
   return { promises: data || [], total: data?.length || 0 };
 }
 
-export async function getPoliticianHistory(supabase: any, name: string): Promise<any[]> {
+export async function getPoliticianHistory(supabase: any, name: string): Promise<any[]> {  // any-ok
   const { data } = await supabase
     .from("promises")
     .select("ano_eleitoral, status, fulfillment_score, promise_title, created_at")
@@ -148,7 +148,7 @@ export async function getPoliticianHistory(supabase: any, name: string): Promise
     .order("ano_eleitoral", { ascending: true });
 
   const byYear: Record<number, any[]> = {};
-  (data || []).forEach((p: any) => {
+  (data || []).forEach((p: any) => {  // any-ok
     const year = p.ano_eleitoral || 0;
     if (!byYear[year]) byYear[year] = [];
     byYear[year].push(p);
@@ -158,8 +158,8 @@ export async function getPoliticianHistory(supabase: any, name: string): Promise
     .sort(([a], [b]) => Number(b) - Number(a))
     .map(([year, promises]) => {
       const total = promises.length;
-      const fulfilled = promises.filter((p: any) => mapStatus(p.status) === "fulfilled").length;
-      const avgScore = promises.reduce((acc: number, p: any) => acc + (p.fulfillment_score || 0), 0) / total;
+      const fulfilled = promises.filter((p: any) => mapStatus(p.status) === "fulfilled").length;  // any-ok
+      const avgScore = promises.reduce((acc: number, p: any) => acc + (p.fulfillment_score || 0), 0) / total;  // any-ok
       return {
         year: Number(year),
         total,

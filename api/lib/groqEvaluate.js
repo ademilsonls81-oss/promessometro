@@ -2,9 +2,38 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.1-8b-instant';
 
 function extractJSON(text) {
-  const m = text.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  if (!text || typeof text !== 'string') return null;
+
+  let clean = text.trim();
+  const blockMatch = clean.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (blockMatch) clean = blockMatch[1].trim();
+
+  let depth = 0;
+  let start = -1;
+
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const candidate = clean.substring(start, i + 1);
+        try { return JSON.parse(candidate); } catch (e) {}
+        try { return JSON.parse(candidate.replace(/,(\s*[}\]])/g, '$1')); } catch (e) {}
+        return null;
+      }
+    }
+  }
+
+  if (start !== -1 && depth > 0) {
+    const partial = clean.substring(start);
+    try { return JSON.parse(partial); } catch (e) {}
+    try { return JSON.parse(partial.replace(/,(\s*[}\]])/g, '$1')); } catch (e) {}
+  }
+
+  return null;
 }
 
 async function groqCall(prompt, key) {
@@ -106,7 +135,9 @@ Responda APENAS JSON válido (sem markdown). Exemplo do formato esperado para o_
 
   const parsed = extractJSON(text);
   if (!parsed) {
-    return { error: 'Resposta inválida da IA' };
+    const preview = text && text.length > 0 ? text.substring(0, 300) : '(vazio)';
+    console.error('[groqEvaluate] Falha ao parsear resposta da IA. Preview:', preview);
+    return { error: `Resposta inválida da IA: ${preview.substring(0, 80)}...` };
   }
 
   const evidenciasUsadas = fontes.slice(0, 8).map(e => ({ titulo: e.title || e.description || '', url: e.url || '', resumo: e.description || '' }));
@@ -174,6 +205,8 @@ async function searchDDG(query) {
 
   return out.slice(0, 8);
 }
+
+export { extractJSON };
 
 export async function groqEvaluate(promise) {
   const key = process.env.GROQ_API_KEY;

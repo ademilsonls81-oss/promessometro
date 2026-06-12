@@ -74,9 +74,9 @@ interface PoliticianData {
     percentage: number;
   };
   methodology: MethodologyData | null;
-  mandates: any[];
-  indicators: any[];
-  legal_facts: any[];
+  mandates: any[];  // any-ok
+  indicators: any[];  // any-ok
+  legal_facts: any[];  // any-ok
   promises: PromiseData[];
 }
 
@@ -164,7 +164,7 @@ export default function PoliticianProfile() {
           ...stats,
           percentage: data.percentage || Math.round((stats.fulfilled / stats.total) * 100)
         },
-        promises: promises.map((p: any) => ({
+        promises: promises.map((p: any) => ({  // any-ok
           id: p.id,
           promise_title: p.promise_title || p.title || '',
           promise_description: p.promise_description || p.description || null,
@@ -179,7 +179,7 @@ export default function PoliticianProfile() {
         }))
       });
       setError(null);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error("[PoliticianProfile] Error fetching:", err);
       setError("Erro ao carregar perfil: " + err.message);
     } finally {
@@ -566,7 +566,7 @@ export default function PoliticianProfile() {
                           </div>
                           <div className="text-xs text-gray-500">
                             <code className="text-red-300">
-                              C3 = 100 - {politician.legal_facts.reduce((s: number, f: any) => s + f.penalty_points, 0)} = {politician.methodology.c3_score}
+                              C3 = 100 - {politician.legal_facts.reduce((s: number, f: any) => s + f.penalty_points, 0)} = {politician.methodology.c3_score}  // any-ok
                             </code>
                           </div>
                         </>

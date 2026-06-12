@@ -45,7 +45,7 @@ class QueueService {
     
     try {
       await this.processPost(postId);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       console.error(`[QueueService] Erro no post ${postId}:`, err.message);
     } finally {
       this.processingCount--;
@@ -96,7 +96,7 @@ class QueueService {
     console.log(`[QueueService] Processado: ${post.title}`);
   }
 
-  private async processWithAI(post: any) {
+  private async processWithAI(post: any) {  // any-ok
     const rawContent = post.content_raw || post.title || "";
     
     if (!rawContent || rawContent.length < 10) {
@@ -153,7 +153,7 @@ Content: ${sourceText}`;
         let parsed;
         try {
           parsed = JSON.parse(jsonStr);
-        } catch (parseError: any) {
+        } catch (parseError) {  // any-ok
           console.log(`[AI Service] JSON parse error: ${parseError.message}`);
           console.log(`[AI Service] Raw response (first 200 chars): ${responseText.substring(0, 200)}`);
           throw new Error(`JSON inválido após limpeza: ${parseError.message}`);
@@ -176,7 +176,7 @@ Content: ${sourceText}`;
           continue;
         }
         return { error: "Invalid JSON response after " + MAX_RETRIES + " retries" };
-      } catch (err: any) {
+      } catch (err) {  // any-ok
         const is429 = err.message?.includes("429") || err.status === 429;
         if (is429 && retry < MAX_RETRIES - 1) {
           const waitTime = Math.pow(2, retry) * 3000;

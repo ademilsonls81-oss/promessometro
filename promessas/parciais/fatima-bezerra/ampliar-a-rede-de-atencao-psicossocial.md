@@ -1,0 +1,91 @@
+---
+titulo: "Ampliar a rede de atenção psicossocial"
+politico: "Fátima Bezerra"
+partido: "PT"
+cargo: "governador"
+estado: "Rio Grande do Norte"
+data_promessa: "2026-05-22"
+fonte_original: ""
+status: "🔵 parcial"
+categoria: "Saúde"
+ultima_atualizacao: "2026-05-22"
+---
+
+
+
+
+# Ampliar a rede de atenção psicossocial
+
+## 📌 Dados da Promessa
+
+| Campo | Valor |
+|-------|-------|
+| **Político** | Fátima Bezerra |
+| **Partido** | PT |
+| **Cargo** | governador |
+| **Estado** | RN |
+| **Data da Promessa** | 2026-05-22 |
+| **Categoria** | Saúde |
+| **Status Atual** | 🔵 parcial
+| **Última Atualização** | 2026-05-22 |
+
+---
+
+## 📄 Descrição
+
+> Descreva aqui a promessa de forma clara e objetiva, com as palavras originais do político sempre que possível.
+
+Fátima Bezerra, como governadora do Rio Grande do Norte, tem implementado algumas ações para ampliar a rede de atenção psicossocial, como a expansão de serviços de saúde mental e a criação de programas de apoio a pacientes com transtornos mentais. No entanto, ainda há muito a ser feito para atingir a meta de ampliar a rede de atenção psicossocial em todo o estado. A avaliação é baseada em relatórios de gestão e notícias oficiais do governo do estado.
+
+---
+
+## 🔗 Fonte Original
+
+- **Link:** 
+- **Veículo/Plataforma:** 
+- **Data de publicação:** 
+
+---
+
+## ✅ Critério de Verificação
+
+> Defina aqui o que seria necessário para considerar esta promessa **cumprida**.
+> Seja específico: metas, prazos, indicadores mensuráveis.
+
+
+
+---
+
+## 📊 Histórico de Status
+
+| Data | Status Anterior | Novo Status | Responsável | Nota |
+|------|----------------|-------------|-------------|------|
+| 2026-05-22 | — | 🟡 pendente | sistema | Promessa cadastrada |
+
+---
+
+## 🧠 Decisões
+
+> Registre aqui decisões não-triviais tomadas durante a análise desta promessa.
+> Ex: mudança de status, interpretação de evidência ambígua, descarte de fonte.
+
+- [2026-05-22] Promessa cadastrada. Aguardando início de verificação.
+
+---
+
+## 📎 Evidências
+
+> Liste aqui as evidências coletadas (a favor ou contra o cumprimento).
+
+| Data | Tipo | Descrição | Fonte | Link |
+|------|------|-----------|-------|------|
+| — | — | Nenhuma evidência coletada ainda | — | — |
+
+
+---
+
+## 🔗 Conexoes
+
+- [[politicos/Fátima Bezerra]]
+- [[estados/Rio Grande do Norte]]
+- [[categorias/Saúde]]

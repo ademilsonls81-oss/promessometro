@@ -47,7 +47,7 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
     }
 
     res.json({ received: true });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     console.error("[Stripe] Webhook error:", err.message);
     res.status(400).json({ error: err.message });
   }

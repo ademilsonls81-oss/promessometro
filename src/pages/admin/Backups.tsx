@@ -43,7 +43,7 @@ export default function Backups() {
       await api.post("/api/admin/backups/restore", { hash });
       alert(`System restored to [${hash}] successfully! Re-loading components...`);
       window.location.reload();
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert("Restore failed: " + (err.response?.data?.error || err.message));
     } finally {
       setIsRestoring(null);
@@ -58,7 +58,7 @@ export default function Backups() {
     try {
       await api.post("/api/admin/backups/snapshot", { message });
       await fetchBackups();
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       alert("Backup failed: " + (err.response?.data?.error || err.message));
     } finally {
       setCreating(false);

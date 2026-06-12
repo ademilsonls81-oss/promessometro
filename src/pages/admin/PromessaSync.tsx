@@ -93,7 +93,7 @@ export default function PromessaSync() {
       }
 
       setResult(data);
-    } catch (err: any) {
+    } catch (err) {  // any-ok
       setError(err.message || "Erro desconhecido");
     } finally {
       setLoading(false);

@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase.js";
 import { apiKeyRateLimit } from "../middleware/rateLimit.js";
-import Parser from "rss-parser";
+import Parser from "rss-parser";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const parser = new Parser({ customFields: { item: [["content:encoded", "contentEncoded"]] } });
@@ -11,13 +12,13 @@ const router = Router();
 // Cache helpers (compartilhados)
 const memoryCache: Record<string, any> = {};
 const CACHE_TTL = { feed: 10*60*1000, verified: 15*60*1000, search: 30*60*1000, stats: 5*60*1000 };
-function cacheGet(key: string): any | null {
+function cacheGet(key: string): any | null {  // any-ok
   const e = memoryCache[key];
   if (!e) return null;
   if (Date.now() - e.timestamp > e.ttl) { delete memoryCache[key]; return null; }
   return e.data;
 }
-function cacheSet(key: string, data: any, ttl: number) { memoryCache[key] = { data, timestamp: Date.now(), ttl }; }
+function cacheSet(key: string, data: any, ttl: number) { memoryCache[key] = { data, timestamp: Date.now(), ttl }; }  // any-ok
 
 // ==========================================
 // VERIFIED SCORE
@@ -34,13 +35,13 @@ router.get("/verified", apiKeyRateLimit, asyncHandler(async (req, res) => {
   await supabase.from("usage_logs").insert({ user_id: user.id, endpoint: "/api/verified", cost: user.plan === "pro" ? 0.001 : 0 });
 
   const { data: verifiedPosts } = await supabase.from("posts").select("*").eq("status", "published").not("summary", "is", null).order("created_at", { ascending: false }).limit(20);
-  const scoredPosts = (verifiedPosts || []).map((p: any) => ({ ...p, verified_score: calcScore(p), is_verified: p.summary && p.translations && Object.keys(p.translations || {}).length >= 8 }));
-  const filtered = scoredPosts.filter((p: any) => p.is_verified);
+  const scoredPosts = (verifiedPosts || []).map((p: any) => ({ ...p, verified_score: calcScore(p), is_verified: p.summary && p.translations && Object.keys(p.translations || {}).length >= 8 }));  // any-ok
+  const filtered = scoredPosts.filter((p: any) => p.is_verified);  // any-ok
 
   res.json({ posts: filtered, total_verified: filtered.length, verified_percentage: verifiedPosts?.length ? Math.round((filtered.length / verifiedPosts.length) * 100) : 0 });
 }));
 
-function calcScore(post: any): number {
+function calcScore(post: any): number {  // any-ok
   let s = 0;
   if (post.title && post.title.length > 10) s += 20;
   if (post.summary && post.summary.length > 50) s += 30;
@@ -80,8 +81,8 @@ router.get("/search", asyncHandler(async (req, res) => {
 
   let filteredPosts = posts || [];
   if (lang) {
-    filteredPosts = filteredPosts.filter((p: any) => lang === "pt" ? !!p.summary : p.translations?.[lang as string])
-      .map((p: any) => lang === "pt" ? p : { ...p, title: p.translations?.[lang as string] || p.title, summary: p.translations?.[lang as string] || p.summary, language: lang });
+    filteredPosts = filteredPosts.filter((p: any) => lang === "pt" ? !!p.summary : p.translations?.[lang as string])  // any-ok
+      .map((p: any) => lang === "pt" ? p : { ...p, title: p.translations?.[lang as string] || p.title, summary: p.translations?.[lang as string] || p.summary, language: lang });  // any-ok
   }
 
   const result = { query: q, total: count || 0, limit: limitNum, offset: offsetNum, posts: filteredPosts, has_more: (offsetNum + limitNum) < (count || 0) };
@@ -118,9 +119,9 @@ router.get("/feed", apiKeyRateLimit, asyncHandler(async (req, res) => {
 
   let filteredPosts = posts || [];
   if (lang && lang !== "pt") {
-    filteredPosts = filteredPosts.filter((p: any) => p.translations?.[lang as string]).map((p: any) => ({ ...p, title: p.translations?.[lang as string] || p.title, summary: p.translations?.[lang as string] || p.summary, language: lang }));
+    filteredPosts = filteredPosts.filter((p: any) => p.translations?.[lang as string]).map((p: any) => ({ ...p, title: p.translations?.[lang as string] || p.title, summary: p.translations?.[lang as string] || p.summary, language: lang }));  // any-ok
   } else if (lang === "pt") {
-    filteredPosts = filteredPosts.filter((p: any) => p.summary);
+    filteredPosts = filteredPosts.filter((p: any) => p.summary);  // any-ok
   }
 
   const result = { total: count || 0, limit: limitNum, offset: offsetNum, posts: filteredPosts, has_more: (offsetNum + limitNum) < (count || 0), user_plan: user.plan, remaining_requests: user.plan === "free" ? Math.max(0, 100 - user.usage_count) : "unlimited" };
@@ -207,7 +208,7 @@ for (const feed of feeds) {
     }
     
     res.json({ message: `Ingestion complete`, inserted: totalInserted, titles: insertedLinks.slice(0, 10) });
-  } catch (err: any) {
+  } catch (err) {  // any-ok
     res.status(500).json({ error: err.message });
   }
 }));

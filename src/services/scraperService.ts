@@ -82,7 +82,7 @@ export async function scrapePoliticianFromTSE(politicianId: string, sourceUrl: s
       message: `Scraping concluído: ${promisesCreated} promessas extraídas`
     };
 
-  } catch (error: any) {
+  } catch (error) {  // any-ok
     console.error(`[Scraper] Erro:`, error.message);
     return {
       success: false,
@@ -134,8 +134,8 @@ async function executeTSEParsing(politicianId: string, sourceUrl: string): Promi
 async function logAudit(
   promiseId: string | null,
   action: string,
-  previousValue: any,
-  newValue: any,
+  previousValue: any,  // any-ok
+  newValue: any,  // any-ok
   source: string,
   notes: string
 ): Promise<void> {

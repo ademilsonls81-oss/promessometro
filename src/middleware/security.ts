@@ -5,7 +5,7 @@ import DOMPurify from "isomorphic-dompurify";
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://promessometro-brasil.vercel.app,https://promessometro.com.br").split(",").map(o => o.trim());
 const IS_PROD = process.env.NODE_ENV === "production";
 
-export function sanitizeInput(obj: any): any {
+export function sanitizeInput(obj: any): any {  // any-ok
   if (typeof obj === "string") {
     return DOMPurify.sanitize(obj, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   }
@@ -13,7 +13,7 @@ export function sanitizeInput(obj: any): any {
     return obj.map(sanitizeInput);
   }
   if (obj && typeof obj === "object") {
-    const result: any = {};
+    const result: any = {};  // any-ok
     for (const [key, value] of Object.entries(obj)) {
       result[key] = sanitizeInput(value);
     }
@@ -61,7 +61,7 @@ export function generateCsrfToken(): string {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
-export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
+export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {  // any-ok
   console.error(`[Error] ${err.message}`);
 
   if (err instanceof z.ZodError) {

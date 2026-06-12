@@ -88,7 +88,7 @@ export default function AdminDetail() {
       if (res.status === 404) { setErro("Político não encontrado"); setCarregando(false); return; }
       const json = await res.json();
       setDado(json.politico);
-    } catch (e: any) { setErro(e.message); }
+    } catch (e) { setErro(e.message); }  // any-ok
     setCarregando(false);
   }
 
