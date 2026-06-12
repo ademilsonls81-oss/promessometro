@@ -16,6 +16,10 @@
             "destination": "/api/cron/discovery-processor.js"
         },
         {
+            "source": "/api/(.*)",
+            "destination": "/api/index.js"
+        },
+        {
             "source": "/((?!api|_next/static|_next/image|favicon.ico).*)",
             "destination": "/index.html"
         }
@@ -27,6 +31,9 @@
         }
     ],
     "functions": {
+        "api/index.js": {
+            "maxDuration": 120
+        },
         "api/cron/process-pending.js": {
             "maxDuration": 60
         },
