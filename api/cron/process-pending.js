@@ -6,7 +6,7 @@ const GROQ_KEY = process.env.GROQ_API_KEY || '';
 const TAVILY_KEY = process.env.TAVILY_API_KEY || '';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.1-8b-instant';
-const BATCH_SIZE = 3;
+const BATCH_SIZE = 1;
 const BUDGET_MS = 25000;
 
 function db() { return createClient(SUPABASE_URL, SERVICE_ROLE_KEY); }
