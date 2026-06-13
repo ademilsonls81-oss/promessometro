@@ -406,7 +406,7 @@ export default function Ranking() {
                             {politician.methodology_complete ? 'Nota Final' : 'Legado'}
                           </div>
                           <div className="text-xs text-gray-600 mt-1">
-                            {politician.methodology_complete ? `${politician.percentage}%` : `${politician.percentage}% · Metodologia incompleta`}
+                            {politician.evaluated_count || 0}/{politician.promise_count || 0} avaliadas
                           </div>
                         </div>
                       </div>

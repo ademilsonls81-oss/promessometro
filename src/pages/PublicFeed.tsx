@@ -29,7 +29,8 @@ interface Promise {
   fulfillment_score: number;
   created_at: string;
   evidence_count?: number;
-  evidences_used?: { url: string }[];
+  evidences_used?: { titulo?: string; url: string; resumo?: string }[];
+  verification_notes?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -254,6 +255,55 @@ export default function PublicFeed() {
                           "{promise.promise_description}"
                         </p>
                       )}
+
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-500">Progresso</span>
+                          <span className="text-xs font-bold text-white">{promise.fulfillment_score || 0}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${promise.fulfillment_score || 0}%`,
+                              backgroundColor: (promise.fulfillment_score || 0) >= 80 ? '#22c55e' :
+                                (promise.fulfillment_score || 0) >= 50 ? '#eab308' :
+                                (promise.fulfillment_score || 0) >= 20 ? '#3b82f6' : '#ef4444'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {promise.evidences_used && promise.evidences_used.length > 0 && (
+                        <div className="mb-3 space-y-1.5">
+                          <span className="text-xs font-bold text-gray-400">Evidências:</span>
+                          {promise.evidences_used.slice(0, 3).map((ev, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs">
+                              <LinkIcon className="w-3 h-3 text-neon-cyan mt-0.5 shrink-0" />
+                              <div className="min-w-0">
+                                {ev.url && ev.url !== '#' ? (
+                                  <a href={ev.url} target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline font-medium truncate block">
+                                    {ev.titulo || ev.url}
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-300 font-medium truncate block">{ev.titulo || 'Fonte não disponível'}</span>
+                                )}
+                                {ev.resumo && (
+                                  <p className="text-gray-500 line-clamp-1 mt-0.5">{ev.resumo}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {promise.verification_notes && (
+                        <div className="mb-3 p-2.5 bg-white/5 rounded-lg border border-white/5">
+                          <span className="text-xs font-bold text-gray-400 block mb-1">Justificativa da IA:</span>
+                          <p className="text-xs text-gray-300 line-clamp-3">{promise.verification_notes}</p>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-3 text-sm flex-wrap">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-purple/20 to-neon-cyan/20 flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
@@ -286,15 +336,17 @@ export default function PublicFeed() {
                       {promise.evidences_used && promise.evidences_used.length > 0 ? (
                           <div className="mt-3 inline-flex items-center gap-2">
                             <LinkIcon className="w-3 h-3 text-neon-cyan" />
-                            <span className="text-xs text-neon-cyan">{promise.evidence_count || promise.evidences_used.length} evidências encontradas</span>
-                            <a
-                              href={promise.evidences_used[0].url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-gray-400 hover:text-neon-cyan transition-colors"
-                            >
-                              Ver evidências <ExternalLink className="w-3 h-3 inline" />
-                            </a>
+                            <span className="text-xs text-neon-cyan">{promise.evidence_count || promise.evidences_used.length} evidência(s)</span>
+                            {promise.evidences_used[0]?.url && promise.evidences_used[0].url !== '#' && (
+                              <a
+                                href={promise.evidences_used[0].url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-gray-400 hover:text-neon-cyan transition-colors"
+                              >
+                                Ver fonte <ExternalLink className="w-3 h-3 inline" />
+                              </a>
+                            )}
                           </div>
                         ) : promise.source_link ? (
                           <a
