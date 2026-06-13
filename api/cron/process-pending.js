@@ -294,6 +294,10 @@ O campo grau_confianca deve ser:
           fontes: fontesUrls,
           grau_confianca: confianca
         });
+
+        if (promises.indexOf(promise) < promises.length - 1) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
       } catch (e) {
         resultados.push({ id: promise.id, titulo: promise.promise_title, erro: e.message });
       }
