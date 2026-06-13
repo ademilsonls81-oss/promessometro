@@ -119,12 +119,14 @@ export default async function handler(req, res) {
 
   const client = db();
   const resultados = [];
+  const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutos
 
   try {
     const { data: promises, error: fetchErr } = await client
       .from('promises')
-      .select('id, promise_title, politician_name, category, status, fulfillment_score')
+      .select('id, promise_title, politician_name, category, status, fulfillment_score, tentativas, next_retry_at')
       .eq('status', 'pendente')
+      .or('next_retry_at.is.null,next_retry_at.lt.' + new Date().toISOString())
       .order('created_at', { ascending: true })
       .limit(BATCH_SIZE);
 
@@ -216,10 +218,20 @@ O campo grau_confianca deve ser:
         const { error, text } = await callGroq(prompt);
 
         if (error) {
+          const nextRetry = new Date(Date.now() + RETRY_DELAY_MS).toISOString();
+          const tentativas = (promise.tentativas || 0) + 1;
+
+          await client.from('promises').update({
+            tentativas,
+            next_retry_at: nextRetry
+          }).eq('id', promise.id);
+
           resultados.push({
             id: promise.id,
             titulo: promise.promise_title,
-            erro: error === 'rate_limited' ? 'Rate limit Groq excedido' : `Groq: ${error}`
+            erro: error === 'rate_limited' ? 'Rate limit Groq excedido' : `Groq: ${error}`,
+            tentativas,
+            next_retry_at: nextRetry
           });
           continue;
         }
