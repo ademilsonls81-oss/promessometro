@@ -71,7 +71,7 @@ async function searchTavily(query) {
 }
 
 async function callGroq(prompt) {
-  const delays = [500, 1500, 3000];
+  const delays = [2000, 5000, 10000]; // retries com delays maiores para reset do rate limit
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     try {
       const r = await fetch(GROQ_URL, {
@@ -86,14 +86,24 @@ async function callGroq(prompt) {
         }),
         signal: AbortSignal.timeout(20000)
       });
+      
+      const remaining = r.headers.get('x-ratelimit-remaining-requests');
+      const reset = r.headers.get('x-ratelimit-reset-requests');
+      console.log(`[Groq] attempt=${attempt} status=${r.status} remaining=${remaining} reset=${reset}`);
+      
       if (r.status === 429) {
-        if (attempt < delays.length) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
+        if (attempt < delays.length) {
+          console.log(`[Groq] rate limited, waiting ${delays[attempt]}ms before retry...`);
+          await new Promise(r => setTimeout(r, delays[attempt]));
+          continue;
+        }
         return { error: 'rate_limited', text: '' };
       }
       if (!r.ok) return { error: `HTTP ${r.status}`, text: '' };
       const d = await r.json();
       return { error: null, text: d.choices?.[0]?.message?.content || '' };
     } catch (e) {
+      console.error(`[Groq] attempt=${attempt} error:`, e.message?.substring(0, 80));
       if (attempt < delays.length) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
       return { error: e.message?.substring(0, 80), text: '' };
     }
@@ -146,8 +156,10 @@ export default async function handler(req, res) {
 
       try {
         const query = `${promise.politician_name || ''} ${((promise.promise_title || '').replace(/[,.:;!?()]/g, ' ')).substring(0, 120)}`.replace(/\s+/g, ' ').trim();
+        console.log(`[Cron] Processando: "${promise.promise_title?.substring(0, 50)}" (${promise.id})`);
 
         const { fontes, urls } = await searchTavily(query);
+        console.log(`[Tavily] ${fontes.length} fontes encontradas`);
 
         const fontesText = fontes.length > 0
           ? fontes.map((f, i) => `[${i + 1}] ${f.titulo} — ${f.resumo} (Fonte: ${f.url})`).join('\n')
