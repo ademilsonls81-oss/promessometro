@@ -5,7 +5,11 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GROQ_KEY = process.env.GROQ_API_KEY || '';
 const TAVILY_KEY = process.env.TAVILY_API_KEY || '';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.1-8b-instant';
+const PRIMARY_MODEL = 'llama-3.1-8b-instant';
+const FALLBACK_MODEL = 'gemma2-9b-it';
+const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
+const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OR_KEY = process.env.UNFILTERED_API_KEY || '';
 const BATCH_SIZE = 1;
 const BUDGET_MS = 25000;
 
@@ -70,15 +74,43 @@ async function searchTavily(query) {
   }
 }
 
-async function callGroq(prompt) {
-  const delays = [2000, 5000, 10000]; // retries com delays maiores para reset do rate limit
+async function callOpenRouter(prompt) {
+  if (!OR_KEY) return { error: 'no_or_key', text: '' };
+  try {
+    const r = await fetch(OR_URL, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${OR_KEY}`,
+        'HTTP-Referer': 'https://promessometro.com.br',
+        'X-Title': 'Promessometro'
+      },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 1024
+      }),
+      signal: AbortSignal.timeout(25000)
+    });
+    if (!r.ok) return { error: `OR ${r.status}`, text: '' };
+    const d = await r.json();
+    return { error: null, text: d.choices?.[0]?.message?.content || '', model: DEEPSEEK_MODEL };
+  } catch (e) {
+    return { error: `OR: ${e.message?.substring(0, 50)}`, text: '' };
+  }
+}
+
+async function callGroq(prompt, model = PRIMARY_MODEL) {
+  const delays = [1500, 3000, 6000]; 
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     try {
       const r = await fetch(GROQ_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
-          model: MODEL,
+          model,
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' },
           temperature: 0.1,
@@ -87,23 +119,25 @@ async function callGroq(prompt) {
         signal: AbortSignal.timeout(20000)
       });
       
-      const remaining = r.headers.get('x-ratelimit-remaining-requests');
-      const reset = r.headers.get('x-ratelimit-reset-requests');
-      console.log(`[Groq] attempt=${attempt} status=${r.status} remaining=${remaining} reset=${reset}`);
-      
       if (r.status === 429) {
         if (attempt < delays.length) {
-          console.log(`[Groq] rate limited, waiting ${delays[attempt]}ms before retry...`);
+          console.log(`[Groq] ${model} rate limited, waiting ${delays[attempt]}ms...`);
           await new Promise(r => setTimeout(r, delays[attempt]));
           continue;
         }
-        return { error: 'rate_limited', text: '' };
+        // Se falhou no modelo principal, tenta o fallback antes de desistir
+        if (model === PRIMARY_MODEL) {
+          console.log(`[Groq] Swapping to fallback model ${FALLBACK_MODEL}...`);
+          return callGroq(prompt, FALLBACK_MODEL);
+        }
+        // Se falhou em ambos da Groq, tenta OpenRouter (DeepSeek)
+        console.log(`[Groq] All Groq models limited. Trying DeepSeek via OpenRouter...`);
+        return callOpenRouter(prompt);
       }
       if (!r.ok) return { error: `HTTP ${r.status}`, text: '' };
       const d = await r.json();
-      return { error: null, text: d.choices?.[0]?.message?.content || '' };
+      return { error: null, text: d.choices?.[0]?.message?.content || '', model };
     } catch (e) {
-      console.error(`[Groq] attempt=${attempt} error:`, e.message?.substring(0, 80));
       if (attempt < delays.length) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
       return { error: e.message?.substring(0, 80), text: '' };
     }
@@ -227,7 +261,7 @@ O campo grau_confianca deve ser:
 - 20-49: pouca ou nenhuma evidência concreta
 - 0-19: completamente baseado em suposição`;
 
-        const { error, text } = await callGroq(prompt);
+        const { error, text, model: actualModel } = await callGroq(prompt);
 
         if (error) {
           const nextRetry = new Date(Date.now() + RETRY_DELAY_MS).toISOString();
@@ -284,7 +318,7 @@ O campo grau_confianca deve ser:
             o_que_falta: oQueFalta || '',
             evidencias_usadas: evidencias,
             confianca: confianca / 100,
-            modelo_ia: `groq-${MODEL}`,
+            modelo_ia: `groq-${actualModel || PRIMARY_MODEL}`,
             is_latest: true,
             gerado_em: new Date().toISOString()
           });
