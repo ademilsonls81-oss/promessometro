@@ -6,9 +6,8 @@ const GROQ_KEY = process.env.GROQ_API_KEY || '';
 const TAVILY_KEY = process.env.TAVILY_API_KEY || '';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.1-8b-instant';
-const BATCH_SIZE = 20;
-const DELAY_BETWEEN_MS = 30000; // 30s entre cada promessa = 2 por minuto
-const BUDGET_MS = 590000; // ~10 minutos (cron a cada 10 min)
+const BATCH_SIZE = 3;
+const BUDGET_MS = 25000;
 
 function db() { return createClient(SUPABASE_URL, SERVICE_ROLE_KEY); }
 
@@ -295,8 +294,6 @@ O campo grau_confianca deve ser:
           fontes: fontesUrls,
           grau_confianca: confianca
         });
-
-        await new Promise(r => setTimeout(r, DELAY_BETWEEN_MS));
       } catch (e) {
         resultados.push({ id: promise.id, titulo: promise.promise_title, erro: e.message });
       }

@@ -35,7 +35,7 @@
             "maxDuration": 120
         },
         "api/cron/process-pending.js": {
-            "maxDuration": 120
+            "maxDuration": 60
         },
         "api/cron/daily-reavaliation.js": {
             "maxDuration": 120
