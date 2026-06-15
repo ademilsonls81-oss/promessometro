@@ -85,13 +85,20 @@ router.get("/ranking", asyncHandler(async (req: Request, res: Response) => {
         statsMap[name].totalScore += p.fulfillment_score || 50;
 
         switch (p.status) {
+          case "cumprida":
           case "fulfilled":
             statsMap[name].fulfilled++;
             break;
+          case "parcial":
+          case "parcialmente_cumprida":
+          case "em_andamento":
           case "partial":
           case "partial_fulfilled":
             statsMap[name].partial++;
             break;
+          case "quebrada":
+          case "descumprida":
+          case "nao_cumprida":
           case "broken":
           case "not_fulfilled":
             statsMap[name].broken++;
@@ -244,13 +251,20 @@ function calculateStats(promises: any[]): PoliticianStats {  // any-ok
 
   promises.forEach((p: any) => {  // any-ok
     switch (p.status) {
+      case "cumprida":
       case "fulfilled":
         stats.fulfilled++;
         break;
+      case "parcial":
+      case "parcialmente_cumprida":
+      case "em_andamento":
       case "partial":
       case "partial_fulfilled":
         stats.partial++;
         break;
+      case "quebrada":
+      case "descumprida":
+      case "nao_cumprida":
       case "broken":
       case "not_fulfilled":
         stats.broken++;
