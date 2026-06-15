@@ -374,16 +374,16 @@ async function processPendingPromises() {
   const BATCH = 20;
   let evaluated = 0, failed = 0;
 
-  // Auto-detect: sem GEMINI_API_KEY, usa heurística com DuckDuckGo (gratuito)
-  const useHeuristic = !process.env.GEMINI_API_KEY;
+  // Auto-detect: sem GROQ_API_KEY, usa heurística com DuckDuckGo (gratuito)
+  const useHeuristic = !process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY;
   if (useHeuristic) {
-    console.log('[cron-pending] GEMINI_API_KEY não configurada — usando avaliador heurístico (DuckDuckGo gratuito)');
+    console.log('[cron-pending] GROQ/OPENAI_API_KEY não configurada — usando avaliador heurístico (DuckDuckGo gratuito)');
   }
 
   try {
     const { data: promises } = await supabase
       .from('promises')
-      .select('id, politician_id, politician_name, promise_title, status, fulfillment_score, source_link, evidences_used, created_at')
+      .select('id, politician_id, politician_name, promise_title, promise_description, category, status, fulfillment_score, source_link, evidences_used, created_at')
       .in('status', ['pendente', 'nao_iniciada', 'nao_classificada'])
       .order('last_verified_at', { ascending: true, nullsFirst: true })
       .limit(BATCH);
@@ -403,11 +403,30 @@ async function processPendingPromises() {
           const { heuristicEvaluate } = await import('./src/services/heuristicEvaluator.js');
           result = await heuristicEvaluate(promise) as EvaluateResult;
         } else {
-          const { evaluateWithAI, filterSocialMedia } = await import('./api/lib/evaluatePromise.js');
-          result = await Promise.race([
-            evaluateWithAI(promise),
+          const { evaluatePromise } = await import('./src/services/aiEvaluator.js');
+          const aiResult = await Promise.race([
+            evaluatePromise(promise as any, true),
             new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000))
-          ]) as EvaluateResult;
+          ]) as any;
+          // Map AIResult to EvaluateResult format
+          result = {
+            status: aiResult.status,
+            fulfillment_score: aiResult.fulfillment_score,
+            justification: aiResult.justificativa,
+            evidences: (aiResult.evidencias_usadas || []).map((e: any) => ({
+              descricao: e.source_name || '',
+              fonte: e.source_name || '',
+              url: e.url || e.evidence_link || '#',
+              nivel: 2
+            })),
+            complexity: 2,
+            impact: 2,
+            o_que_falta: aiResult.o_que_falta,
+            o_que_foi_feito: aiResult.o_que_foi_feito,
+            confianca: aiResult.confianca,
+            motivo_confianca: aiResult.motivo_confianca,
+            modelo_ia: 'groq-llama-3.1-8b'
+          };
         }
 
         const { filterSocialMedia } = await import('./api/lib/evaluatePromise.js');

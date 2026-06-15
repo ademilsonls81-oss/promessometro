@@ -11,7 +11,12 @@ const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
 const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OR_KEY = process.env.UNFILTERED_API_KEY || '';
 const BATCH_SIZE = 1;
-const BUDGET_MS = 25000;
+const BUDGET_MS = 28000;
+const MAX_TENTATIVAS = 10;
+const RETRY_DELAY_MS = 10 * 60 * 1000;        // 10 min — erros de API
+const RATE_LIMIT_DELAY_MS = 60 * 60 * 1000;   // 1h — rate limit diário Groq
+const PENDENTE_RECHECK_MS = 24 * 60 * 60 * 1000; // 24h — avaliado mas pendente
+const MAX_BLOCKED_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias — max tentativas
 
 function db() { return createClient(SUPABASE_URL, SERVICE_ROLE_KEY); }
 
@@ -92,57 +97,62 @@ async function callOpenRouter(prompt) {
         temperature: 0.1,
         max_tokens: 1024
       }),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(30000)
     });
-    if (!r.ok) return { error: `OR ${r.status}`, text: '' };
+    if (!r.ok) {
+      const errBody = await r.text().catch(() => '');
+      return { error: `OR_HTTP_${r.status}: ${errBody.substring(0, 100)}`, text: '' };
+    }
     const d = await r.json();
     return { error: null, text: d.choices?.[0]?.message?.content || '', model: DEEPSEEK_MODEL };
   } catch (e) {
-    return { error: `OR: ${e.message?.substring(0, 50)}`, text: '' };
+    return { error: `OR_timeout: ${e.message?.substring(0, 50)}`, text: '' };
   }
 }
 
 async function callGroq(prompt, model = PRIMARY_MODEL) {
-  const delays = [1500, 3000, 6000]; 
-  for (let attempt = 0; attempt <= delays.length; attempt++) {
-    try {
-      const r = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_tokens: 1024
-        }),
-        signal: AbortSignal.timeout(20000)
-      });
-      
-      if (r.status === 429) {
-        if (attempt < delays.length) {
-          console.log(`[Groq] ${model} rate limited, waiting ${delays[attempt]}ms...`);
-          await new Promise(r => setTimeout(r, delays[attempt]));
-          continue;
-        }
-        // Se falhou no modelo principal, tenta o fallback antes de desistir
-        if (model === PRIMARY_MODEL) {
-          console.log(`[Groq] Swapping to fallback model ${FALLBACK_MODEL}...`);
-          return callGroq(prompt, FALLBACK_MODEL);
-        }
-        // Se falhou em ambos da Groq, tenta OpenRouter (DeepSeek)
-        console.log(`[Groq] All Groq models limited. Trying DeepSeek via OpenRouter...`);
-        return callOpenRouter(prompt);
+  try {
+    const r = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 1024
+      }),
+      signal: AbortSignal.timeout(20000)
+    });
+
+    // 429 = rate limit — não retry, vai direto pro fallback
+    if (r.status === 429) {
+      console.log(`[Groq] ${model} rate limited (429) — trying fallback`);
+      if (model === PRIMARY_MODEL) {
+        return callGroq(prompt, FALLBACK_MODEL);
       }
-      if (!r.ok) return { error: `HTTP ${r.status}`, text: '' };
-      const d = await r.json();
-      return { error: null, text: d.choices?.[0]?.message?.content || '', model };
-    } catch (e) {
-      if (attempt < delays.length) { await new Promise(r => setTimeout(r, delays[attempt])); continue; }
-      return { error: e.message?.substring(0, 80), text: '' };
+      // Ambos modelos Groq limitados — usa OpenRouter
+      console.log(`[Groq] All Groq models limited — switching to OpenRouter DeepSeek`);
+      return callOpenRouter(prompt);
     }
+
+    // 400 = bad request (prompt inválido ou modelo indisponível)
+    if (r.status === 400) {
+      const errBody = await r.text().catch(() => '');
+      console.log(`[Groq] HTTP 400: ${errBody.substring(0, 200)}`);
+      return { error: `groq_400: ${errBody.substring(0, 80)}`, text: '' };
+    }
+
+    if (!r.ok) {
+      const errBody = await r.text().catch(() => '');
+      return { error: `groq_${r.status}: ${errBody.substring(0, 80)}`, text: '' };
+    }
+
+    const d = await r.json();
+    return { error: null, text: d.choices?.[0]?.message?.content || '', model };
+  } catch (e) {
+    return { error: `groq_exception: ${e.message?.substring(0, 80)}`, text: '' };
   }
-  return { error: 'max_retries', text: '' };
 }
 
 export default async function handler(req, res) {
@@ -163,7 +173,7 @@ export default async function handler(req, res) {
 
   const client = db();
   const resultados = [];
-  const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutos
+  // delays definidos como constantes globais acima
 
   try {
     const { data: promises, error: fetchErr } = await client
@@ -188,6 +198,21 @@ export default async function handler(req, res) {
         break;
       }
 
+      // ── Limite de tentativas ──────────────────────────────────────────
+      const tentativasAtuais = promise.tentativas || 0;
+      if (tentativasAtuais >= MAX_TENTATIVAS) {
+        const blockedUntil = new Date(Date.now() + MAX_BLOCKED_MS).toISOString();
+        await client.from('promises').update({ next_retry_at: blockedUntil }).eq('id', promise.id);
+        console.log(`[Cron] BLOQUEADA (${MAX_TENTATIVAS} tent): ${promise.promise_title?.substring(0, 50)}`);
+        resultados.push({
+          id: promise.id,
+          titulo: promise.promise_title,
+          erro: `Bloqueada: ${MAX_TENTATIVAS} tentativas sem resolução`,
+          bloqueada_ate: blockedUntil
+        });
+        continue;
+      }
+
       try {
         const query = `${promise.politician_name || ''} ${((promise.promise_title || '').replace(/[,.:;!?()]/g, ' ')).substring(0, 120)}`.replace(/\s+/g, ' ').trim();
         console.log(`[Cron] Processando: "${promise.promise_title?.substring(0, 50)}" (${promise.id})`);
@@ -199,86 +224,49 @@ export default async function handler(req, res) {
           ? fontes.map((f, i) => `[${i + 1}] ${f.titulo} — ${f.resumo} (Fonte: ${f.url})`).join('\n')
           : 'Nenhuma evidência encontrada na web.';
 
-        const prompt = `Você é um avaliador independente e rigoroso de promessas políticas brasileiras.
+        const prompt = `Avalie esta promessa política brasileira. Responda SOMENTE JSON.
 
-Analise a promessa abaixo com base nas evidências da web.
+Político: ${promise.politician_name || 'Não informado'}
+Promessa: ${promise.promise_title || 'Sem título'}
+Categoria: ${promise.category || 'Não informada'}
 
-**Político:** ${promise.politician_name || 'Não informado'}
-**Promessa:** ${promise.promise_title || 'Sem título'}
-**Categoria:** ${promise.category || 'Não informada'}
-
-## Evidências encontradas na web:
+Evidências da web:
 ${fontesText}
 
-## Regras de avaliação:
-- cumprida (80-100): evidências claras de conclusão total
-- parcial (20-79): progresso concreto mas incompleto (pode ser qualquer faixa dependendo do contexto)
-- pendente (0-39): pouco ou nenhum progresso verificável
-- quebrada (0): ação contrária, abandono ou promessa descumprida
+Regas de score:
+- cumprida (80-100): conclusão total comprovada
+- parcial (20-79): progresso mas incompleto
+- pendente (0-39): sem progresso verificável
+- quebrada (0): descumprida ou ação contrária
 
-IMPORTANTE: O score deve refletir o grau de conclusão REAL baseado nas evidências. Uma promessa parcialmente cumprida pode ter score entre 20-79 dependendo do quanto foi feito.
-
-Responda SOMENTE JSON válido (sem markdown) com EXATAMENTE estes campos:
-{
-  "status": "cumprida|parcial|pendente|quebrada",
-  "score": 0-100,
-  "justificativa": "explicação detalhada com pelo menos 2 frases citando as evidências encontradas ou justificando a ausência delas. Mencione o político e o que foi verificado.",
-  "o_que_foi_concluido": "texto descritivo do que já foi feito, com detalhes das ações implementadas. Null se nada foi concluído.",
-  "o_que_ainda_falta": "texto descritivo do que ainda falta ser feito, com pendências específicas. Null se está completo.",
-  "evidencias": [
-    {
-      "titulo": "título da evidência encontrada",
-      "url": "url da fonte",
-      "resumo": "resumo do que foi encontrado"
-    }
-  ],
-  "fontes": ["url1", "url2"],
-  "grau_confianca": 0-100
-}
-
-## Exemplo de resposta ideal:
-{
-  "status": "parcial",
-  "score": 45,
-  "justificativa": "O governo de [Político] iniciou ações de [tema da promessa], mas a expansão completa ainda não foi concluída. Há registros de programas pontuais, mas sem cobertura abrangente.",
-  "o_que_foi_concluido": "Implantação de [ação] em algumas unidades via programa estadual.",
-  "o_que_ainda_falta": "Expandir para a maioria das unidades. Não há dados sobre quantas unidades foram efetivamente integradas.",
-  "evidencias": [
-    {
-      "titulo": "Título da notícia ou fonte oficial",
-      "url": "https://exemplo.com/noticia",
-      "resumo": "Resumo do que foi encontrado na fonte."
-    }
-  ],
-  "fontes": ["https://exemplo.com/fonte1", "https://exemplo.com/fonte2"],
-  "grau_confianca": 55
-}
-
-O campo grau_confianca deve ser:
-- 90-100: múltiplas fontes oficiais e imprensa confiável
-- 70-89: poucas fontes mas consistentes
-- 50-69: evidências limitadas
-- 20-49: pouca ou nenhuma evidência concreta
-- 0-19: completamente baseado em suposição`;
+JSON obrigatório:
+{"status":"cumprida|parcial|pendente|quebrada","score":0-100,"justificativa":"2+ frases citando evidências ou justificando ausência","o_que_foi_concluido":"o que foi feito, null se nada","o_que_ainda_falta":"pendências, null se completo","evidencias":[{"titulo":"","url":"","resumo":""}],"fontes":["url"],"grau_confianca":0-100}`;
 
         const { error, text, model: actualModel } = await callGroq(prompt);
 
         if (error) {
-          const nextRetry = new Date(Date.now() + RETRY_DELAY_MS).toISOString();
-          const tentativas = (promise.tentativas || 0) + 1;
+          const novasTentativas = tentativasAtuais + 1;
+          const isRateLimit = error.includes('429') || error.includes('rate_limit') || error.includes('TPD');
+          const retryDelay = isRateLimit ? RATE_LIMIT_DELAY_MS : RETRY_DELAY_MS;
+          const nextRetry = new Date(Date.now() + retryDelay).toISOString();
 
           await client.from('promises').update({
-            tentativas,
+            tentativas: novasTentativas,
             next_retry_at: nextRetry
           }).eq('id', promise.id);
 
           resultados.push({
             id: promise.id,
             titulo: promise.promise_title,
-            erro: error === 'rate_limited' ? 'Rate limit Groq excedido' : `Groq: ${error}`,
-            tentativas,
+            erro: isRateLimit ? `Rate limit — retry em ${Math.round(retryDelay/60000)}min` : error,
+            tentativas: novasTentativas,
             next_retry_at: nextRetry
           });
+          // Se rate limit, para de processar esse batch — esperar cooldown
+          if (isRateLimit) {
+            console.log(`[Cron] Rate limit detectado — parando batch`);
+            break;
+          }
           continue;
         }
 
@@ -294,7 +282,11 @@ O campo grau_confianca deve ser:
 
         const score = Math.max(0, Math.min(100, Math.round(parsed.score ?? 50)));
         const rawStatus = parsed.status || scoreToStatus(score);
-        const status = normalizeStatus(rawStatus);
+        let status = normalizeStatus(rawStatus);
+        // Cross-validação score × status — garante consistência
+        if (score >= 80 && (status === 'pendente' || status === 'parcial')) status = 'cumprida';
+        if (score >= 50 && score < 80 && status === 'pendente') status = 'parcial';
+        if (score < 20 && status === 'pendente') status = 'quebrada';
         const evidencias = Array.isArray(parsed.evidencias) ? parsed.evidencias.slice(0, 8) : [];
         const fontesUrls = Array.isArray(parsed.fontes) ? parsed.fontes.slice(0, 10) : urls.slice(0, 10);
         const confianca = Math.max(0, Math.min(100, Math.round(parsed.grau_confianca ?? 50)));
@@ -318,7 +310,7 @@ O campo grau_confianca deve ser:
             o_que_falta: oQueFalta || '',
             evidencias_usadas: evidencias,
             confianca: confianca / 100,
-            modelo_ia: `groq-${actualModel || PRIMARY_MODEL}`,
+            modelo_ia: actualModel || 'unknown',
             is_latest: true,
             gerado_em: new Date().toISOString()
           });
@@ -326,15 +318,26 @@ O campo grau_confianca deve ser:
           console.error('[Cron] Erro insert promise_explanations:', e.message);
         }
 
+        // Se status ainda é pendente após avaliação, agenda recheck em 24h
+        // e incrementa tentativas para controle de loop
+        const promiseUpdate = {
+          status,
+          fulfillment_score: score,
+          ai_evaluation: parsed.justificativa || '',
+          evidences_used: evidencias,
+          last_verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        if (status === 'pendente') {
+          promiseUpdate.tentativas = tentativasAtuais + 1;
+          promiseUpdate.next_retry_at = new Date(Date.now() + PENDENTE_RECHECK_MS).toISOString();
+        } else {
+          // Resolvida — zera o controle de retry
+          promiseUpdate.tentativas = 0;
+          promiseUpdate.next_retry_at = null;
+        }
         try {
-          await client.from('promises').update({
-            status,
-            fulfillment_score: score,
-            ai_evaluation: parsed.justificativa || '',
-            evidences_used: evidencias,
-            last_verified_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }).eq('id', promise.id);
+          await client.from('promises').update(promiseUpdate).eq('id', promise.id);
         } catch (e) {
           console.error('[Cron] Erro update promises:', e.message);
         }
@@ -354,14 +357,22 @@ O campo grau_confianca deve ser:
         });
 
         if (promises.indexOf(promise) < promises.length - 1) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, 1000));
         }
       } catch (e) {
         resultados.push({ id: promise.id, titulo: promise.promise_title, erro: e.message });
       }
     }
 
+    // remaining = elegíveis agora (exclui bloqueadas com retry futuro)
+    const nowIso = new Date().toISOString();
     const { count: remaining } = await client
+      .from('promises')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pendente')
+      .or('next_retry_at.is.null,next_retry_at.lt.' + nowIso);
+
+    const { count: totalPendente } = await client
       .from('promises')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pendente');
@@ -370,6 +381,7 @@ O campo grau_confianca deve ser:
       processadas: resultados.filter(r => !r.erro).length,
       resultados,
       remaining: remaining || 0,
+      totalPendente: totalPendente || 0,
       hasMore: (remaining || 0) > 0,
       ms: Date.now() - start
     });
